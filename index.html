@@ -1477,44 +1477,64 @@ function printReceta(r, patient, config) {
     return;
   }
   const esc = s => (s || "").replace(/</g, "&lt;");
+  const toLines = text => (text || "").split("\n").map(l => l.trim()).filter(Boolean);
+  const medicamentos = toLines(r.medicamentos);
+  const indicaciones = toLines(r.indicaciones);
+  const maxItems = Math.max(medicamentos.length, indicaciones.length, 1);
+  const listItems = arr => Array.from({
+    length: maxItems
+  }).map((_, i) => arr[i] ? `<div class="item"><b>${i + 1}-</b> ${esc(arr[i])}</div>` : "").join("");
+  const hoy = new Date().toISOString().slice(0, 10);
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8" />
     <title>Receta - ${esc(r.patientName)}</title>
     <style>
-      body{font-family: Arial, Helvetica, sans-serif; padding: 40px; color:#23342F; max-width:650px; margin:0 auto;}
-      .header{display:flex; align-items:center; gap:14px; border-bottom:2px solid #3D6B5C; padding-bottom:12px; margin-bottom:6px;}
-      .header img{width:44px; height:44px; border-radius:8px; object-fit:cover;}
-      h1{font-size:20px; margin:0;}
-      .clinic{font-size:13px; color:#6B7A72; margin-bottom:20px;}
-      .row{margin-bottom:12px;}
-      .label{display:block; font-size:11px; text-transform:uppercase; color:#6B7A72; letter-spacing:.05em; margin-bottom:2px;}
-      .value{font-size:15px; white-space:pre-wrap;}
-      .section{margin-top:22px;}
-      .divider{height:1px; background:#DDD5C4; margin:20px 0;}
-      .firma{margin-top:50px; font-size:13px; color:#6B7A72;}
-      .contacto{margin-top:6px; font-size:11px; color:#A6A08F;}
-      @media print { body{padding:20px;} }
+      body{font-family: Arial, Helvetica, sans-serif; padding: 36px; color:#111; max-width:760px; margin:0 auto; font-size:14px;}
+      .header{display:flex; align-items:flex-start; gap:18px; margin-bottom:20px;}
+      .header img{width:56px; height:56px; border-radius:8px; object-fit:cover; flex-shrink:0;}
+      .header-text h1{font-size:20px; margin:0 0 6px 0; text-transform:uppercase;}
+      .meta{font-size:13px; line-height:1.6;}
+      .meta b{font-weight:700;}
+      .divider{height:1px; background:#DDD; margin:18px 0;}
+      .columns{display:flex; gap:30px;}
+      .col{flex:1;}
+      .col h2{font-size:15px; text-transform:uppercase; margin:0 0 12px 0;}
+      .item{font-size:13px; line-height:1.5; margin-bottom:12px;}
+      .footer{margin-top:40px; font-size:12px; line-height:1.7; color:#333;}
+      @media print { body{padding:18px;} }
     </style>
     </head><body>
       <div class="header">
         ${config?.logo ? `<img src="${config.logo}" alt="" />` : ""}
-        <h1>${config?.logo ? "" : "🐾 "}${config?.clinica ? esc(config.clinica) : "Receta médica veterinaria"}</h1>
+        <div class="header-text">
+          <h1>Receta</h1>
+          <div class="meta">
+            ${config?.clinica ? `${esc(config.clinica)}<br>` : ""}
+            <b>MASCOTA:</b> ${esc(r.patientName)}<br>
+            ${patient?.propietario ? `<b>CLIENTE:</b> ${esc(patient.propietario)}<br>` : ""}
+            <b>FECHA EMISIÓN:</b> ${esc(r.fecha)}<br>
+            <b>FECHA IMPRESIÓN:</b> ${esc(hoy)}
+          </div>
+        </div>
       </div>
-      ${config?.clinica ? `<div class="clinic">Receta médica veterinaria</div>` : ""}
-      <div class="row"><span class="label">Fecha</span><div class="value">${esc(r.fecha)}</div></div>
-      <div class="row"><span class="label">Paciente</span><div class="value">${esc(r.patientName)}</div></div>
-      ${patient?.propietario ? `<div class="row"><span class="label">Propietario</span><div class="value">${esc(patient.propietario)}</div></div>` : ""}
-      ${patient?.raza ? `<div class="row"><span class="label">Raza</span><div class="value">${esc(patient.raza)}</div></div>` : ""}
-      ${patient?.edad ? `<div class="row"><span class="label">Edad</span><div class="value">${esc(patient.edad)}</div></div>` : ""}
-      ${patient?.peso ? `<div class="row"><span class="label">Peso</span><div class="value">${esc(patient.peso)} kg</div></div>` : ""}
-      ${patient?.fechaNacimiento ? `<div class="row"><span class="label">Fecha de nacimiento</span><div class="value">${esc(patient.fechaNacimiento)}</div></div>` : ""}
+
       <div class="divider"></div>
-      <div class="section">
-        <span class="label">Medicamentos y dosis</span>
-        <div class="value">${esc(r.medicamentos).replace(/\n/g, "<br>")}</div>
+
+      <div class="columns">
+        <div class="col">
+          <h2>Receta</h2>
+          ${listItems(medicamentos)}
+        </div>
+        <div class="col">
+          <h2>Prescripción</h2>
+          ${listItems(indicaciones)}
+        </div>
       </div>
-      ${r.indicaciones ? `<div class="section"><span class="label">Indicaciones</span><div class="value">${esc(r.indicaciones).replace(/\n/g, "<br>")}</div></div>` : ""}
-      ${config?.doctorNombre ? `<div class="firma">${esc(config.doctorTitulo || "Dr.")} ${esc(config.doctorNombre)}</div>` : ""}
-      ${config?.telefono || config?.correo || config?.redes ? `<div class="contacto">${[config?.telefono ? "Tel: " + esc(config.telefono) : "", config?.correo ? "Correo: " + esc(config.correo) : "", config?.redes ? "Redes: " + esc(config.redes) : ""].filter(Boolean).join(" · ")}</div>` : ""}
+
+      <div class="footer">
+        ${config?.doctorNombre ? `Médico responsable: ${esc(config.doctorTitulo || "Dr.")} ${esc(config.doctorNombre)}<br>` : ""}
+        Próxima consulta: ${patient?.proximaVisita ? esc(patient.proximaVisita) : "No hay próxima consulta programada"}<br>
+        ${config?.direccion || config?.telefono ? `${config?.direccion ? "Dirección: " + esc(config.direccion) : ""}${config?.direccion && config?.telefono ? " " : ""}${config?.telefono ? "Teléfono: " + esc(config.telefono) : ""}` : ""}
+      </div>
     </body></html>`;
   win.document.write(html);
   win.document.close();
@@ -1578,19 +1598,19 @@ function RecetasView({
     key: p.id,
     value: p.id
   }, p.nombre, " ", p.propietario ? `— ${p.propietario}` : "")))), /*#__PURE__*/React.createElement(Field, {
-    label: "Medicamentos y dosis"
+    label: "Medicamentos y dosis (uno por línea)"
   }, /*#__PURE__*/React.createElement(TextArea, {
-    rows: 3,
+    rows: 4,
     value: medicamentos,
     onChange: e => setMedicamentos(e.target.value),
-    placeholder: "Ej. Amoxicilina 250mg, 1 tableta cada 12h por 7 días"
+    placeholder: "Doxipet tabletas 100mg (#42)\nSucralvet pasta 30ml (#3)"
   })), /*#__PURE__*/React.createElement(Field, {
-    label: "Indicaciones"
+    label: "Prescripción / indicaciones (una por línea, en el mismo orden)"
   }, /*#__PURE__*/React.createElement(TextArea, {
-    rows: 3,
+    rows: 4,
     value: indicaciones,
     onChange: e => setIndicaciones(e.target.value),
-    placeholder: "Indicaciones adicionales para el propietario..."
+    placeholder: "Dar 2 cada 24 horas vía oral por 21 días con estómago lleno\nDar 3cc 10 minutos antes de la Doxipet"
   })), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2 mt-2"
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
@@ -1853,7 +1873,8 @@ const emptyConfig = () => ({
   logo: null,
   telefono: "",
   correo: "",
-  redes: ""
+  redes: "",
+  direccion: ""
 });
 function ConfigForm({
   config,
@@ -1967,7 +1988,13 @@ function ConfigForm({
     value: data.doctorNombre,
     onChange: set("doctorNombre"),
     placeholder: "Ej. Ana Gómez"
-  })))), /*#__PURE__*/React.createElement("div", {
+  })))), /*#__PURE__*/React.createElement(Field, {
+    label: "Dirección de la clínica"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    value: data.direccion,
+    onChange: set("direccion"),
+    placeholder: "Ej. 27 Ava y Calle B Esquina"
+  })), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-3"
   }, /*#__PURE__*/React.createElement(Field, {
     label: "Teléfono de contacto"
