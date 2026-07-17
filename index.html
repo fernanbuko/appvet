@@ -144,6 +144,8 @@
   .max-w-\[140px\]{max-width:140px}
   .max-w-\[160px\]{max-width:160px}
   .hover\:bg-\[\#DDE7E1\]:hover{background-color:#DDE7E1}
+
+  .w-10{width:2.5rem}.h-10{height:2.5rem}
 </style>
 </head>
 <body>
@@ -170,6 +172,10 @@
     });
   }
 </script>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script>
 /**
  * @license React
@@ -483,28 +489,92 @@ const {
 } = React;
 
 /* ---------------------------------------------------------
-   Persistencia local (localStorage) — funciona al abrir este
-   archivo .html directamente en el navegador del celular/PC.
+   Firebase: configuración, autenticación (Google) y datos
+   ---------------------------------------------------------
+   IMPORTANTE: reemplaza estos valores con los de TU proyecto
+   de Firebase (Configuración del proyecto → General → Tus apps).
+   Estos datos son públicos (no son contraseñas), es normal que
+   vayan escritos aquí, en el código del navegador.
+----------------------------------------------------------*/
+const firebaseConfig = {
+  apiKey: "AIzaSyBvkkovcmGKGgm-X7inBcl54N9AnxoVU7w",
+  authDomain: "vetdata-1557e.firebaseapp.com",
+  projectId: "vetdata-1557e",
+  storageBucket: "vetdata-1557e.firebasestorage.app",
+  messagingSenderId: "420928741564",
+  appId: "1:420928741564:web:f15d24133b8dbf3f1fb0b9"
+};
+const firebaseReady = firebaseConfig.apiKey && firebaseConfig.apiKey !== "TU_API_KEY";
+let db = null;
+if (firebaseReady) {
+  try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+  } catch (e) {
+    console.error("Error inicializando Firebase", e);
+  }
+}
+
+// UID del usuario con sesión iniciada. Se actualiza desde el observador
+// de sesión en VetApp, y lo usan las funciones store.get/set de abajo.
+let currentUid = null;
+
+/* ---------------------------------------------------------
+   Persistencia en la nube (Firestore), separada por usuario.
+   Cada doctor/a que inicia sesión con Google tiene sus propios
+   datos, guardados bajo users/{uid}/data/{clave}. Así se
+   sincronizan automáticamente entre celular y computadora.
 ----------------------------------------------------------*/
 const store = {
-  get(key) {
+  async get(key) {
+    if (!db || !currentUid) return null;
     try {
-      const raw = localStorage.getItem("vetapp:" + key);
-      return raw ? JSON.parse(raw) : null;
+      const snap = await db.collection("users").doc(currentUid).collection("data").doc(key).get();
+      return snap.exists ? snap.data().value : null;
     } catch (e) {
+      console.error("Error leyendo datos:", e);
       return null;
     }
   },
-  set(key, value) {
+  async set(key, value) {
+    if (!db || !currentUid) return false;
     try {
-      localStorage.setItem("vetapp:" + key, JSON.stringify(value));
+      await db.collection("users").doc(currentUid).collection("data").doc(key).set({
+        value
+      });
       return true;
     } catch (e) {
+      console.error("Error guardando datos:", e);
       return false;
     }
   }
 };
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+
+// Lee los datos que haya guardados de la versión anterior de la app (antes de
+// tener cuenta de Google), guardados directamente en este navegador.
+function getLegacyLocalData() {
+  try {
+    const raw = key => {
+      const v = localStorage.getItem("vetapp:" + key);
+      return v ? JSON.parse(v) : null;
+    };
+    const patients = raw("patients");
+    const recetas = raw("recetas");
+    const examenes = raw("examenes");
+    const config = raw("config");
+    const hasData = Array.isArray(patients) && patients.length > 0 || Array.isArray(recetas) && recetas.length > 0 || Array.isArray(examenes) && examenes.length > 0 || !!config;
+    if (!hasData) return null;
+    return {
+      patients: patients || [],
+      recetas: recetas || [],
+      examenes: examenes || [],
+      config: config || null
+    };
+  } catch (e) {
+    return null;
+  }
+}
 function readFileAsDataURL(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -1788,6 +1858,110 @@ function ConfigForm({
 }
 
 /* ---------------------------------------------------------
+   Autenticación: pantallas de carga e inicio de sesión
+----------------------------------------------------------*/
+function LoadingScreen({
+  text
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "min-h-screen flex items-center justify-center",
+    style: styles.page
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-sm text-[#6B7A72]",
+    style: styles.mono
+  }, text || "Cargando..."));
+}
+function FirebaseNotConfigured() {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "min-h-screen flex items-center justify-center px-6",
+    style: styles.page
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "max-w-md w-full text-center"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-4xl mb-4"
+  }, "⚠️"), /*#__PURE__*/React.createElement("h1", {
+    style: styles.display,
+    className: "text-2xl font-semibold text-[#23342F]"
+  }, "Falta configurar Firebase"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[#6B7A72] mt-2 text-sm"
+  }, "Reemplaza los valores de ejemplo en ", /*#__PURE__*/React.createElement("code", null, "firebaseConfig"), " (arriba del todo en el código) con los de tu propio proyecto de Firebase para poder iniciar sesión y guardar tus datos.")));
+}
+function GoogleIcon() {
+  return /*#__PURE__*/React.createElement("svg", {
+    width: "18",
+    height: "18",
+    viewBox: "0 0 48 48"
+  }, /*#__PURE__*/React.createElement("path", {
+    fill: "#FFC107",
+    d: "M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.5 6 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"
+  }), /*#__PURE__*/React.createElement("path", {
+    fill: "#FF3D00",
+    d: "M6.3 14.7l6.6 4.8C14.6 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34.5 6 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"
+  }), /*#__PURE__*/React.createElement("path", {
+    fill: "#4CAF50",
+    d: "M24 44c5.4 0 10.3-1.8 13.9-5l-6.4-5.4C29.6 35.4 26.9 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.6 39.6 16.3 44 24 44z"
+  }), /*#__PURE__*/React.createElement("path", {
+    fill: "#1976D2",
+    d: "M43.6 20.5H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.4 5.4C41.5 36 44 30.5 44 24c0-1.3-.1-2.7-.4-3.5z"
+  }));
+}
+function LegacyDataScreen({
+  legacy,
+  onLink,
+  onSkip,
+  loading
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "min-h-screen flex items-center justify-center px-6",
+    style: styles.page
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "max-w-sm w-full text-center"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-4xl mb-4"
+  }, "📦"), /*#__PURE__*/React.createElement("h1", {
+    style: styles.display,
+    className: "text-2xl font-semibold text-[#23342F] leading-tight"
+  }, "Encontramos datos en este navegador"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[#6B7A72] mt-2 text-sm"
+  }, "Hay ", legacy.patients.length, " paciente", legacy.patients.length === 1 ? "" : "s", ", ", legacy.recetas.length, " receta", legacy.recetas.length === 1 ? "" : "s", " y ", legacy.examenes.length, " examen", legacy.examenes.length === 1 ? "" : "es", " guardados de antes en este dispositivo. ¿Quieres vincularlos a tu cuenta de Google para que queden guardados en tu cuenta y se sincronicen entre tus dispositivos?"), /*#__PURE__*/React.createElement("div", {
+    className: "mt-8 flex flex-col gap-2"
+  }, /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: onLink,
+    disabled: loading,
+    icon: "✓"
+  }, loading ? "Vinculando..." : "Vincular estos datos a mi cuenta"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: onSkip
+  }, "Empezar vacío (no vincular)"))));
+}
+function LoginScreen({
+  onSignIn,
+  error,
+  loading
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "min-h-screen flex items-center justify-center px-6",
+    style: styles.page
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "max-w-sm w-full text-center"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-4xl mb-4"
+  }, "🐾"), /*#__PURE__*/React.createElement("h1", {
+    style: styles.display,
+    className: "text-3xl font-semibold text-[#23342F] leading-tight"
+  }, "VetData"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[#6B7A72] mt-2 text-sm"
+  }, "Inicia sesión con tu cuenta de Google para guardar tus pacientes y sincronizarlos entre tus dispositivos."), /*#__PURE__*/React.createElement("div", {
+    className: "mt-8"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onSignIn,
+    disabled: loading,
+    className: "inline-flex items-center gap-3 bg-white border border-[#DDD5C4] rounded-md px-5 py-3 text-sm font-medium hover:shadow-sm transition disabled:opacity-50"
+  }, /*#__PURE__*/React.createElement(GoogleIcon, null), loading ? "Conectando..." : "Iniciar sesión con Google")), error && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#B14E1C] mt-4"
+  }, error)));
+}
+
+/* ---------------------------------------------------------
    Pantalla de saludo
 ----------------------------------------------------------*/
 function greetingByHour() {
@@ -1989,14 +2163,114 @@ function parseHash(hash) {
 ----------------------------------------------------------*/
 function VetApp() {
   const [active, setActive] = useState("inicio");
-  const [patients, setPatients] = useState(() => store.get("patients") || []);
-  const [recetas, setRecetas] = useState(() => store.get("recetas") || []);
-  const [examenes, setExamenes] = useState(() => store.get("examenes") || []);
-  const [config, setConfig] = useState(() => store.get("config") || null);
+  const [patients, setPatients] = useState([]);
+  const [recetas, setRecetas] = useState([]);
+  const [examenes, setExamenes] = useState([]);
+  const [config, setConfig] = useState(null);
   const [showGreeting, setShowGreeting] = useState(true);
   const [editing, setEditing] = useState(null);
   const [selected, setSelected] = useState(null);
   const [toast, setToast] = useState("");
+
+  // Sesión (Firebase Auth con Google) y estado de carga de datos
+  const [user, setUser] = useState(undefined); // undefined = comprobando sesión, null = sin sesión
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [legacyData, setLegacyData] = useState(null); // datos previos detectados, pendientes de decisión
+  const [linkingLoading, setLinkingLoading] = useState(false);
+  useEffect(() => {
+    if (!firebaseReady || typeof firebase === "undefined" || !db) {
+      setUser(null);
+      return;
+    }
+    let unsubscribe = () => {};
+    try {
+      unsubscribe = firebase.auth().onAuthStateChanged(u => {
+        currentUid = u ? u.uid : null;
+        setUser(u);
+      });
+    } catch (e) {
+      console.error("No se pudo iniciar el observador de sesión:", e);
+      setUser(null);
+    }
+    return unsubscribe;
+  }, []);
+  useEffect(() => {
+    if (!user) {
+      setDataLoaded(false);
+      setLegacyData(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const [p, r, e, c] = await Promise.all([store.get("patients"), store.get("recetas"), store.get("examenes"), store.get("config")]);
+      if (cancelled) return;
+      const firestoreVacio = !(p && p.length) && !(r && r.length) && !(e && e.length) && !c;
+      const legacyDismissed = localStorage.getItem("vetapp:legacyDismissed") === "1";
+      if (firestoreVacio && !legacyDismissed) {
+        const legacy = getLegacyLocalData();
+        if (legacy) {
+          setLegacyData(legacy);
+          return; // esperamos la decisión del usuario antes de continuar
+        }
+      }
+      setPatients(p || []);
+      setRecetas(r || []);
+      setExamenes(e || []);
+      setConfig(c || null);
+      setDataLoaded(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+  const linkLegacyData = async () => {
+    setLinkingLoading(true);
+    try {
+      await Promise.all([store.set("patients", legacyData.patients), store.set("recetas", legacyData.recetas), store.set("examenes", legacyData.examenes), store.set("config", legacyData.config)]);
+      setPatients(legacyData.patients);
+      setRecetas(legacyData.recetas);
+      setExamenes(legacyData.examenes);
+      setConfig(legacyData.config);
+      localStorage.setItem("vetapp:legacyDismissed", "1");
+      setLegacyData(null);
+      setDataLoaded(true);
+      showToast("Datos vinculados a tu cuenta");
+    } catch (e) {
+      alert("No se pudieron vincular los datos. Intenta de nuevo.");
+    } finally {
+      setLinkingLoading(false);
+    }
+  };
+  const skipLegacyData = () => {
+    localStorage.setItem("vetapp:legacyDismissed", "1");
+    setPatients([]);
+    setRecetas([]);
+    setExamenes([]);
+    setConfig(null);
+    setLegacyData(null);
+    setDataLoaded(true);
+  };
+  const handleSignIn = () => {
+    setAuthError("");
+    if (typeof firebase === "undefined") {
+      setAuthError("No se pudo cargar el servicio de inicio de sesión. Revisa tu conexión e intenta de nuevo.");
+      return;
+    }
+    setAuthLoading(true);
+    const provider = new firebase.auth.GoogleAuthProvider();
+    firebase.auth().signInWithPopup(provider).catch(err => setAuthError("No se pudo iniciar sesión: " + (err.message || "intenta de nuevo."))).finally(() => setAuthLoading(false));
+  };
+  const handleSignOut = () => {
+    try {
+      firebase.auth().signOut();
+    } catch (e) {
+      console.error("Error cerrando sesión:", e);
+    }
+    setShowGreeting(true);
+    setActive("inicio");
+  };
   const patientsRef = useRef(patients);
   useEffect(() => {
     patientsRef.current = patients;
@@ -2175,6 +2449,34 @@ function VetApp() {
     };
     reader.readAsText(file);
   };
+  if (!firebaseReady) {
+    return /*#__PURE__*/React.createElement(FirebaseNotConfigured, null);
+  }
+  if (user === undefined) {
+    return /*#__PURE__*/React.createElement(LoadingScreen, {
+      text: "Comprobando sesión..."
+    });
+  }
+  if (user === null) {
+    return /*#__PURE__*/React.createElement(LoginScreen, {
+      onSignIn: handleSignIn,
+      error: authError,
+      loading: authLoading
+    });
+  }
+  if (legacyData) {
+    return /*#__PURE__*/React.createElement(LegacyDataScreen, {
+      legacy: legacyData,
+      onLink: linkLegacyData,
+      onSkip: skipLegacyData,
+      loading: linkingLoading
+    });
+  }
+  if (!dataLoaded) {
+    return /*#__PURE__*/React.createElement(LoadingScreen, {
+      text: "Cargando tus datos..."
+    });
+  }
   if (showGreeting) {
     return /*#__PURE__*/React.createElement(GreetingScreen, {
       config: config,
@@ -2266,11 +2568,31 @@ function VetApp() {
   }, /*#__PURE__*/React.createElement("h3", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
     style: styles.mono
+  }, "Cuenta"), /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-6 flex items-center justify-between flex-wrap gap-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, user?.photoURL && /*#__PURE__*/React.createElement("img", {
+    src: user.photoURL,
+    alt: "",
+    className: "w-10 h-10 rounded-full"
+  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "text-sm font-medium"
+  }, user?.displayName || "Sesión iniciada"), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72]"
+  }, user?.email))), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: handleSignOut,
+    icon: "🚪"
+  }, "Cerrar sesión"))), /*#__PURE__*/React.createElement("div", {
+    className: "max-w-xl mt-8"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
+    style: styles.mono
   }, "Respaldo de datos"), /*#__PURE__*/React.createElement("div", {
     className: "bg-white border border-[#DDD5C4] rounded-lg p-6"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-[#6B7A72] mb-4"
-  }, "Todos los pacientes, recetas y exámenes se guardan solo en este navegador. Descarga un respaldo periódicamente para no perder tu información, o para pasarla a otro dispositivo."), /*#__PURE__*/React.createElement("div", {
+  }, "Tus pacientes, recetas y exámenes ya se guardan en la nube con tu cuenta de Google y se sincronizan entre tus dispositivos. Aun así, puedes descargar un respaldo extra por seguridad."), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-3 flex-wrap"
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: exportBackup,

@@ -20,8 +20,12 @@ self.addEventListener("activate", (event) => {
 // Estrategia: primero red, y si falla (sin conexión), usa lo que haya en caché.
 // Así siempre ves la versión más reciente cuando hay internet, y la app sigue
 // abriendo aunque no haya conexión.
+// IMPORTANTE: solo se aplica a peticiones del propio sitio; las peticiones a
+// Firebase/Google (login, base de datos) se dejan pasar sin tocar, para no
+// interferir con el inicio de sesión ni la sincronización de datos.
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  if (!event.request.url.startsWith(self.location.origin)) return;
 
   event.respondWith(
     fetch(event.request)
