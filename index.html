@@ -140,6 +140,10 @@
   input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:9999px;background:#3D6B5C;border:none;cursor:pointer;}
 
   .min-h-screen{min-height:100vh}
+
+  .max-w-\[140px\]{max-width:140px}
+  .max-w-\[160px\]{max-width:160px}
+  .hover\:bg-\[\#DDE7E1\]:hover{background-color:#DDE7E1}
 </style>
 </head>
 <body>
@@ -1452,6 +1456,16 @@ function RecetasView({
     }, "Guardar como PDF")));
   })));
 }
+function openAttachment(att) {
+  const a = document.createElement("a");
+  a.href = att.dataUrl;
+  a.download = att.name || "archivo";
+  a.target = "_blank";
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
 
 /* ---------------------------------------------------------
    Exámenes
@@ -1466,12 +1480,47 @@ function ExamenesView({
   const [patientId, setPatientId] = useState("");
   const [tipo, setTipo] = useState("");
   const [resultados, setResultados] = useState("");
+  const [attachments, setAttachments] = useState([]);
+  const [attError, setAttError] = useState("");
+  const fileRef = useRef(null);
+  const MAX_TOTAL_BYTES = 4 * 1024 * 1024; // ~4MB, límite prudente para no saturar el almacenamiento del navegador
+
   const reset = () => {
     setPatientId("");
     setTipo("");
     setResultados("");
+    setAttachments([]);
+    setAttError("");
     setShowForm(false);
   };
+  const handleFiles = async e => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setAttError("");
+    const nuevos = [];
+    let totalBytes = attachments.reduce((sum, a) => sum + (a.size || 0), 0);
+    for (const file of files) {
+      if (totalBytes + file.size > MAX_TOTAL_BYTES) {
+        setAttError("Los archivos son muy pesados para guardarlos en el navegador (máx. ~4MB en total). Prueba con archivos más livianos.");
+        break;
+      }
+      try {
+        const dataUrl = await readFileAsDataURL(file);
+        nuevos.push({
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          dataUrl
+        });
+        totalBytes += file.size;
+      } catch {
+        setAttError("No se pudo cargar " + file.name + ".");
+      }
+    }
+    setAttachments(prev => [...prev, ...nuevos]);
+    e.target.value = "";
+  };
+  const removeAttachment = idx => setAttachments(prev => prev.filter((_, i) => i !== idx));
   const save = () => {
     const patient = patients.find(p => p.id === patientId);
     if (!patient || !tipo.trim()) return;
@@ -1481,6 +1530,7 @@ function ExamenesView({
       patientName: patient.nombre,
       tipo,
       resultados,
+      attachments,
       fecha: new Date().toISOString().slice(0, 10)
     });
     reset();
@@ -1520,7 +1570,31 @@ function ExamenesView({
     value: resultados,
     onChange: e => setResultados(e.target.value),
     placeholder: "Resultados obtenidos..."
-  })), /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Archivos adjuntos (radiografías, ecografías, PDF...)"
+  }, /*#__PURE__*/React.createElement("input", {
+    ref: fileRef,
+    type: "file",
+    accept: "application/pdf,image/*",
+    multiple: true,
+    className: "hidden",
+    onChange: handleFiles
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => fileRef.current?.click(),
+    className: "inline-flex items-center gap-2 border border-dashed border-[#B9C4BD] rounded-md px-3 py-2.5 text-sm text-[#3D6B5C] font-medium hover:border-[#3D6B5C] transition"
+  }, "📎 Adjuntar PDF o imagen"), attError && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#B14E1C] mt-2"
+  }, attError), attachments.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-2 mt-3"
+  }, attachments.map((att, idx) => /*#__PURE__*/React.createElement("div", {
+    key: idx,
+    className: "flex items-center gap-2 bg-[#EAF0EC] rounded-md px-3 py-1.5 text-xs"
+  }, /*#__PURE__*/React.createElement("span", null, att.type === "application/pdf" ? "📄" : "🖼️"), /*#__PURE__*/React.createElement("span", {
+    className: "max-w-[140px] truncate"
+  }, att.name), /*#__PURE__*/React.createElement("button", {
+    onClick: () => removeAttachment(idx),
+    className: "text-[#A6A08F] hover:text-[#B14E1C]"
+  }, "✕"))))), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2 mt-2"
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: save,
@@ -1548,7 +1622,15 @@ function ExamenesView({
     className: "text-[#A6A08F] hover:text-[#B14E1C]"
   }, "🗑️")), ex.resultados && /*#__PURE__*/React.createElement("p", {
     className: "text-sm mt-2 whitespace-pre-wrap"
-  }, ex.resultados)))));
+  }, ex.resultados), ex.attachments && ex.attachments.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-2 mt-3"
+  }, ex.attachments.map((att, idx) => /*#__PURE__*/React.createElement("button", {
+    key: idx,
+    onClick: () => openAttachment(att),
+    className: "flex items-center gap-2 bg-[#EAF0EC] rounded-md px-3 py-1.5 text-xs hover:bg-[#DDE7E1] transition"
+  }, /*#__PURE__*/React.createElement("span", null, att.type === "application/pdf" ? "📄" : "🖼️"), /*#__PURE__*/React.createElement("span", {
+    className: "max-w-[160px] truncate"
+  }, att.name))))))));
 }
 
 /* ---------------------------------------------------------
@@ -1920,6 +2002,7 @@ function VetApp() {
     patientsRef.current = patients;
   }, [patients]);
   const skipHashChange = useRef(false);
+  const backupInputRef = useRef(null);
 
   // Al montar: fija el hash inicial sin crear una entrada nueva en el historial
   useEffect(() => {
@@ -2042,6 +2125,56 @@ function VetApp() {
     setExamenes(next);
     store.set("examenes", next);
   };
+  const exportBackup = () => {
+    const backup = {
+      app: "VetData",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      patients,
+      recetas,
+      examenes,
+      config
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], {
+      type: "application/json"
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const fecha = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `vetdata-respaldo-${fecha}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast("Respaldo descargado");
+  };
+  const importBackup = file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const data = JSON.parse(e.target.result);
+        const ok = window.confirm("Esto va a reemplazar todos los datos actuales (pacientes, recetas, exámenes y configuración) por los del respaldo. ¿Continuar?");
+        if (!ok) return;
+        const nextPatients = Array.isArray(data.patients) ? data.patients : [];
+        const nextRecetas = Array.isArray(data.recetas) ? data.recetas : [];
+        const nextExamenes = Array.isArray(data.examenes) ? data.examenes : [];
+        const nextConfig = data.config || null;
+        setPatients(nextPatients);
+        setRecetas(nextRecetas);
+        setExamenes(nextExamenes);
+        setConfig(nextConfig);
+        store.set("patients", nextPatients);
+        store.set("recetas", nextRecetas);
+        store.set("examenes", nextExamenes);
+        store.set("config", nextConfig);
+        showToast("Respaldo restaurado");
+      } catch (err) {
+        alert("No se pudo leer el archivo. Asegúrate de que sea un respaldo válido de VetData (.json).");
+      }
+    };
+    reader.readAsText(file);
+  };
   if (showGreeting) {
     return /*#__PURE__*/React.createElement(GreetingScreen, {
       config: config,
@@ -2128,7 +2261,34 @@ function VetApp() {
     config: config,
     onSave: saveConfig,
     onCancel: () => setActive("inicio")
-  }))));
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "max-w-xl mt-8"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
+    style: styles.mono
+  }, "Respaldo de datos"), /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-6"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-[#6B7A72] mb-4"
+  }, "Todos los pacientes, recetas y exámenes se guardan solo en este navegador. Descarga un respaldo periódicamente para no perder tu información, o para pasarla a otro dispositivo."), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 flex-wrap"
+  }, /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: exportBackup,
+    icon: "⬇"
+  }, "Descargar respaldo"), /*#__PURE__*/React.createElement("input", {
+    ref: backupInputRef,
+    type: "file",
+    accept: "application/json",
+    className: "hidden",
+    onChange: e => {
+      const file = e.target.files?.[0];
+      if (file) importBackup(file);
+      e.target.value = "";
+    }
+  }), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => backupInputRef.current?.click(),
+    icon: "⬆"
+  }, "Ingresar respaldo")))))));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(VetApp, null));
 </script>
