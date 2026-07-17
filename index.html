@@ -158,6 +158,9 @@
 
   .object-contain{object-fit:contain}
   .overflow-auto{overflow:auto}
+
+  .max-w-full{max-width:100%}
+  .max-h-full{max-height:100%}
 </style>
 </head>
 <body>
@@ -723,6 +726,28 @@ async function resizeImage(file, maxSize = 500) {
     reader.readAsDataURL(file);
   });
 }
+
+// Convierte una fecha guardada como AAAA-MM-DD al formato que el usuario eligió
+// en Configuración, solo para mostrarla (los datos se guardan siempre en
+// AAAA-MM-DD internamente, para que el ordenamiento y los cálculos sigan
+// funcionando igual).
+function formatDate(dateStr, dateFormat) {
+  if (!dateStr) return dateStr;
+  const parts = dateStr.split("-");
+  if (parts.length !== 3) return dateStr;
+  const [y, m, d] = parts;
+  switch (dateFormat) {
+    case "DD/MM/YYYY":
+      return `${d}/${m}/${y}`;
+    case "MM/DD/YYYY":
+      return `${m}/${d}/${y}`;
+    case "DD-MM-YYYY":
+      return `${d}-${m}-${y}`;
+    default:
+      return dateStr;
+    // YYYY-MM-DD
+  }
+}
 function makeICS({
   title,
   description,
@@ -1090,6 +1115,7 @@ function Sidebar({
 const emptyPatient = () => ({
   id: null,
   foto: null,
+  especie: "",
   nombre: "",
   peso: "",
   edad: "",
@@ -1113,6 +1139,8 @@ function PatientForm({
 }) {
   const [step, setStep] = useState(0);
   const [data, setData] = useState(initial || emptyPatient());
+  const ESPECIES_COMUNES = ["Perro", "Gato", "Ave", "Conejo", "Roedor", "Reptil"];
+  const [especieEsOtro, setEspecieEsOtro] = useState(!!(initial && initial.especie && !ESPECIES_COMUNES.includes(initial.especie)));
   const fileRef = useRef(null);
   const cameraRef = useRef(null);
   const [imgError, setImgError] = useState("");
@@ -1205,6 +1233,48 @@ function PatientForm({
     placeholder: "Ej. Firulais",
     autoFocus: true
   })), /*#__PURE__*/React.createElement(Field, {
+    label: "Especie"
+  }, /*#__PURE__*/React.createElement("select", {
+    value: especieEsOtro ? "Otro" : data.especie,
+    onChange: e => {
+      if (e.target.value === "Otro") {
+        setEspecieEsOtro(true);
+        setData(d => ({
+          ...d,
+          especie: ""
+        }));
+      } else {
+        setEspecieEsOtro(false);
+        setData(d => ({
+          ...d,
+          especie: e.target.value
+        }));
+      }
+    },
+    className: inputClass
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Selecciona la especie..."), /*#__PURE__*/React.createElement("option", {
+    value: "Perro"
+  }, "Perro"), /*#__PURE__*/React.createElement("option", {
+    value: "Gato"
+  }, "Gato"), /*#__PURE__*/React.createElement("option", {
+    value: "Ave"
+  }, "Ave"), /*#__PURE__*/React.createElement("option", {
+    value: "Conejo"
+  }, "Conejo"), /*#__PURE__*/React.createElement("option", {
+    value: "Roedor"
+  }, "Roedor"), /*#__PURE__*/React.createElement("option", {
+    value: "Reptil"
+  }, "Reptil"), /*#__PURE__*/React.createElement("option", {
+    value: "Otro"
+  }, "Otro")), especieEsOtro && /*#__PURE__*/React.createElement("div", {
+    className: "mt-2"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    value: data.especie,
+    onChange: set("especie"),
+    placeholder: "Especifica la especie..."
+  }))), /*#__PURE__*/React.createElement(Field, {
     label: "Nombre del propietario"
   }, /*#__PURE__*/React.createElement(TextInput, {
     value: data.propietario,
@@ -1316,12 +1386,34 @@ function DetailRow({
     className: "text-[15px] text-[#23342F] whitespace-pre-wrap"
   }, value));
 }
+function ImageLightbox({
+  src,
+  onClose
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 flex items-center justify-center px-4",
+    style: {
+      background: "rgba(0,0,0,.85)"
+    },
+    onClick: onClose
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "absolute top-4 right-4 text-white text-3xl leading-none"
+  }, "✕"), /*#__PURE__*/React.createElement("img", {
+    src: src,
+    alt: "",
+    className: "max-w-full max-h-full object-contain rounded-lg",
+    onClick: e => e.stopPropagation()
+  }));
+}
 function PatientDetail({
   patient,
   onEdit,
   onDelete,
-  onClose
+  onClose,
+  config
 }) {
+  const [showPhoto, setShowPhoto] = useState(false);
   const handleICS = () => {
     const ics = makeICS({
       title: `Próx. visita — ${patient.nombre}`,
@@ -1332,12 +1424,16 @@ function PatientDetail({
   };
   return /*#__PURE__*/React.createElement("div", {
     className: "max-w-2xl bg-white border border-[#DDD5C4] rounded-lg p-6"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, showPhoto && patient.foto && /*#__PURE__*/React.createElement(ImageLightbox, {
+    src: patient.foto,
+    onClose: () => setShowPhoto(false)
+  }), /*#__PURE__*/React.createElement("div", {
     className: "flex items-start justify-between mb-5"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-4"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "w-16 h-16 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
+    onClick: () => patient.foto && setShowPhoto(true),
+    className: "w-16 h-16 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0 " + (patient.foto ? "cursor-pointer" : "")
   }, patient.foto ? /*#__PURE__*/React.createElement("img", {
     src: patient.foto,
     alt: "",
@@ -1355,6 +1451,9 @@ function PatientDetail({
   }, "✕")), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-x-6 mb-2"
   }, /*#__PURE__*/React.createElement(DetailRow, {
+    label: "Especie",
+    value: patient.especie
+  }), /*#__PURE__*/React.createElement(DetailRow, {
     label: "Peso",
     value: patient.peso ? `${patient.peso} kg` : ""
   }), /*#__PURE__*/React.createElement(DetailRow, {
@@ -1365,7 +1464,7 @@ function PatientDetail({
     value: patient.raza
   }), /*#__PURE__*/React.createElement(DetailRow, {
     label: "Fecha de nacimiento",
-    value: patient.fechaNacimiento
+    value: formatDate(patient.fechaNacimiento, config?.dateFormat)
   })), /*#__PURE__*/React.createElement("div", {
     className: "h-px bg-[#DDD5C4] my-4"
   }), /*#__PURE__*/React.createElement(DetailRow, {
@@ -1389,7 +1488,7 @@ function PatientDetail({
     className: "h-px bg-[#DDD5C4] my-4"
   }), /*#__PURE__*/React.createElement(DetailRow, {
     label: "Próxima visita",
-    value: patient.proximaVisita
+    value: formatDate(patient.proximaVisita, config?.dateFormat)
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 mt-6 flex-wrap"
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
@@ -1413,7 +1512,8 @@ function HistorialMedico({
   historial,
   onAdd,
   onUpdate,
-  onDelete
+  onDelete,
+  config
 }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -1525,7 +1625,7 @@ function HistorialMedico({
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72]",
     style: styles.mono
-  }, h.fecha), /*#__PURE__*/React.createElement("div", {
+  }, formatDate(h.fecha, config?.dateFormat)), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-3"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => startEdit(h),
@@ -1557,7 +1657,8 @@ function HistorialMedico({
 function PatientsList({
   patients,
   onSelect,
-  onNew
+  onNew,
+  config
 }) {
   const [query, setQuery] = useState("");
   const filtered = useMemo(() => {
@@ -1605,7 +1706,7 @@ function PatientsList({
   }, p.propietario || "Sin propietario"))), p.proximaVisita && /*#__PURE__*/React.createElement("div", {
     className: "mt-3 inline-flex items-center gap-1.5 text-[11px] text-[#B14E1C] bg-[#E08A3E]/10 px-2 py-1 rounded",
     style: styles.mono
-  }, "📅 ", p.proximaVisita)))));
+  }, "📅 ", formatDate(p.proximaVisita, config?.dateFormat))))));
 }
 function EmptyState({
   title,
@@ -1627,7 +1728,8 @@ function EmptyState({
    Compartir / imprimir receta
 ----------------------------------------------------------*/
 function buildRecetaText(r, patient, config) {
-  const lines = [config?.clinica ? config.clinica.toUpperCase() : "RECETA MÉDICA VETERINARIA", config?.clinica ? "Receta médica veterinaria" : null, `Fecha: ${r.fecha}`, "", `Paciente: ${r.patientName}`, patient?.propietario ? `Propietario: ${patient.propietario}` : null, patient?.raza ? `Raza: ${patient.raza}` : null, patient?.edad ? `Edad: ${patient.edad}` : null, patient?.peso ? `Peso: ${patient.peso} kg` : null, patient?.fechaNacimiento ? `Fecha de nacimiento: ${patient.fechaNacimiento}` : null, "", "Medicamentos y dosis:", r.medicamentos];
+  const df = config?.dateFormat;
+  const lines = [config?.clinica ? config.clinica.toUpperCase() : "RECETA MÉDICA VETERINARIA", config?.clinica ? "Receta médica veterinaria" : null, `Fecha: ${formatDate(r.fecha, df)}`, "", `Paciente: ${r.patientName}`, patient?.propietario ? `Propietario: ${patient.propietario}` : null, patient?.especie ? `Especie: ${patient.especie}` : null, patient?.raza ? `Raza: ${patient.raza}` : null, patient?.edad ? `Edad: ${patient.edad}` : null, patient?.peso ? `Peso: ${patient.peso} kg` : null, patient?.fechaNacimiento ? `Fecha de nacimiento: ${formatDate(patient.fechaNacimiento, df)}` : null, "", "Medicamentos y dosis:", r.medicamentos];
   if (r.indicaciones) {
     lines.push("", "Indicaciones:", r.indicaciones);
   }
@@ -1707,8 +1809,8 @@ function printReceta(r, patient, config) {
             ${config?.clinica ? `${esc(config.clinica)}<br>` : ""}
             <b>MASCOTA:</b> ${esc(r.patientName)}<br>
             ${patient?.propietario ? `<b>CLIENTE:</b> ${esc(patient.propietario)}<br>` : ""}
-            <b>FECHA EMISIÓN:</b> ${esc(r.fecha)}<br>
-            <b>FECHA IMPRESIÓN:</b> ${esc(hoy)}
+            <b>FECHA EMISIÓN:</b> ${esc(formatDate(r.fecha, config?.dateFormat))}<br>
+            <b>FECHA IMPRESIÓN:</b> ${esc(formatDate(hoy, config?.dateFormat))}
           </div>
         </div>
       </div>
@@ -1735,7 +1837,7 @@ function printReceta(r, patient, config) {
 
       <div class="footer">
         ${config?.doctorNombre ? `Médico responsable: ${esc(config.doctorTitulo || "Dr.")} ${esc(config.doctorNombre)}<br>` : ""}
-        Próxima consulta: ${patient?.proximaVisita ? esc(patient.proximaVisita) : "No hay próxima consulta programada"}<br>
+        Próxima consulta: ${patient?.proximaVisita ? esc(formatDate(patient.proximaVisita, config?.dateFormat)) : "No hay próxima consulta programada"}<br>
         ${config?.direccion || config?.telefono ? `${config?.direccion ? "Dirección: " + esc(config.direccion) : ""}${config?.direccion && config?.telefono ? " " : ""}${config?.telefono ? "Teléfono: " + esc(config.telefono) : ""}` : ""}
       </div>
     </body></html>`;
@@ -1872,7 +1974,7 @@ function RecetasView({
     }, r.patientName), /*#__PURE__*/React.createElement("div", {
       className: "text-xs text-[#6B7A72]",
       style: styles.mono
-    }, r.fecha)), /*#__PURE__*/React.createElement("div", {
+    }, formatDate(r.fecha, config?.dateFormat))), /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-3"
     }, /*#__PURE__*/React.createElement("button", {
       onClick: () => startEdit(r),
@@ -1964,7 +2066,8 @@ function ExamenesView({
   examenes,
   onAdd,
   onUpdate,
-  onDelete
+  onDelete,
+  config
 }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -2158,7 +2261,7 @@ function ExamenesView({
   }, ex.patientName), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72]",
     style: styles.mono
-  }, ex.fecha, " · ", ex.tipo)), /*#__PURE__*/React.createElement("div", {
+  }, formatDate(ex.fecha, config?.dateFormat), " · ", ex.tipo)), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-3"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => startEdit(ex),
@@ -2193,7 +2296,8 @@ const emptyConfig = () => ({
   telefono: "",
   correo: "",
   redes: "",
-  direccion: ""
+  direccion: "",
+  dateFormat: "YYYY-MM-DD"
 });
 function ConfigForm({
   config,
@@ -2333,7 +2437,21 @@ function ConfigForm({
     value: data.redes,
     onChange: set("redes"),
     placeholder: "Ej. @clinicasanroque (Instagram/Facebook)"
-  }))), /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Formato de fecha"
+  }, /*#__PURE__*/React.createElement("select", {
+    value: data.dateFormat || "YYYY-MM-DD",
+    onChange: set("dateFormat"),
+    className: inputClass
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "YYYY-MM-DD"
+  }, "AAAA-MM-DD (2026-07-23)"), /*#__PURE__*/React.createElement("option", {
+    value: "DD/MM/YYYY"
+  }, "DD/MM/AAAA (23/07/2026)"), /*#__PURE__*/React.createElement("option", {
+    value: "MM/DD/YYYY"
+  }, "MM/DD/AAAA (07/23/2026)"), /*#__PURE__*/React.createElement("option", {
+    value: "DD-MM-YYYY"
+  }, "DD-MM-AAAA (23-07-2026)")))), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2 mt-5"
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: () => onSave(data),
@@ -2610,7 +2728,7 @@ function HomeScreen({
   }, p.propietario || "Sin propietario")), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#B14E1C] bg-[#E08A3E]/10 px-2 py-1 rounded",
     style: styles.mono
-  }, "📅 ", p.proximaVisita))))));
+  }, "📅 ", formatDate(p.proximaVisita, config?.dateFormat)))))));
 }
 
 /* ---------------------------------------------------------
@@ -3120,7 +3238,8 @@ function VetApp() {
   }, "Pacientes"), /*#__PURE__*/React.createElement(PatientsList, {
     patients: patients,
     onSelect: setSelected,
-    onNew: () => setActive("nuevo")
+    onNew: () => setActive("nuevo"),
+    config: config
   })), active === "pacientes" && selected && !editing && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(PatientDetail, {
     patient: selected,
     onEdit: p => {
@@ -3128,13 +3247,15 @@ function VetApp() {
       setSelected(null);
     },
     onDelete: deletePatient,
-    onClose: () => setSelected(null)
+    onClose: () => setSelected(null),
+    config: config
   }), /*#__PURE__*/React.createElement(HistorialMedico, {
     patient: selected,
     historial: historial,
     onAdd: addHistorial,
     onUpdate: updateHistorial,
-    onDelete: deleteHistorial
+    onDelete: deleteHistorial,
+    config: config
   })), active === "pacientes" && editing && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold mb-1"
@@ -3156,7 +3277,8 @@ function VetApp() {
     examenes: examenes,
     onAdd: addExamen,
     onUpdate: updateExamen,
-    onDelete: deleteExamen
+    onDelete: deleteExamen,
+    config: config
   }), active === "config" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold mb-1"
