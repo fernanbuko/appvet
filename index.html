@@ -146,6 +146,12 @@
   .hover\:bg-\[\#DDE7E1\]:hover{background-color:#DDE7E1}
 
   .w-10{width:2.5rem}.h-10{height:2.5rem}
+
+  .max-w-\[380px\]{max-width:380px}
+  .hover\:bg-\[\#FAFAF8\]:hover{background-color:#FAFAF8}
+  .hover\:border-\[\#B9C4BD\]:hover{border-color:#B9C4BD}
+  .bg-\[\#EEEAE0\]{background-color:#EEEAE0}
+  .leading-relaxed{line-height:1.625}
 </style>
 </head>
 <body>
@@ -2354,6 +2360,11 @@ function VetApp() {
     }
     setAuthLoading(true);
     const provider = new firebase.auth.GoogleAuthProvider();
+    // Pide siempre el selector de cuentas de Google, en vez de reutilizar
+    // automáticamente la última cuenta con la que se inició sesión.
+    provider.setCustomParameters({
+      prompt: "select_account"
+    });
     firebase.auth().signInWithPopup(provider).catch(err => setAuthError("No se pudo iniciar sesión: " + (err.message || "intenta de nuevo."))).finally(() => setAuthLoading(false));
   };
   const handleSignOut = () => {
