@@ -178,9 +178,18 @@
   });
   // Registrar el service worker (habilita uso sin conexión una vez instalada).
   // Si no está soportado (p.ej. archivo local sin servidor), se ignora en silencio.
+  // Además: cuando se detecta una versión nueva de la app (subida a GitHub),
+  // se recarga sola automáticamente para mostrarla, sin que el usuario tenga
+  // que hacer nada.
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", function () {
       navigator.serviceWorker.register("sw.js").catch(function () {});
+    });
+    let reloadedForUpdate = false;
+    navigator.serviceWorker.addEventListener("controllerchange", function () {
+      if (reloadedForUpdate) return;
+      reloadedForUpdate = true;
+      window.location.reload();
     });
   }
 </script>
@@ -635,6 +644,18 @@ const collectionStore = {
       console.error("Error borrando de " + name + ":", e);
       return false;
     }
+  },
+  // Se suscribe a la colección: llama a onData(arreglo) cada vez que hay un
+  // cambio (agregado, editado o borrado), sin importar desde qué dispositivo
+  // se hizo. Devuelve una función para cancelar la suscripción.
+  listen(name, onData) {
+    if (!db || !currentUid) return () => {};
+    try {
+      return db.collection("users").doc(currentUid).collection(name).onSnapshot(snap => onData(snap.docs.map(d => d.data())), e => console.error("Error escuchando " + name + ":", e));
+    } catch (e) {
+      console.error("Error suscribiéndose a " + name + ":", e);
+      return () => {};
+    }
   }
 };
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -705,12 +726,25 @@ async function resizeImage(file, maxSize = 500) {
 function makeICS({
   title,
   description,
-  date
+  date,
+  uid: fixedUid,
+  cancel
 }) {
-  if (!date) return null;
-  const dt = date.replace(/-/g, "");
+  if (!date && !cancel) return null;
+  const dt = (date || "").replace(/-/g, "");
   const stamp = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-  return ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//VetData//ES", "BEGIN:VEVENT", `UID:${uid()}@fichavet`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${dt}`, `DTEND;VALUE=DATE:${dt}`, `SUMMARY:${title}`, `DESCRIPTION:${(description || "").replace(/\n/g, "\\n")}`, "BEGIN:VALARM", "TRIGGER:-P1D", "ACTION:DISPLAY", "DESCRIPTION:Recordatorio de cita", "END:VALARM", "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//VetData//ES", cancel ? "METHOD:CANCEL" : "METHOD:PUBLISH", "BEGIN:VEVENT", `UID:${fixedUid}@vetdata`, `DTSTAMP:${stamp}`];
+  if (dt) {
+    lines.push(`DTSTART;VALUE=DATE:${dt}`, `DTEND;VALUE=DATE:${dt}`);
+  }
+  lines.push(`SUMMARY:${title}`, `SEQUENCE:${cancel ? 1 : 0}`);
+  if (cancel) {
+    lines.push("STATUS:CANCELLED");
+  } else {
+    lines.push(`DESCRIPTION:${(description || "").replace(/\n/g, "\\n")}`, "BEGIN:VALARM", "TRIGGER:-P1D", "ACTION:DISPLAY", "DESCRIPTION:Recordatorio de cita", "END:VALARM");
+  }
+  lines.push("END:VEVENT", "END:VCALENDAR");
+  return lines.join("\r\n");
 }
 function downloadICS(ics, filename) {
   const blob = new Blob([ics], {
@@ -1243,21 +1277,9 @@ function PatientForm({
     type: "date",
     value: data.proximaVisita,
     onChange: set("proximaVisita")
-  })), /*#__PURE__*/React.createElement("label", {
-    className: "flex items-center gap-2.5 mt-2 cursor-pointer select-none"
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "checkbox",
-    checked: data.anotarCalendario,
-    onChange: e => setData(d => ({
-      ...d,
-      anotarCalendario: e.target.checked
-    })),
-    className: "w-4 h-4 accent-[#3D6B5C]"
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "text-sm flex items-center gap-1.5"
-  }, "📅 Anotar en calendario")), data.anotarCalendario && !data.proximaVisita && /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-[#B14E1C] mt-2 flex items-center gap-1.5"
-  }, "⚠ Agrega una fecha para poder anotarla en el calendario."))), /*#__PURE__*/React.createElement("div", {
+  })), data.proximaVisita && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#6B7A72] mt-2 flex items-center gap-1.5"
+  }, "📅 Al guardar, esta fecha se descarga automáticamente para agregarla al calendario de tu celular."))), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mt-5"
   }, /*#__PURE__*/React.createElement("div", null, step > 0 && /*#__PURE__*/React.createElement(GhostButton, {
     onClick: () => setStep(s => s - 1),
@@ -2692,6 +2714,32 @@ function VetApp() {
       cancelled = true;
     };
   }, [user]);
+
+  // Una vez cargados los datos iniciales, se activa la sincronización en
+  // tiempo real: cualquier cambio (desde este dispositivo u otro con la
+  // misma cuenta) se refleja al instante, sin necesidad de recargar la app.
+  useEffect(() => {
+    if (!user || !dataLoaded) return;
+    const unsubPatients = collectionStore.listen("patients", setPatients);
+    const unsubRecetas = collectionStore.listen("recetas", setRecetas);
+    const unsubExamenes = collectionStore.listen("examenes", setExamenes);
+    const unsubHistorial = collectionStore.listen("historial", setHistorial);
+    let unsubConfig = () => {};
+    if (db && currentUid) {
+      try {
+        unsubConfig = db.collection("users").doc(currentUid).collection("data").doc("config").onSnapshot(doc => setConfig(doc.exists ? doc.data().value : null), e => console.error("Error escuchando config:", e));
+      } catch (e) {
+        console.error("Error suscribiéndose a config:", e);
+      }
+    }
+    return () => {
+      unsubPatients();
+      unsubRecetas();
+      unsubExamenes();
+      unsubHistorial();
+      unsubConfig();
+    };
+  }, [user, dataLoaded]);
   const linkLegacyData = async () => {
     setLinkingLoading(true);
     try {
@@ -2829,6 +2877,7 @@ function VetApp() {
   const savePatient = data => {
     let next;
     let record;
+    const prevPatient = data.id ? patients.find(p => p.id === data.id) : null;
     if (data.id) {
       record = {
         ...data,
@@ -2849,13 +2898,27 @@ function VetApp() {
     setActive("pacientes");
     setSelected(next.find(p => data.id ? p.id === data.id : true) || null);
     showToast("Ficha guardada");
-    if (data.anotarCalendario && data.proximaVisita) {
-      const ics = makeICS({
-        title: `Próx. visita — ${data.nombre}`,
-        description: `Paciente: ${data.nombre}\nPropietario: ${data.propietario || "-"}`,
-        date: data.proximaVisita
+
+    // La próxima visita se agrega automáticamente al calendario del celular
+    // (no hace falta marcar ninguna casilla). Si la fecha cambió o se quitó,
+    // primero se cancela el recordatorio anterior de este paciente.
+    const fechaCambio = prevPatient && prevPatient.proximaVisita && prevPatient.proximaVisita !== record.proximaVisita;
+    if (fechaCambio) {
+      const cancelIcs = makeICS({
+        title: `Próx. visita — ${record.nombre}`,
+        uid: record.id,
+        cancel: true
       });
-      if (ics) downloadICS(ics, `visita-${data.nombre}.ics`);
+      if (cancelIcs) downloadICS(cancelIcs, `cancelar-visita-${record.nombre}.ics`);
+    }
+    if (record.proximaVisita) {
+      const ics = makeICS({
+        title: `Próx. visita — ${record.nombre}`,
+        description: `Paciente: ${record.nombre}\nPropietario: ${record.propietario || "-"}`,
+        date: record.proximaVisita,
+        uid: record.id
+      });
+      if (ics) downloadICS(ics, `visita-${record.nombre}.ics`);
     }
   };
   const deletePatient = patient => {
@@ -2864,6 +2927,17 @@ function VetApp() {
     collectionStore.deleteOne("patients", patient.id);
     setSelected(null);
     showToast("Paciente eliminado");
+
+    // Si tenía una próxima visita programada, se envía la cancelación
+    // para poder quitarla también del calendario del celular.
+    if (patient.proximaVisita) {
+      const cancelIcs = makeICS({
+        title: `Próx. visita — ${patient.nombre}`,
+        uid: patient.id,
+        cancel: true
+      });
+      if (cancelIcs) downloadICS(cancelIcs, `cancelar-visita-${patient.nombre}.ics`);
+    }
   };
   const addReceta = r => {
     const next = [...recetas, r];
