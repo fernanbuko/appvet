@@ -590,6 +590,47 @@ const store = {
     }
   }
 };
+
+/* ---------------------------------------------------------
+   Almacenamiento por colección: cada paciente, receta o examen
+   se guarda como su PROPIO documento (en vez de un solo documento
+   con todo el arreglo junto). Así ningún registro individual se
+   acerca al límite de 1MB por documento de Firestore, sin
+   importar cuántos pacientes tengas ni si alguno trae una foto
+   antigua guardada como texto (de antes de usar Cloudinary).
+----------------------------------------------------------*/
+const collectionStore = {
+  async getAll(name) {
+    if (!db || !currentUid) return [];
+    try {
+      const snap = await withTimeout(db.collection("users").doc(currentUid).collection(name).get());
+      return snap.docs.map(d => d.data());
+    } catch (e) {
+      console.error("Error leyendo " + name + ":", e);
+      return [];
+    }
+  },
+  async setOne(name, id, data) {
+    if (!db || !currentUid) return false;
+    try {
+      await withTimeout(db.collection("users").doc(currentUid).collection(name).doc(String(id)).set(data));
+      return true;
+    } catch (e) {
+      console.error("Error guardando en " + name + ":", e);
+      return false;
+    }
+  },
+  async deleteOne(name, id) {
+    if (!db || !currentUid) return false;
+    try {
+      await withTimeout(db.collection("users").doc(currentUid).collection(name).doc(String(id)).delete());
+      return true;
+    } catch (e) {
+      console.error("Error borrando de " + name + ":", e);
+      return false;
+    }
+  }
+};
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
 // Lee los datos que haya guardados de la versión anterior de la app (antes de
@@ -2304,7 +2345,7 @@ function VetApp() {
     }
     let cancelled = false;
     (async () => {
-      const [p, r, e, c] = await Promise.all([store.get("patients"), store.get("recetas"), store.get("examenes"), store.get("config")]);
+      const [p, r, e, c] = await Promise.all([collectionStore.getAll("patients"), collectionStore.getAll("recetas"), collectionStore.getAll("examenes"), store.get("config")]);
       if (cancelled) return;
       const firestoreVacio = !(p && p.length) && !(r && r.length) && !(e && e.length) && !c;
       const legacyDismissed = localStorage.getItem("vetapp:legacyDismissed") === "1";
@@ -2328,7 +2369,11 @@ function VetApp() {
   const linkLegacyData = async () => {
     setLinkingLoading(true);
     try {
-      await Promise.all([store.set("patients", legacyData.patients), store.set("recetas", legacyData.recetas), store.set("examenes", legacyData.examenes), store.set("config", legacyData.config)]);
+      const results = await Promise.all([...legacyData.patients.map(p => collectionStore.setOne("patients", p.id || uid(), p)), ...legacyData.recetas.map(r => collectionStore.setOne("recetas", r.id || uid(), r)), ...legacyData.examenes.map(e => collectionStore.setOne("examenes", e.id || uid(), e)), legacyData.config ? store.set("config", legacyData.config) : Promise.resolve(true)]);
+      const fallos = results.filter(ok => ok === false).length;
+      if (fallos > 0) {
+        alert(`${fallos} registro(s) no se pudieron vincular (posiblemente por conexión). Los demás sí quedaron guardados; puedes revisar tu lista de pacientes y volver a intentarlo si falta alguno.`);
+      }
       setPatients(legacyData.patients);
       setRecetas(legacyData.recetas);
       setExamenes(legacyData.examenes);
@@ -2336,8 +2381,9 @@ function VetApp() {
       localStorage.setItem("vetapp:legacyDismissed", "1");
       setLegacyData(null);
       setDataLoaded(true);
-      showToast("Datos vinculados a tu cuenta");
+      showToast(fallos > 0 ? "Datos vinculados con algunos errores" : "Datos vinculados a tu cuenta");
     } catch (e) {
+      console.error(e);
       alert("No se pudieron vincular los datos. Intenta de nuevo.");
     } finally {
       setLinkingLoading(false);
@@ -2351,6 +2397,14 @@ function VetApp() {
     setConfig(null);
     setLegacyData(null);
     setDataLoaded(true);
+  };
+  const checkForLegacyData = () => {
+    const legacy = getLegacyLocalData();
+    if (!legacy) {
+      alert("No se encontraron datos guardados de una versión anterior en este navegador.");
+      return;
+    }
+    setLegacyData(legacy);
   };
   const handleSignIn = () => {
     setAuthError("");
@@ -2448,20 +2502,23 @@ function VetApp() {
   };
   const savePatient = data => {
     let next;
+    let record;
     if (data.id) {
-      next = patients.map(p => p.id === data.id ? {
+      record = {
         ...data,
         updatedAt: Date.now()
-      } : p);
+      };
+      next = patients.map(p => p.id === data.id ? record : p);
     } else {
-      next = [...patients, {
+      record = {
         ...data,
         id: uid(),
         updatedAt: Date.now()
-      }];
+      };
+      next = [...patients, record];
     }
     setPatients(next);
-    store.set("patients", next);
+    collectionStore.setOne("patients", record.id, record);
     setEditing(null);
     setActive("pacientes");
     setSelected(next.find(p => data.id ? p.id === data.id : true) || null);
@@ -2478,31 +2535,31 @@ function VetApp() {
   const deletePatient = patient => {
     const next = patients.filter(p => p.id !== patient.id);
     setPatients(next);
-    store.set("patients", next);
+    collectionStore.deleteOne("patients", patient.id);
     setSelected(null);
     showToast("Paciente eliminado");
   };
   const addReceta = r => {
     const next = [...recetas, r];
     setRecetas(next);
-    store.set("recetas", next);
+    collectionStore.setOne("recetas", r.id, r);
     showToast("Receta guardada");
   };
   const deleteReceta = id => {
     const next = recetas.filter(r => r.id !== id);
     setRecetas(next);
-    store.set("recetas", next);
+    collectionStore.deleteOne("recetas", id);
   };
   const addExamen = ex => {
     const next = [...examenes, ex];
     setExamenes(next);
-    store.set("examenes", next);
+    collectionStore.setOne("examenes", ex.id, ex);
     showToast("Examen guardado");
   };
   const deleteExamen = id => {
     const next = examenes.filter(e => e.id !== id);
     setExamenes(next);
-    store.set("examenes", next);
+    collectionStore.deleteOne("examenes", id);
   };
   const exportBackup = () => {
     const backup = {
@@ -2543,9 +2600,9 @@ function VetApp() {
         setRecetas(nextRecetas);
         setExamenes(nextExamenes);
         setConfig(nextConfig);
-        store.set("patients", nextPatients);
-        store.set("recetas", nextRecetas);
-        store.set("examenes", nextExamenes);
+        nextPatients.forEach(p => collectionStore.setOne("patients", p.id || uid(), p));
+        nextRecetas.forEach(r => collectionStore.setOne("recetas", r.id || uid(), r));
+        nextExamenes.forEach(ex => collectionStore.setOne("examenes", ex.id || uid(), ex));
         store.set("config", nextConfig);
         showToast("Respaldo restaurado");
       } catch (err) {
@@ -2689,6 +2746,18 @@ function VetApp() {
     onClick: handleSignOut,
     icon: "🚪"
   }, "Cerrar sesión"))), /*#__PURE__*/React.createElement("div", {
+    className: "max-w-xl mt-8"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
+    style: styles.mono
+  }, "Datos de una versión anterior"), /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-6"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-[#6B7A72] mb-4"
+  }, "Si tenías pacientes guardados en este navegador de antes de iniciar sesión (y no se vincularon automáticamente), puedes buscarlos y vincularlos aquí en cualquier momento."), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: checkForLegacyData,
+    icon: "🔍"
+  }, "Buscar datos guardados en este navegador"))), /*#__PURE__*/React.createElement("div", {
     className: "max-w-xl mt-8"
   }, /*#__PURE__*/React.createElement("h3", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
