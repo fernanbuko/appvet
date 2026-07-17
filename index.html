@@ -109,7 +109,12 @@
   select.w-full { appearance: none; -webkit-appearance:none; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><path fill='%236B7A72' d='M4 6l4 4 4-4'/></svg>"); background-repeat:no-repeat; background-position: right .75rem center; padding-right: 2rem; }
   @media (min-width:768px){
     .md\:whitespace-normal{white-space:normal}
+    .md\:pb-8{padding-bottom:2rem}
+    .md\:hidden{display:none}
   }
+  .pt-8{padding-top:2rem}
+  .pb-24{padding-bottom:6rem}
+  .pb-8{padding-bottom:2rem}
   @media (min-width:640px){
     .sm\:block{display:block}
     .sm\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -175,6 +180,10 @@
 
   .break-all{word-break:break-all}
   .font-mono{font-family:"IBM Plex Mono",monospace}
+
+  .bottom-0{bottom:0}
+  .z-40{z-index:40}
+  .items-stretch{align-items:stretch}
 </style>
 </head>
 <body>
@@ -1217,10 +1226,10 @@ function Sidebar({
   config
 }) {
   return /*#__PURE__*/React.createElement("div", {
-    className: "w-full md:w-60 md:min-h-screen bg-[#23342F] text-[#F7F4EC] flex md:flex-col"
+    className: "hidden md:flex md:w-60 md:min-h-screen bg-[#23342F] text-[#F7F4EC] md:flex-col"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setActive("inicio"),
-    className: "px-5 py-6 hidden md:flex items-center gap-2 border-b border-white/10 text-left"
+    className: "px-5 py-6 flex items-center gap-2 border-b border-white/10 text-left"
   }, config?.logo ? /*#__PURE__*/React.createElement("img", {
     src: config.logo,
     alt: "",
@@ -1231,18 +1240,141 @@ function Sidebar({
     style: styles.display,
     className: "text-lg font-semibold"
   }, config?.clinica || "VetData")), /*#__PURE__*/React.createElement("nav", {
-    className: "flex md:flex-col flex-1 overflow-x-auto md:overflow-visible"
+    className: "flex flex-col flex-1"
   }, NAV.map(item => {
     const isActive = active === item.key;
     return /*#__PURE__*/React.createElement("button", {
       key: item.key,
       onClick: () => setActive(item.key),
-      className: "flex items-center gap-3 px-5 py-4 text-sm font-medium whitespace-nowrap md:whitespace-normal transition border-l-4 " + (isActive ? "bg-white/10 border-[#E08A3E] text-white" : "border-transparent text-[#B9C4BD] hover:bg-white/5 hover:text-white")
+      className: "flex items-center gap-3 px-5 py-4 text-sm font-medium transition border-l-4 " + (isActive ? "bg-white/10 border-[#E08A3E] text-white" : "border-transparent text-[#B9C4BD] hover:bg-white/5 hover:text-white")
     }, /*#__PURE__*/React.createElement("span", null, item.icon), item.label, item.key === "pacientes" && count > 0 && /*#__PURE__*/React.createElement("span", {
       className: "ml-auto text-[10px] rounded-full bg-white/15 px-2 py-0.5",
       style: styles.mono
     }, count));
   })));
+}
+
+/* ---------------------------------------------------------
+   Barra superior para móvil: logo/nombre de la clínica +
+   acceso rápido a Configuración (que ya no va en la barra
+   inferior, para dejarla con solo lo más usado).
+----------------------------------------------------------*/
+function MobileTopBar({
+  active,
+  setActive,
+  config
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "md:hidden flex items-center justify-between bg-[#23342F] text-white px-4 py-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setActive("inicio"),
+    className: "flex items-center gap-2 text-left"
+  }, config?.logo ? /*#__PURE__*/React.createElement("img", {
+    src: config.logo,
+    alt: "",
+    className: "w-7 h-7 rounded object-cover"
+  }) : /*#__PURE__*/React.createElement("span", {
+    className: "text-lg"
+  }, "🐾"), /*#__PURE__*/React.createElement("span", {
+    style: styles.display,
+    className: "text-base font-semibold"
+  }, config?.clinica || "VetData")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setActive("config"),
+    className: "w-9 h-9 rounded-full flex items-center justify-center text-base transition " + (active === "config" ? "bg-white/20" : "bg-white/10")
+  }, "⚙️"));
+}
+
+/* ---------------------------------------------------------
+   Navegación inferior fija para móvil (patrón de apps nativas:
+   Instagram, WhatsApp, etc.), con un botón central destacado
+   para crear un paciente nuevo.
+----------------------------------------------------------*/
+const BOTTOM_NAV_ITEMS = [{
+  key: "inicio",
+  label: "Inicio",
+  icon: "🏠"
+}, {
+  key: "pacientes",
+  label: "Pacientes",
+  icon: "👥"
+}, {
+  key: "recetas",
+  label: "Recetas",
+  icon: "💊"
+}, {
+  key: "examenes",
+  label: "Exámenes",
+  icon: "🧪"
+}];
+function MobileBottomNav({
+  active,
+  setActive
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white flex items-stretch",
+    style: {
+      borderTop: "1px solid #DDD5C4",
+      paddingBottom: "env(safe-area-inset-bottom, 0px)"
+    }
+  }, BOTTOM_NAV_ITEMS.slice(0, 2).map(item => {
+    const isActive = active === item.key;
+    return /*#__PURE__*/React.createElement("button", {
+      key: item.key,
+      onClick: () => setActive(item.key),
+      className: "flex-1 flex flex-col items-center justify-center gap-0.5 py-2 relative",
+      style: {
+        color: isActive ? "#3D6B5C" : "#A6A08F"
+      }
+    }, isActive && /*#__PURE__*/React.createElement("span", {
+      style: {
+        position: "absolute",
+        top: 0,
+        width: 28,
+        height: 3,
+        background: "#E08A3E",
+        borderRadius: 3
+      }
+    }), /*#__PURE__*/React.createElement("span", {
+      className: "text-xl"
+    }, item.icon), /*#__PURE__*/React.createElement("span", {
+      className: "text-[10px] font-semibold"
+    }, item.label));
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-center px-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setActive("nuevo"),
+    className: "rounded-full flex items-center justify-center text-white text-2xl",
+    style: {
+      width: 46,
+      height: 46,
+      marginTop: -20,
+      background: "#3D6B5C",
+      boxShadow: "0 4px 12px rgba(61,107,92,.4)"
+    }
+  }, "➕")), BOTTOM_NAV_ITEMS.slice(2).map(item => {
+    const isActive = active === item.key;
+    return /*#__PURE__*/React.createElement("button", {
+      key: item.key,
+      onClick: () => setActive(item.key),
+      className: "flex-1 flex flex-col items-center justify-center gap-0.5 py-2 relative",
+      style: {
+        color: isActive ? "#3D6B5C" : "#A6A08F"
+      }
+    }, isActive && /*#__PURE__*/React.createElement("span", {
+      style: {
+        position: "absolute",
+        top: 0,
+        width: 28,
+        height: 3,
+        background: "#E08A3E",
+        borderRadius: 3
+      }
+    }), /*#__PURE__*/React.createElement("span", {
+      className: "text-xl"
+    }, item.icon), /*#__PURE__*/React.createElement("span", {
+      className: "text-[10px] font-semibold"
+    }, item.label));
+  }));
 }
 
 /* ---------------------------------------------------------
@@ -4048,7 +4180,15 @@ function VetApp() {
       zIndex: 30,
       boxSizing: "border-box"
     }
-  }, "📴 Sin conexión — se sincroniza al reconectar"), /*#__PURE__*/React.createElement("div", {
+  }, "📴 Sin conexión — se sincroniza al reconectar"), /*#__PURE__*/React.createElement(MobileTopBar, {
+    active: active,
+    setActive: k => {
+      setActive(k);
+      setEditing(null);
+      setSelected(null);
+    },
+    config: config
+  }), /*#__PURE__*/React.createElement("div", {
     className: "flex flex-col md:flex-row flex-1"
   }, /*#__PURE__*/React.createElement(Sidebar, {
     active: active,
@@ -4060,7 +4200,7 @@ function VetApp() {
     count: patients.length,
     config: config
   }), /*#__PURE__*/React.createElement("div", {
-    className: "flex-1 px-5 sm:px-8 py-8 max-w-5xl"
+    className: "flex-1 px-5 sm:px-8 pt-8 pb-24 md:pb-8 max-w-5xl"
   }, toast && /*#__PURE__*/React.createElement("div", {
     className: "fixed top-4 right-4 z-50 bg-[#23342F] text-white text-sm px-4 py-2.5 rounded-md shadow-lg flex items-center gap-2"
   }, "✓ ", toast), /*#__PURE__*/React.createElement(GlobalSearch, {
@@ -4234,7 +4374,14 @@ function VetApp() {
   }), /*#__PURE__*/React.createElement(GhostButton, {
     onClick: () => backupInputRef.current?.click(),
     icon: "⬆"
-  }, "Ingresar respaldo"))))))));
+  }, "Ingresar respaldo"))))))), /*#__PURE__*/React.createElement(MobileBottomNav, {
+    active: active,
+    setActive: k => {
+      setActive(k);
+      setEditing(null);
+      setSelected(null);
+    }
+  }));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(VetApp, null));
 </script>
