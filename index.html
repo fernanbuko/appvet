@@ -215,6 +215,8 @@
 
   .divide-y > * + * { border-top-width: 1px; border-top-style: solid; }
   .divide-\[\#EEEAE0\] > * + * { border-color: #EEEAE0; }
+
+  .mb-10{margin-bottom:2.5rem}
 </style>
 </head>
 <body>
@@ -4087,7 +4089,7 @@ function HomeScreen({
   }, config?.clinica || "VetData"), /*#__PURE__*/React.createElement("p", {
     className: "text-[#6B7A72] mt-2 max-w-md"
   }, "Historia clínica, recetas y exámenes de tus pacientes, todo en un solo lugar y siempre a la mano.")), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-3 gap-3 mb-8 max-w-md"
+    className: "grid grid-cols-3 gap-3 mb-10 max-w-md"
   }, /*#__PURE__*/React.createElement(StatCard, {
     label: "Pacientes",
     value: patients.length
@@ -4097,8 +4099,11 @@ function HomeScreen({
   }), /*#__PURE__*/React.createElement(StatCard, {
     label: "Exámenes",
     value: examenes.length
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 gap-3 mb-8 max-w-md"
+  })), /*#__PURE__*/React.createElement("h2", {
+    className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
+    style: styles.mono
+  }, "Accesos rápidos"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-3 mb-10 max-w-md"
   }, /*#__PURE__*/React.createElement(ActionCard, {
     icon: "📅",
     title: "Agenda",
