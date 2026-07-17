@@ -146,12 +146,6 @@
   .hover\:bg-\[\#DDE7E1\]:hover{background-color:#DDE7E1}
 
   .w-10{width:2.5rem}.h-10{height:2.5rem}
-
-  .max-w-\[380px\]{max-width:380px}
-  .hover\:bg-\[\#FAFAF8\]:hover{background-color:#FAFAF8}
-  .hover\:border-\[\#B9C4BD\]:hover{border-color:#B9C4BD}
-  .bg-\[\#EEEAE0\]{background-color:#EEEAE0}
-  .leading-relaxed{line-height:1.625}
 </style>
 </head>
 <body>
@@ -2040,44 +2034,25 @@ function LoginScreen({
 }) {
   return /*#__PURE__*/React.createElement("div", {
     className: "min-h-screen flex items-center justify-center px-6",
-    style: {
-      background: "linear-gradient(180deg, #F7F4EC 0%, #EFEADC 100%)",
-      minHeight: "100vh",
-      fontFamily: "Inter, sans-serif"
-    }
+    style: styles.page
   }, /*#__PURE__*/React.createElement("div", {
-    className: "max-w-[380px] w-full"
+    className: "max-w-sm w-full text-center"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-lg p-8 text-center",
-    style: {
-      boxShadow: "0 1px 3px rgba(35,52,47,.06), 0 16px 40px -12px rgba(35,52,47,.18)"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5",
-    style: {
-      background: "linear-gradient(135deg, #3D6B5C, #2F5548)"
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "text-3xl"
-  }, "🐾")), /*#__PURE__*/React.createElement("h1", {
+    className: "text-4xl mb-4"
+  }, "🐾"), /*#__PURE__*/React.createElement("h1", {
     style: styles.display,
-    className: "text-2xl font-semibold text-[#23342F] leading-tight"
+    className: "text-3xl font-semibold text-[#23342F] leading-tight"
   }, "VetData"), /*#__PURE__*/React.createElement("p", {
-    className: "text-[#6B7A72] mt-2 text-sm leading-relaxed"
-  }, "Guarda tus pacientes, recetas y exámenes de forma segura, sincronizados en todos tus dispositivos."), /*#__PURE__*/React.createElement("div", {
-    className: "h-px bg-[#EEEAE0] my-6"
-  }), /*#__PURE__*/React.createElement("button", {
+    className: "text-[#6B7A72] mt-2 text-sm"
+  }, "Inicia sesión con tu cuenta de Google para guardar tus pacientes y sincronizarlos entre tus dispositivos."), /*#__PURE__*/React.createElement("div", {
+    className: "mt-8"
+  }, /*#__PURE__*/React.createElement("button", {
     onClick: onSignIn,
     disabled: loading,
-    className: "w-full flex items-center justify-center gap-3 bg-white border border-[#DDD5C4] rounded-md px-5 py-3 text-sm font-medium text-[#23342F] hover:bg-[#FAFAF8] hover:border-[#B9C4BD] transition disabled:opacity-50",
-    style: {
-      boxShadow: "0 1px 2px rgba(35,52,47,.06)"
-    }
-  }, /*#__PURE__*/React.createElement(GoogleIcon, null), loading ? "Conectando..." : "Continuar con Google"), error && /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-[#B14E1C] mt-4 bg-[#E08A3E]/10 rounded-md px-3 py-2 text-left"
-  }, error)), /*#__PURE__*/React.createElement("p", {
-    className: "text-center text-xs text-[#A6A08F] mt-5"
-  }, "Tu información queda ligada a tu cuenta de Google y solo tú puedes verla.")));
+    className: "inline-flex items-center gap-3 bg-white border border-[#DDD5C4] rounded-md px-5 py-3 text-sm font-medium hover:shadow-sm transition disabled:opacity-50"
+  }, /*#__PURE__*/React.createElement(GoogleIcon, null), loading ? "Conectando..." : "Iniciar sesión con Google")), error && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#B14E1C] mt-4"
+  }, error)));
 }
 
 /* ---------------------------------------------------------
