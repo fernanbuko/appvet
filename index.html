@@ -212,6 +212,9 @@
   .gap-1{gap:.25rem}
 
   .w-7{width:1.75rem}.h-7{height:1.75rem}
+
+  .divide-y > * + * { border-top-width: 1px; border-top-style: solid; }
+  .divide-\[\#EEEAE0\] > * + * { border-color: #EEEAE0; }
 </style>
 </head>
 <body>
@@ -3960,7 +3963,8 @@ function AgendaView({
    Reportes: totales de cobros por mes
 ----------------------------------------------------------*/
 function ReportesView({
-  cobros
+  cobros,
+  patients
 }) {
   const porMes = useMemo(() => {
     const map = {};
@@ -3971,15 +3975,22 @@ function ReportesView({
         total: 0,
         pagado: 0,
         pendiente: 0,
-        cantidad: 0
+        cantidad: 0,
+        items: []
       };
       const monto = parseFloat(c.monto) || 0;
       map[mes].total += monto;
       map[mes].cantidad += 1;
+      map[mes].items.push(c);
       if (c.pagado) map[mes].pagado += monto;else map[mes].pendiente += monto;
     });
+    Object.values(map).forEach(m => m.items.sort((a, b) => a.fecha < b.fecha ? 1 : -1));
     return Object.entries(map).sort((a, b) => a[0] < b[0] ? 1 : -1);
   }, [cobros]);
+  const propietarioDe = patientId => {
+    const p = (patients || []).find(x => x.id === patientId);
+    return p?.propietario || "";
+  };
   const nombreMes = ym => {
     const [y, m] = ym.split("-");
     return new Date(parseInt(y), parseInt(m) - 1, 1).toLocaleDateString("es-ES", {
@@ -3994,18 +4005,44 @@ function ReportesView({
     title: "Sin cobros registrados todavía",
     subtitle: "Los cobros que registres en cada paciente se resumirán aquí por mes."
   }) : /*#__PURE__*/React.createElement("div", {
-    className: "space-y-3 max-w-xl"
+    className: "space-y-4 max-w-xl"
   }, porMes.map(([mes, datos]) => /*#__PURE__*/React.createElement("div", {
     key: mes,
     className: "bg-white border border-[#DDD5C4] rounded-lg p-4"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between mb-2"
+    className: "flex items-center justify-between mb-3"
   }, /*#__PURE__*/React.createElement("h3", {
     className: "font-semibold capitalize"
   }, nombreMes(mes)), /*#__PURE__*/React.createElement("span", {
     className: "text-xs text-[#6B7A72]",
     style: styles.mono
   }, datos.cantidad, " cobro", datos.cantidad === 1 ? "" : "s")), /*#__PURE__*/React.createElement("div", {
+    className: "divide-y divide-[#EEEAE0] mb-3"
+  }, datos.items.map(c => {
+    const propietario = propietarioDe(c.patientId);
+    return /*#__PURE__*/React.createElement("div", {
+      key: c.id,
+      className: "py-2 flex items-center justify-between gap-3"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "min-w-0"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "text-sm font-medium truncate"
+    }, c.patientName, propietario ? ` — ${propietario}` : ""), /*#__PURE__*/React.createElement("div", {
+      className: "text-xs text-[#6B7A72] truncate"
+    }, c.concepto, " · ", formatDate(c.fecha))), /*#__PURE__*/React.createElement("div", {
+      className: "text-right shrink-0"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "font-semibold text-sm"
+    }, "$", parseFloat(c.monto || 0).toFixed(2)), /*#__PURE__*/React.createElement("span", {
+      className: "text-[10px] px-1.5 py-0.5 rounded",
+      style: {
+        background: c.pagado ? "rgba(61,107,92,.1)" : "rgba(224,138,62,.1)",
+        color: c.pagado ? "#3D6B5C" : "#B14E1C"
+      }
+    }, c.pagado ? "Pagado" : "Pendiente")));
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "h-px bg-[#DDD5C4] mb-3"
+  }), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-3 gap-2 text-center"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "font-semibold text-[#23342F]"
@@ -4890,7 +4927,8 @@ function VetApp() {
     setActive: setActive,
     setSelected: setSelected
   }), active === "reportes" && /*#__PURE__*/React.createElement(ReportesView, {
-    cobros: cobros
+    cobros: cobros,
+    patients: activePatients
   }), active === "config" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold mb-1"
