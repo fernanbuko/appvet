@@ -1,6 +1,6 @@
 {
-  "name": "Ficha Vet",
-  "short_name": "Ficha Vet",
+  "name": "VetData",
+  "short_name": "VetData",
   "description": "Historia clínica, recetas y exámenes de pacientes veterinarios",
   "start_url": "./index.html",
   "scope": "./",
