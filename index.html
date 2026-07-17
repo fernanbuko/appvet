@@ -505,6 +505,38 @@ const firebaseConfig = {
   appId: "1:420928741564:web:f15d24133b8dbf3f1fb0b9"
 };
 const firebaseReady = firebaseConfig.apiKey && firebaseConfig.apiKey !== "TU_API_KEY";
+
+/* ---------------------------------------------------------
+   Cloudinary: almacenamiento de fotos y archivos (PDFs)
+   ---------------------------------------------------------
+   IMPORTANTE: reemplaza estos dos valores con los de TU cuenta
+   de Cloudinary (cloudinary.com → Dashboard → "Cloud name", y un
+   "Upload preset" que hayas creado en modo "Unsigned").
+----------------------------------------------------------*/
+const CLOUDINARY_CLOUD_NAME = "zcuh5bjn";
+const CLOUDINARY_UPLOAD_PRESET = "vetdata_uploads";
+const cloudinaryReady = CLOUDINARY_CLOUD_NAME !== "TU_CLOUD_NAME" && CLOUDINARY_UPLOAD_PRESET !== "TU_UPLOAD_PRESET";
+async function uploadToCloudinary(fileOrBlob, folder) {
+  const formData = new FormData();
+  formData.append("file", fileOrBlob);
+  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+  if (folder) formData.append("folder", folder);
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`, {
+    method: "POST",
+    body: formData
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error("Error subiendo archivo a Cloudinary: " + text);
+  }
+  const data = await res.json();
+  return {
+    url: data.secure_url,
+    publicId: data.public_id,
+    resourceType: data.resource_type,
+    format: data.format
+  };
+}
 let db = null;
 if (firebaseReady) {
   try {
@@ -525,11 +557,14 @@ let currentUid = null;
    datos, guardados bajo users/{uid}/data/{clave}. Así se
    sincronizan automáticamente entre celular y computadora.
 ----------------------------------------------------------*/
+function withTimeout(promise, ms = 10000) {
+  return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error("Tiempo de espera agotado")), ms))]);
+}
 const store = {
   async get(key) {
     if (!db || !currentUid) return null;
     try {
-      const snap = await db.collection("users").doc(currentUid).collection("data").doc(key).get();
+      const snap = await withTimeout(db.collection("users").doc(currentUid).collection("data").doc(key).get());
       return snap.exists ? snap.data().value : null;
     } catch (e) {
       console.error("Error leyendo datos:", e);
@@ -539,9 +574,9 @@ const store = {
   async set(key, value) {
     if (!db || !currentUid) return false;
     try {
-      await db.collection("users").doc(currentUid).collection("data").doc(key).set({
+      await withTimeout(db.collection("users").doc(currentUid).collection("data").doc(key).set({
         value
-      });
+      }));
       return true;
     } catch (e) {
       console.error("Error guardando datos:", e);
@@ -710,6 +745,7 @@ function PhotoAdjustModal({
   shape = "circle",
   size = 260,
   outputSize = 500,
+  folder,
   onCancel,
   onConfirm
 }) {
@@ -719,6 +755,8 @@ function PhotoAdjustModal({
     x: 0,
     y: 0
   });
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const dragRef = useRef(null);
   useEffect(() => {
     let cancelled = false;
@@ -790,7 +828,25 @@ function PhotoAdjustModal({
     ctx.scale(totalScale * outputScale, totalScale * outputScale);
     ctx.drawImage(imgEl, -imgEl.width / 2, -imgEl.height / 2);
     ctx.restore();
-    onConfirm(canvas.toDataURL("image/jpeg", 0.88));
+    if (!cloudinaryReady) {
+      // Respaldo: si Cloudinary no está configurado, se guarda igual que antes (como texto base64)
+      onConfirm(canvas.toDataURL("image/jpeg", 0.88));
+      return;
+    }
+    setUploadError("");
+    setUploading(true);
+    canvas.toBlob(async blob => {
+      try {
+        const {
+          url
+        } = await uploadToCloudinary(blob, folder);
+        onConfirm(url);
+      } catch (e) {
+        console.error(e);
+        setUploadError("No se pudo subir la imagen. Revisa tu conexión e intenta de nuevo.");
+        setUploading(false);
+      }
+    }, "image/jpeg", 0.88);
   };
   return /*#__PURE__*/React.createElement("div", {
     className: "fixed inset-0 z-50 flex items-center justify-center px-4",
@@ -854,13 +910,17 @@ function PhotoAdjustModal({
     step: "0.05",
     value: scale,
     onChange: handleZoom,
-    className: "flex-1"
-  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1",
+    disabled: uploading
+  })), uploadError && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#B14E1C] mt-2"
+  }, uploadError), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2 mt-5"
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: handleConfirm,
-    icon: "✓"
-  }, "Guardar recorte"), /*#__PURE__*/React.createElement(GhostButton, {
+    icon: "✓",
+    disabled: uploading
+  }, uploading ? "Subiendo..." : "Guardar recorte"), /*#__PURE__*/React.createElement(GhostButton, {
     onClick: onCancel
   }, "Cancelar"))));
 }
@@ -986,6 +1046,7 @@ function PatientForm({
     shape: "circle",
     size: 260,
     outputSize: 500,
+    folder: "vetdata/pacientes",
     onCancel: () => setCropSrc(null),
     onConfirm: dataUrl => {
       setData(d => ({
@@ -1527,6 +1588,10 @@ function RecetasView({
   })));
 }
 function openAttachment(att) {
+  if (att.url) {
+    window.open(att.url, "_blank", "noopener");
+    return;
+  }
   const a = document.createElement("a");
   a.href = att.dataUrl;
   a.download = att.name || "archivo";
@@ -1552,8 +1617,9 @@ function ExamenesView({
   const [resultados, setResultados] = useState("");
   const [attachments, setAttachments] = useState([]);
   const [attError, setAttError] = useState("");
+  const [uploadingFiles, setUploadingFiles] = useState(false);
   const fileRef = useRef(null);
-  const MAX_TOTAL_BYTES = 4 * 1024 * 1024; // ~4MB, límite prudente para no saturar el almacenamiento del navegador
+  const MAX_TOTAL_BYTES = 4 * 1024 * 1024; // ~4MB, solo aplica si Cloudinary no está configurado
 
   const reset = () => {
     setPatientId("");
@@ -1567,11 +1633,37 @@ function ExamenesView({
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     setAttError("");
+    if (cloudinaryReady) {
+      setUploadingFiles(true);
+      const nuevos = [];
+      for (const file of files) {
+        try {
+          const {
+            url
+          } = await uploadToCloudinary(file, "vetdata/examenes");
+          nuevos.push({
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            url
+          });
+        } catch (err) {
+          console.error(err);
+          setAttError("No se pudo subir " + file.name + ". Revisa tu conexión e intenta de nuevo.");
+        }
+      }
+      setAttachments(prev => [...prev, ...nuevos]);
+      setUploadingFiles(false);
+      e.target.value = "";
+      return;
+    }
+
+    // Respaldo si Cloudinary no está configurado: se guarda como texto base64 (con límite de tamaño)
     const nuevos = [];
     let totalBytes = attachments.reduce((sum, a) => sum + (a.size || 0), 0);
     for (const file of files) {
       if (totalBytes + file.size > MAX_TOTAL_BYTES) {
-        setAttError("Los archivos son muy pesados para guardarlos en el navegador (máx. ~4MB en total). Prueba con archivos más livianos.");
+        setAttError("Los archivos son muy pesados para guardarlos sin Cloudinary (máx. ~4MB en total).");
         break;
       }
       try {
@@ -1651,8 +1743,9 @@ function ExamenesView({
     onChange: handleFiles
   }), /*#__PURE__*/React.createElement("button", {
     onClick: () => fileRef.current?.click(),
-    className: "inline-flex items-center gap-2 border border-dashed border-[#B9C4BD] rounded-md px-3 py-2.5 text-sm text-[#3D6B5C] font-medium hover:border-[#3D6B5C] transition"
-  }, "📎 Adjuntar PDF o imagen"), attError && /*#__PURE__*/React.createElement("p", {
+    disabled: uploadingFiles,
+    className: "inline-flex items-center gap-2 border border-dashed border-[#B9C4BD] rounded-md px-3 py-2.5 text-sm text-[#3D6B5C] font-medium hover:border-[#3D6B5C] transition disabled:opacity-50"
+  }, uploadingFiles ? "Subiendo..." : "📎 Adjuntar PDF o imagen"), attError && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#B14E1C] mt-2"
   }, attError), attachments.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap gap-2 mt-3"
@@ -1749,6 +1842,7 @@ function ConfigForm({
     shape: "square",
     size: 260,
     outputSize: 400,
+    folder: "vetdata/logos",
     onCancel: () => setCropSrc(null),
     onConfirm: dataUrl => {
       setData(d => ({
