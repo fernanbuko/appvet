@@ -152,6 +152,9 @@
   .hover\:border-\[\#B9C4BD\]:hover{border-color:#B9C4BD}
   .bg-\[\#EEEAE0\]{background-color:#EEEAE0}
   .leading-relaxed{line-height:1.625}
+
+  .overflow-y-auto{overflow-y:auto}
+  .my-auto{margin-top:auto;margin-bottom:auto}
 </style>
 </head>
 <body>
@@ -818,13 +821,17 @@ function PhotoAdjustModal({
   }, [src]);
   if (!imgEl) {
     return /*#__PURE__*/React.createElement("div", {
-      className: "fixed inset-0 z-50 flex items-center justify-center",
+      className: "fixed inset-0 z-50 flex items-center justify-center px-4",
       style: {
         background: "rgba(0,0,0,.55)"
       }
     }, /*#__PURE__*/React.createElement("div", {
-      className: "bg-white rounded-lg p-6 text-sm text-[#6B7A72]"
-    }, "Cargando imagen..."));
+      className: "bg-white rounded-lg p-6 text-sm text-[#6B7A72] text-center"
+    }, /*#__PURE__*/React.createElement("p", {
+      className: "mb-3"
+    }, "Cargando imagen..."), /*#__PURE__*/React.createElement(GhostButton, {
+      onClick: onCancel
+    }, "Cancelar")));
   }
   const baseScale = Math.max(size / imgEl.width, size / imgEl.height);
   const totalScale = baseScale * scale;
@@ -896,16 +903,21 @@ function PhotoAdjustModal({
     }, "image/jpeg", 0.88);
   };
   return /*#__PURE__*/React.createElement("div", {
-    className: "fixed inset-0 z-50 flex items-center justify-center px-4",
+    className: "fixed inset-0 z-50 flex items-start justify-center px-4 py-8 overflow-y-auto",
     style: {
       background: "rgba(0,0,0,.55)"
     }
   }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-lg p-5 max-w-sm w-full"
+    className: "bg-white rounded-lg p-5 max-w-sm w-full my-auto"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-start justify-between mb-1"
   }, /*#__PURE__*/React.createElement("h3", {
     style: styles.display,
-    className: "text-lg font-semibold mb-1"
-  }, "Ajustar foto"), /*#__PURE__*/React.createElement("p", {
+    className: "text-lg font-semibold"
+  }, "Ajustar foto"), /*#__PURE__*/React.createElement("button", {
+    onClick: onCancel,
+    className: "text-[#A6A08F] hover:text-[#23342F] text-lg leading-none px-1"
+  }, "✕")), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#6B7A72] mb-4"
   }, "Arrastra la imagen para moverla y usa el control para acercar o alejar."), /*#__PURE__*/React.createElement("div", {
     onMouseDown: e => startDrag(e.clientX, e.clientY),
@@ -1488,7 +1500,8 @@ function printReceta(r, patient, config) {
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8" />
     <title>Receta - ${esc(r.patientName)}</title>
     <style>
-      body{font-family: Arial, Helvetica, sans-serif; padding: 36px; color:#111; max-width:760px; margin:0 auto; font-size:14px;}
+      @page { size: landscape; margin: 14mm; }
+      body{font-family: Arial, Helvetica, sans-serif; padding: 36px; color:#111; max-width:980px; margin:0 auto; font-size:14px;}
       .header{display:flex; align-items:flex-start; gap:18px; margin-bottom:20px;}
       .header img{width:56px; height:56px; border-radius:8px; object-fit:cover; flex-shrink:0;}
       .header-text h1{font-size:20px; margin:0 0 6px 0; text-transform:uppercase;}
@@ -1549,10 +1562,12 @@ function RecetasView({
   patients,
   recetas,
   onAdd,
+  onUpdate,
   onDelete,
   config
 }) {
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [patientId, setPatientId] = useState("");
   const [medicamentos, setMedicamentos] = useState("");
   const [indicaciones, setIndicaciones] = useState("");
@@ -1561,18 +1576,37 @@ function RecetasView({
     setMedicamentos("");
     setIndicaciones("");
     setShowForm(false);
+    setEditingId(null);
+  };
+  const startEdit = r => {
+    setEditingId(r.id);
+    setPatientId(r.patientId);
+    setMedicamentos(r.medicamentos);
+    setIndicaciones(r.indicaciones || "");
+    setShowForm(true);
   };
   const save = () => {
     const patient = patients.find(p => p.id === patientId);
     if (!patient || !medicamentos.trim()) return;
-    onAdd({
-      id: uid(),
-      patientId,
-      patientName: patient.nombre,
-      medicamentos,
-      indicaciones,
-      fecha: new Date().toISOString().slice(0, 10)
-    });
+    if (editingId) {
+      onUpdate({
+        id: editingId,
+        patientId,
+        patientName: patient.nombre,
+        medicamentos,
+        indicaciones,
+        fecha: recetas.find(r => r.id === editingId)?.fecha || new Date().toISOString().slice(0, 10)
+      });
+    } else {
+      onAdd({
+        id: uid(),
+        patientId,
+        patientName: patient.nombre,
+        medicamentos,
+        indicaciones,
+        fecha: new Date().toISOString().slice(0, 10)
+      });
+    }
     reset();
   };
   const sorted = [...recetas].sort((a, b) => a.fecha < b.fecha ? 1 : -1);
@@ -1617,7 +1651,7 @@ function RecetasView({
     onClick: save,
     disabled: !patientId || !medicamentos.trim(),
     icon: "✓"
-  }, "Guardar receta"), /*#__PURE__*/React.createElement(GhostButton, {
+  }, editingId ? "Guardar cambios" : "Guardar receta"), /*#__PURE__*/React.createElement(GhostButton, {
     onClick: reset
   }, "Cancelar"))), sorted.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
     title: "Aún no hay recetas",
@@ -1636,10 +1670,15 @@ function RecetasView({
     }, r.patientName), /*#__PURE__*/React.createElement("div", {
       className: "text-xs text-[#6B7A72]",
       style: styles.mono
-    }, r.fecha)), /*#__PURE__*/React.createElement("button", {
+    }, r.fecha)), /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-3"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => startEdit(r),
+      className: "text-[#A6A08F] hover:text-[#3D6B5C]"
+    }, "✏️"), /*#__PURE__*/React.createElement("button", {
       onClick: () => onDelete(r.id),
       className: "text-[#A6A08F] hover:text-[#B14E1C]"
-    }, "🗑️")), /*#__PURE__*/React.createElement("p", {
+    }, "🗑️"))), /*#__PURE__*/React.createElement("p", {
       className: "text-sm mt-2 whitespace-pre-wrap"
     }, r.medicamentos), r.indicaciones && /*#__PURE__*/React.createElement("p", {
       className: "text-sm mt-1.5 text-[#6B7A72] whitespace-pre-wrap"
@@ -1676,9 +1715,11 @@ function ExamenesView({
   patients,
   examenes,
   onAdd,
+  onUpdate,
   onDelete
 }) {
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [patientId, setPatientId] = useState("");
   const [tipo, setTipo] = useState("");
   const [resultados, setResultados] = useState("");
@@ -1695,6 +1736,15 @@ function ExamenesView({
     setAttachments([]);
     setAttError("");
     setShowForm(false);
+    setEditingId(null);
+  };
+  const startEdit = ex => {
+    setEditingId(ex.id);
+    setPatientId(ex.patientId);
+    setTipo(ex.tipo);
+    setResultados(ex.resultados || "");
+    setAttachments(ex.attachments || []);
+    setShowForm(true);
   };
   const handleFiles = async e => {
     const files = Array.from(e.target.files || []);
@@ -1753,15 +1803,27 @@ function ExamenesView({
   const save = () => {
     const patient = patients.find(p => p.id === patientId);
     if (!patient || !tipo.trim()) return;
-    onAdd({
-      id: uid(),
-      patientId,
-      patientName: patient.nombre,
-      tipo,
-      resultados,
-      attachments,
-      fecha: new Date().toISOString().slice(0, 10)
-    });
+    if (editingId) {
+      onUpdate({
+        id: editingId,
+        patientId,
+        patientName: patient.nombre,
+        tipo,
+        resultados,
+        attachments,
+        fecha: examenes.find(e => e.id === editingId)?.fecha || new Date().toISOString().slice(0, 10)
+      });
+    } else {
+      onAdd({
+        id: uid(),
+        patientId,
+        patientName: patient.nombre,
+        tipo,
+        resultados,
+        attachments,
+        fecha: new Date().toISOString().slice(0, 10)
+      });
+    }
     reset();
   };
   const sorted = [...examenes].sort((a, b) => a.fecha < b.fecha ? 1 : -1);
@@ -1830,7 +1892,7 @@ function ExamenesView({
     onClick: save,
     disabled: !patientId || !tipo.trim(),
     icon: "✓"
-  }, "Guardar examen"), /*#__PURE__*/React.createElement(GhostButton, {
+  }, editingId ? "Guardar cambios" : "Guardar examen"), /*#__PURE__*/React.createElement(GhostButton, {
     onClick: reset
   }, "Cancelar"))), sorted.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
     title: "Aún no hay exámenes",
@@ -1847,10 +1909,15 @@ function ExamenesView({
   }, ex.patientName), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72]",
     style: styles.mono
-  }, ex.fecha, " · ", ex.tipo)), /*#__PURE__*/React.createElement("button", {
+  }, ex.fecha, " · ", ex.tipo)), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => startEdit(ex),
+    className: "text-[#A6A08F] hover:text-[#3D6B5C]"
+  }, "✏️"), /*#__PURE__*/React.createElement("button", {
     onClick: () => onDelete(ex.id),
     className: "text-[#A6A08F] hover:text-[#B14E1C]"
-  }, "🗑️")), ex.resultados && /*#__PURE__*/React.createElement("p", {
+  }, "🗑️"))), ex.resultados && /*#__PURE__*/React.createElement("p", {
     className: "text-sm mt-2 whitespace-pre-wrap"
   }, ex.resultados), ex.attachments && ex.attachments.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap gap-2 mt-3"
@@ -2572,6 +2639,12 @@ function VetApp() {
     collectionStore.setOne("recetas", r.id, r);
     showToast("Receta guardada");
   };
+  const updateReceta = r => {
+    const next = recetas.map(x => x.id === r.id ? r : x);
+    setRecetas(next);
+    collectionStore.setOne("recetas", r.id, r);
+    showToast("Receta actualizada");
+  };
   const deleteReceta = id => {
     const next = recetas.filter(r => r.id !== id);
     setRecetas(next);
@@ -2582,6 +2655,12 @@ function VetApp() {
     setExamenes(next);
     collectionStore.setOne("examenes", ex.id, ex);
     showToast("Examen guardado");
+  };
+  const updateExamen = ex => {
+    const next = examenes.map(x => x.id === ex.id ? ex : x);
+    setExamenes(next);
+    collectionStore.setOne("examenes", ex.id, ex);
+    showToast("Examen actualizado");
   };
   const deleteExamen = id => {
     const next = examenes.filter(e => e.id !== id);
@@ -2736,12 +2815,14 @@ function VetApp() {
     patients: patients,
     recetas: recetas,
     onAdd: addReceta,
+    onUpdate: updateReceta,
     onDelete: deleteReceta,
     config: config
   }), active === "examenes" && /*#__PURE__*/React.createElement(ExamenesView, {
     patients: patients,
     examenes: examenes,
     onAdd: addExamen,
+    onUpdate: updateExamen,
     onDelete: deleteExamen
   }), active === "config" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
