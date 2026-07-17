@@ -679,6 +679,12 @@ const collectionStore = {
       console.error("Error suscribiéndose a " + name + ":", e);
       return () => {};
     }
+  },
+  // Borra TODOS los documentos de una colección (se usa al eliminar la cuenta)
+  async deleteAll(name) {
+    if (!db || !currentUid) return;
+    const snap = await withTimeout(db.collection("users").doc(currentUid).collection(name).get());
+    await Promise.all(snap.docs.map(d => d.ref.delete()));
   }
 };
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -805,17 +811,16 @@ function downloadICS(ics, filename) {
   URL.revokeObjectURL(url);
 }
 
-// Abre el archivo .ics directamente (en vez de solo descargarlo en silencio),
-// para que el celular ofrezca de inmediato "Agregar al calendario".
-// IMPORTANTE: se usa un data URI (no un blob URL) porque los blob: solo son
-// válidos dentro de la misma pestaña que los crea. Además se simula el clic
-// en un enlace (en vez de window.open), porque los navegadores móviles
-// suelen bloquear window.open al tratarlo como ventana emergente no deseada.
+// Abre/descarga el archivo .ics para que el celular ofrezca "Agregar al
+// calendario". Se usa un data URI (no blob:, que solo es válido en la misma
+// pestaña) CON el atributo "download" — en Android esto activa la notificación
+// de "Archivo descargado" con botón "Abrir"; en iPhone (Safari), es la forma
+// en que reconoce el archivo como evento de calendario y lo ofrece agregar.
 function openICS(ics, filename) {
   const dataUrl = "data:text/calendar;charset=utf-8," + encodeURIComponent(ics);
   const a = document.createElement("a");
   a.href = dataUrl;
-  a.target = "_blank";
+  a.download = filename;
   a.rel = "noopener";
   document.body.appendChild(a);
   a.click();
@@ -3064,6 +3069,34 @@ function VetApp() {
     setShowGreeting(true);
     setActive("inicio");
   };
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const handleDeleteAccount = async () => {
+    if (deletingAccount) return;
+    const paso1 = window.confirm("Esto va a ELIMINAR PERMANENTEMENTE tu cuenta y TODOS tus datos (pacientes, recetas, exámenes, historial médico). " + "No se puede deshacer. ¿Quieres continuar?");
+    if (!paso1) return;
+    const escrito = window.prompt('Para confirmar, escribe ELIMINAR (en mayúsculas):');
+    if (escrito !== "ELIMINAR") {
+      if (escrito !== null) alert("No coincide con \"ELIMINAR\". Se canceló la eliminación.");
+      return;
+    }
+    setDeletingAccount(true);
+    try {
+      await Promise.all([collectionStore.deleteAll("patients"), collectionStore.deleteAll("recetas"), collectionStore.deleteAll("examenes"), collectionStore.deleteAll("historial")]);
+      if (db && currentUid) {
+        await db.collection("users").doc(currentUid).collection("data").doc("config").delete().catch(() => {});
+      }
+      await firebase.auth().currentUser.delete();
+      // Al borrarse el usuario, onAuthStateChanged se dispara solo y muestra el login.
+    } catch (e) {
+      if (e && e.code === "auth/requires-recent-login") {
+        alert("Por seguridad, Google pide que hayas iniciado sesión recientemente para poder eliminar la cuenta. " + "Cierra sesión, vuelve a entrar, y de inmediato intenta eliminar la cuenta otra vez.");
+      } else {
+        alert("No se pudo eliminar la cuenta: " + (e?.message || "intenta de nuevo."));
+      }
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
   const patientsRef = useRef(patients);
   useEffect(() => {
     patientsRef.current = patients;
@@ -3471,6 +3504,19 @@ function VetApp() {
     onClick: handleSignOut,
     icon: "🚪"
   }, "Cerrar sesión"))), /*#__PURE__*/React.createElement("div", {
+    className: "max-w-xl mt-8"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "text-[11px] uppercase tracking-wider text-[#B14E1C] mb-3",
+    style: styles.mono
+  }, "Zona de peligro"), /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-[#E08A3E]/40 rounded-lg p-6"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-[#6B7A72] mb-4"
+  }, "Esto elimina tu cuenta y borra ", /*#__PURE__*/React.createElement("b", null, "permanentemente"), " todos tus pacientes, recetas, exámenes e historial médico guardados. No se puede deshacer."), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: handleDeleteAccount,
+    icon: "🗑️",
+    danger: true
+  }, deletingAccount ? "Eliminando..." : "Eliminar cuenta y todos mis datos"))), /*#__PURE__*/React.createElement("div", {
     className: "max-w-xl mt-8"
   }, /*#__PURE__*/React.createElement("h3", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
