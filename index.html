@@ -206,6 +206,12 @@
     background: #1f2623 !important; color: #E8E4D9 !important; border-color: #34403a !important;
   }
   [data-theme="dark"] ::placeholder { color: #6B7A72 !important; }
+
+  .grid-cols-7{grid-template-columns:repeat(7,minmax(0,1fr))}
+
+  .gap-1{gap:.25rem}
+
+  .w-7{width:1.75rem}.h-7{height:1.75rem}
 </style>
 </head>
 <body>
@@ -1302,7 +1308,7 @@ function MobileTopBar({
   }, config?.logo ? /*#__PURE__*/React.createElement("img", {
     src: config.logo,
     alt: "",
-    className: "w-7 h-7 rounded object-cover"
+    className: "w-7 h-7 rounded-full object-cover shrink-0"
   }) : /*#__PURE__*/React.createElement("span", {
     className: "text-lg"
   }, "🐾"), /*#__PURE__*/React.createElement("span", {
@@ -1420,6 +1426,7 @@ const emptyPatient = () => ({
   raza: "",
   fechaNacimiento: "",
   propietario: "",
+  ubicacion: "",
   motivoConsulta: "",
   signos: "",
   tratamientoInyectable: "",
@@ -1434,6 +1441,9 @@ const emptyPatient = () => ({
 const HOJAS = ["Identificación", "Consulta", "Plan", "Seguimiento"];
 const RAZAS_PERRO = ["Labrador Retriever", "Golden Retriever", "Pastor Aleman", "Bulldog Frances", "Bulldog Ingles", "Poodle Caniche", "Beagle", "Rottweiler", "Yorkshire Terrier", "Boxer", "Dachshund Salchicha", "Chihuahua", "Husky Siberiano", "Gran Danes", "Doberman", "Shih Tzu", "Pomerania", "Border Collie", "Schnauzer", "Cocker Spaniel", "Pug Carlino", "Maltes", "Akita", "San Bernardo", "Basset Hound", "Bull Terrier", "Pit Bull Terrier", "Dalmata", "Chow Chow", "Shar Pei", "Weimaraner", "Galgo", "Mastin", "Bichon Frise", "Pointer", "Setter Irlandes", "Terranova", "Cane Corso", "Perro de Agua Espanol", "Fox Terrier", "Jack Russell Terrier", "Whippet", "Basenji", "Boyero de Berna", "Collie", "Papillon", "Lhasa Apso", "Rhodesian Ridgeback", "Mestizo Criollo", "Otra"];
 const RAZAS_GATO = ["Comun Europeo Mestizo", "Persa", "Siames", "Maine Coon", "Angora Turco", "Bengali", "British Shorthair", "Ragdoll", "Sphynx Esfinge", "Abisinio", "Exotico de Pelo Corto", "Devon Rex", "Cornish Rex", "Azul Ruso", "Scottish Fold", "Himalayo", "Bombay", "Birmano", "Manx", "Munchkin", "Ocicat", "Somali", "Tonkines", "Van Turco", "Chartreux", "Korat", "Burmes", "Selkirk Rex", "Egyptian Mau", "Otra"];
+
+// Los 25 cantones de la provincia del Guayas, Ecuador
+const CANTONES_GUAYAS = ["Guayaquil", "Alfredo Baquerizo Moreno (Jujan)", "Balao", "Balzar", "Colimes", "Coronel Marcelino Maridueña", "Daule", "Duran", "El Empalme", "El Triunfo", "General Antonio Elizalde (Bucay)", "Isidro Ayora", "Lomas de Sargentillo", "Milagro", "Naranjal", "Naranjito", "Nobol", "Palestina", "Pedro Carbo", "Playas", "Salitre", "Samborondon", "San Jacinto de Yaguachi", "Santa Lucia", "Simon Bolivar"];
 function PatientForm({
   initial,
   onSave,
@@ -1585,6 +1595,16 @@ function PatientForm({
     value: data.propietario,
     onChange: set("propietario"),
     placeholder: "Ej. María Pérez"
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Ubicación (cantón, Guayas)"
+  }, /*#__PURE__*/React.createElement(SearchableSelect, {
+    options: CANTONES_GUAYAS,
+    value: data.ubicacion,
+    onChange: v => setData(d => ({
+      ...d,
+      ubicacion: v
+    })),
+    placeholder: "Escribe o elige un cantón..."
   })))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-4"
   }, /*#__PURE__*/React.createElement(Field, {
@@ -1845,6 +1865,7 @@ function exportPatientPDF(patient, config, recetas, examenes, historial) {
       <h2>Identificación</h2>
       <div class="row"><span class="label">Nombre</span><div class="value">${esc(patient.nombre)}</div></div>
       ${row("Propietario", patient.propietario)}
+      ${row("Ubicación", patient.ubicacion)}
       ${row("Especie", patient.especie)}
       ${row("Raza", patient.raza)}
       ${row("Peso", patient.peso ? patient.peso + " kg" : "")}
@@ -1983,6 +2004,9 @@ function PatientDetail({
   }), /*#__PURE__*/React.createElement(DetailRow, {
     label: "Fecha de nacimiento",
     value: formatDate(patient.fechaNacimiento, config?.dateFormat)
+  }), /*#__PURE__*/React.createElement(DetailRow, {
+    label: "Ubicación",
+    value: patient.ubicacion
   })), /*#__PURE__*/React.createElement("div", {
     className: "h-px bg-[#DDD5C4] my-4"
   }), /*#__PURE__*/React.createElement(DetailRow, {
