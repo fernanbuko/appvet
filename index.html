@@ -170,6 +170,8 @@
   .pointer-events-none{pointer-events:none}
 
   .inset-y-0{top:0;bottom:0}
+
+  .right-3{right:.75rem}
 </style>
 </head>
 <body>
@@ -3348,7 +3350,14 @@ function VetApp() {
     style: styles.page,
     className: "flex flex-col min-h-screen"
   }, !isOnline && /*#__PURE__*/React.createElement("div", {
-    className: "w-full bg-[#E08A3E] text-white text-xs text-center py-2 px-3"
+    className: "w-full bg-[#E08A3E] text-white text-xs text-center relative",
+    style: {
+      paddingTop: "calc(env(safe-area-inset-top, 0px) + 10px)",
+      paddingBottom: "10px",
+      paddingLeft: "12px",
+      paddingRight: "12px",
+      zIndex: 30
+    }
   }, "📴 Sin conexión — puedes seguir trabajando, tus cambios se sincronizarán solos al recuperar internet."), /*#__PURE__*/React.createElement("div", {
     className: "flex flex-col md:flex-row flex-1"
   }, /*#__PURE__*/React.createElement(Sidebar, {
