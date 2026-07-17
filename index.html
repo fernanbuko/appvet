@@ -566,6 +566,15 @@ if (firebaseReady) {
   try {
     firebase.initializeApp(firebaseConfig);
     db = firebase.firestore();
+    // Activa el modo sin conexión: guarda una copia local de los datos ya
+    // vistos, permite seguir trabajando (leer y escribir) sin internet, y
+    // sincroniza solo en cuanto vuelve la conexión, sin que el usuario
+    // tenga que hacer nada.
+    db.enablePersistence({
+      synchronizeTabs: true
+    }).catch(e => {
+      console.error("No se pudo activar el modo sin conexión:", e);
+    });
   } catch (e) {
     console.error("Error inicializando Firebase", e);
   }
@@ -2777,6 +2786,20 @@ function VetApp() {
   const [editing, setEditing] = useState(null);
   const [selected, setSelected] = useState(null);
   const [toast, setToast] = useState("");
+  const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+  useEffect(() => {
+    const goOnline = () => {
+      setIsOnline(true);
+      showToast("Conexión recuperada — sincronizando...");
+    };
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
 
   // Sesión (Firebase Auth con Google) y estado de carga de datos
   const [user, setUser] = useState(undefined); // undefined = comprobando sesión, null = sin sesión
@@ -3215,7 +3238,9 @@ function VetApp() {
     config: config
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 px-5 sm:px-8 py-8 max-w-5xl"
-  }, toast && /*#__PURE__*/React.createElement("div", {
+  }, !isOnline && /*#__PURE__*/React.createElement("div", {
+    className: "fixed top-0 left-0 right-0 z-50 bg-[#E08A3E] text-white text-xs text-center py-1.5"
+  }, "📴 Sin conexión — puedes seguir trabajando, tus cambios se sincronizarán solos al recuperar internet."), toast && /*#__PURE__*/React.createElement("div", {
     className: "fixed top-4 right-4 z-50 bg-[#23342F] text-white text-sm px-4 py-2.5 rounded-md shadow-lg flex items-center gap-2"
   }, "✓ ", toast), active === "inicio" && /*#__PURE__*/React.createElement(HomeScreen, {
     patients: patients,
