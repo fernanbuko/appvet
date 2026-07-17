@@ -166,6 +166,8 @@
   .left-0{left:0}
   .right-0{right:0}
   .max-h-48{max-height:12rem}
+
+  .pointer-events-none{pointer-events:none}
 </style>
 </head>
 <body>
@@ -801,17 +803,17 @@ function downloadICS(ics, filename) {
 
 // Abre el archivo .ics directamente (en vez de solo descargarlo en silencio),
 // para que el celular ofrezca de inmediato "Agregar al calendario".
+// IMPORTANTE: se usa un data URI (no un blob URL) porque los blob: solo son
+// válidos dentro de la misma pestaña que los crea — al abrirse en una pestaña
+// nueva (window.open) el navegador no puede leerlos y la pantalla solo
+// parpadea sin mostrar nada.
 function openICS(ics, filename) {
-  const blob = new Blob([ics], {
-    type: "text/calendar;charset=utf-8"
-  });
-  const url = URL.createObjectURL(blob);
-  const opened = window.open(url, "_blank");
+  const dataUrl = "data:text/calendar;charset=utf-8," + encodeURIComponent(ics);
+  const opened = window.open(dataUrl, "_blank");
   if (!opened) {
     // Si el navegador bloqueó la ventana emergente, se usa la descarga normal
     downloadICS(ics, filename);
   }
-  setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
 /* ---------------------------------------------------------
@@ -883,6 +885,10 @@ function GhostButton({
    (ej. razas): a partir de 2 letras muestra las coincidencias,
    pero siempre permite escribir un valor propio si no aparece.
 ----------------------------------------------------------*/
+function normalizeText(s) {
+  return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "") // quita tildes/acentos
+  .toLowerCase().trim();
+}
 function SearchableSelect({
   options,
   value,
@@ -902,8 +908,11 @@ function SearchableSelect({
       document.removeEventListener("touchstart", handleOutside);
     };
   }, []);
-  const query = (value || "").trim().toLowerCase();
-  const filtered = query.length >= 2 ? options.filter(o => o.toLowerCase().includes(query)).slice(0, 8) : [];
+  const query = normalizeText(value);
+  // Con el campo vacío se muestra el menú completo (como un select normal);
+  // en cuanto se escribe, se filtra sin importar tildes ni mayúsculas.
+  const visible = query.length === 0 ? options : options.filter(o => normalizeText(o).includes(query));
+  const shown = visible.slice(0, 8);
   return /*#__PURE__*/React.createElement("div", {
     className: "relative",
     ref: wrapperRef
@@ -917,10 +926,15 @@ function SearchableSelect({
     onFocus: () => setOpen(true),
     placeholder: placeholder,
     className: inputClass,
+    style: {
+      paddingRight: "2rem"
+    },
     autoComplete: "off"
-  }), open && filtered.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#A6A08F] text-xs"
+  }, "▾"), open && shown.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "absolute z-20 left-0 right-0 mt-1 bg-white border border-[#DDD5C4] rounded-md shadow-lg max-h-48 overflow-y-auto"
-  }, filtered.map(opt => /*#__PURE__*/React.createElement("button", {
+  }, shown.map(opt => /*#__PURE__*/React.createElement("button", {
     key: opt,
     type: "button",
     onMouseDown: e => e.preventDefault(),
@@ -1215,8 +1229,8 @@ const emptyPatient = () => ({
   updatedAt: null
 });
 const HOJAS = ["Identificación", "Consulta", "Plan", "Seguimiento"];
-const RAZAS_PERRO = ["Labrador Retriever", "Golden Retriever", "Pastor Alemán", "Bulldog Francés", "Bulldog Inglés", "Poodle (Caniche)", "Beagle", "Rottweiler", "Yorkshire Terrier", "Boxer", "Dachshund (Salchicha)", "Chihuahua", "Husky Siberiano", "Gran Danés", "Doberman", "Shih Tzu", "Pomerania", "Border Collie", "Schnauzer", "Cocker Spaniel", "Pug (Carlino)", "Maltés", "Akita", "San Bernardo", "Basset Hound", "Bull Terrier", "Pit Bull Terrier", "Dálmata", "Chow Chow", "Shar Pei", "Weimaraner", "Galgo", "Mastín", "Bichón Frisé", "Pointer", "Setter Irlandés", "Terranova", "Bóxer", "Cane Corso", "Perro de Agua Español", "Fox Terrier", "Jack Russell Terrier", "Whippet", "Basenji", "Boyero de Berna", "Collie", "Papillón", "Lhasa Apso", "Rhodesian Ridgeback", "Mestizo/Criollo", "Otra"];
-const RAZAS_GATO = ["Común Europeo (Mestizo)", "Persa", "Siamés", "Maine Coon", "Angora Turco", "Bengalí", "British Shorthair", "Ragdoll", "Sphynx (Esfinge)", "Abisinio", "Exótico de Pelo Corto", "Devon Rex", "Cornish Rex", "Azul Ruso", "Scottish Fold", "Himalayo", "Bombay", "Birmano", "Manx", "Munchkin", "Ocicat", "Somalí", "Tonkinés", "Van Turco", "Chartreux", "Korat", "Burmés", "Selkirk Rex", "Egyptian Mau", "Otra"];
+const RAZAS_PERRO = ["Labrador Retriever", "Golden Retriever", "Pastor Aleman", "Bulldog Frances", "Bulldog Ingles", "Poodle Caniche", "Beagle", "Rottweiler", "Yorkshire Terrier", "Boxer", "Dachshund Salchicha", "Chihuahua", "Husky Siberiano", "Gran Danes", "Doberman", "Shih Tzu", "Pomerania", "Border Collie", "Schnauzer", "Cocker Spaniel", "Pug Carlino", "Maltes", "Akita", "San Bernardo", "Basset Hound", "Bull Terrier", "Pit Bull Terrier", "Dalmata", "Chow Chow", "Shar Pei", "Weimaraner", "Galgo", "Mastin", "Bichon Frise", "Pointer", "Setter Irlandes", "Terranova", "Cane Corso", "Perro de Agua Espanol", "Fox Terrier", "Jack Russell Terrier", "Whippet", "Basenji", "Boyero de Berna", "Collie", "Papillon", "Lhasa Apso", "Rhodesian Ridgeback", "Mestizo Criollo", "Otra"];
+const RAZAS_GATO = ["Comun Europeo Mestizo", "Persa", "Siames", "Maine Coon", "Angora Turco", "Bengali", "British Shorthair", "Ragdoll", "Sphynx Esfinge", "Abisinio", "Exotico de Pelo Corto", "Devon Rex", "Cornish Rex", "Azul Ruso", "Scottish Fold", "Himalayo", "Bombay", "Birmano", "Manx", "Munchkin", "Ocicat", "Somali", "Tonkines", "Van Turco", "Chartreux", "Korat", "Burmes", "Selkirk Rex", "Egyptian Mau", "Otra"];
 function PatientForm({
   initial,
   onSave,
