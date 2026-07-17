@@ -111,6 +111,7 @@
     .md\:whitespace-normal{white-space:normal}
     .md\:pb-8{padding-bottom:2rem}
     .md\:hidden{display:none}
+    .md\:block{display:block}
   }
   .pt-8{padding-top:2rem}
   .pb-24{padding-bottom:6rem}
@@ -184,6 +185,27 @@
   .bottom-0{bottom:0}
   .z-40{z-index:40}
   .items-stretch{align-items:stretch}
+
+  .aspect-square{aspect-ratio:1/1}
+  .grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+
+  .capitalize{text-transform:capitalize}
+
+  /* Modo oscuro (aplica sobre las clases mas usadas de la app) */
+  [data-theme="dark"] { background: #14181a; }
+  [data-theme="dark"] body { background: #14181a; }
+  [data-theme="dark"] .bg-\[\#F7F4EC\] { background: #14181a !important; }
+  [data-theme="dark"] .bg-white { background: #1f2623 !important; }
+  [data-theme="dark"] .bg-\[\#EAF0EC\] { background: #26302b !important; }
+  [data-theme="dark"] .border-\[\#DDD5C4\] { border-color: #34403a !important; }
+  [data-theme="dark"] .text-\[\#23342F\] { color: #E8E4D9 !important; }
+  [data-theme="dark"] .text-\[\#6B7A72\] { color: #9AA79F !important; }
+  [data-theme="dark"] .text-\[\#A6A08F\] { color: #7C8983 !important; }
+  [data-theme="dark"] { color: #E8E4D9; }
+  [data-theme="dark"] input, [data-theme="dark"] textarea, [data-theme="dark"] select {
+    background: #1f2623 !important; color: #E8E4D9 !important; border-color: #34403a !important;
+  }
+  [data-theme="dark"] ::placeholder { color: #6B7A72 !important; }
 </style>
 </head>
 <body>
@@ -1215,6 +1237,14 @@ const NAV = [{
   label: "Exámenes",
   icon: "🧪"
 }, {
+  key: "agenda",
+  label: "Agenda",
+  icon: "📅"
+}, {
+  key: "reportes",
+  label: "Reportes",
+  icon: "📊"
+}, {
   key: "config",
   label: "Configuración",
   icon: "⚙️"
@@ -1397,7 +1427,9 @@ const emptyPatient = () => ({
   examenesComplementarios: "",
   proximaVisita: "",
   anotarCalendario: false,
-  updatedAt: null
+  updatedAt: null,
+  etiquetas: [],
+  fotos: []
 });
 const HOJAS = ["Identificación", "Consulta", "Plan", "Seguimiento"];
 const RAZAS_PERRO = ["Labrador Retriever", "Golden Retriever", "Pastor Aleman", "Bulldog Frances", "Bulldog Ingles", "Poodle Caniche", "Beagle", "Rottweiler", "Yorkshire Terrier", "Boxer", "Dachshund Salchicha", "Chihuahua", "Husky Siberiano", "Gran Danes", "Doberman", "Shih Tzu", "Pomerania", "Border Collie", "Schnauzer", "Cocker Spaniel", "Pug Carlino", "Maltes", "Akita", "San Bernardo", "Basset Hound", "Bull Terrier", "Pit Bull Terrier", "Dalmata", "Chow Chow", "Shar Pei", "Weimaraner", "Galgo", "Mastin", "Bichon Frise", "Pointer", "Setter Irlandes", "Terranova", "Cane Corso", "Perro de Agua Espanol", "Fox Terrier", "Jack Russell Terrier", "Whippet", "Basenji", "Boyero de Berna", "Collie", "Papillon", "Lhasa Apso", "Rhodesian Ridgeback", "Mestizo Criollo", "Otra"];
@@ -1587,6 +1619,24 @@ function PatientForm({
     type: "date",
     value: data.fechaNacimiento,
     onChange: set("fechaNacimiento")
+  }))), /*#__PURE__*/React.createElement(Field, {
+    label: "Etiquetas rápidas"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-2"
+  }, ["Esterilizado", "Alergias", "Agresivo", "Crónico", "Geriátrico"].map(t => {
+    const activo = (data.etiquetas || []).includes(t);
+    return /*#__PURE__*/React.createElement("button", {
+      key: t,
+      type: "button",
+      onClick: () => setData(d => {
+        const cur = d.etiquetas || [];
+        return {
+          ...d,
+          etiquetas: activo ? cur.filter(x => x !== t) : [...cur, t]
+        };
+      }),
+      className: "text-xs px-3 py-1.5 rounded-full border transition " + (activo ? "bg-[#3D6B5C] border-[#3D6B5C] text-white" : "bg-white border-[#DDD5C4] text-[#6B7A72] hover:border-[#3D6B5C]")
+    }, t);
   })))), step === 1 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Field, {
     label: "Motivo de consulta"
   }, /*#__PURE__*/React.createElement(TextArea, {
@@ -1842,12 +1892,40 @@ function PatientDetail({
   onEdit,
   onDelete,
   onClose,
+  onUpdateFotos,
   config,
   recetas,
   examenes,
   historial
 }) {
-  const [showPhoto, setShowPhoto] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState(null);
+  const [uploadingFoto, setUploadingFoto] = useState(false);
+  const galeriaFileRef = useRef(null);
+  const handleAddFoto = async e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingFoto(true);
+    try {
+      let url;
+      if (cloudinaryReady) {
+        const result = await uploadToCloudinary(file, "vetdata/galeria");
+        url = result.url;
+      } else {
+        url = await resizeImage(file, 900);
+      }
+      const nuevas = [...(patient.fotos || []), url];
+      onUpdateFotos(patient, nuevas);
+    } catch (err) {
+      alert("No se pudo subir la foto. Intenta de nuevo.");
+    } finally {
+      setUploadingFoto(false);
+      e.target.value = "";
+    }
+  };
+  const removeFoto = idx => {
+    const nuevas = (patient.fotos || []).filter((_, i) => i !== idx);
+    onUpdateFotos(patient, nuevas);
+  };
   const handleICS = () => {
     const ics = makeICS({
       title: `Próx. visita — ${patient.nombre}`,
@@ -1859,15 +1937,15 @@ function PatientDetail({
   };
   return /*#__PURE__*/React.createElement("div", {
     className: "max-w-2xl bg-white border border-[#DDD5C4] rounded-lg p-6"
-  }, showPhoto && patient.foto && /*#__PURE__*/React.createElement(ImageLightbox, {
-    src: patient.foto,
-    onClose: () => setShowPhoto(false)
+  }, lightboxSrc && /*#__PURE__*/React.createElement(ImageLightbox, {
+    src: lightboxSrc,
+    onClose: () => setLightboxSrc(null)
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex items-start justify-between mb-5"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-4"
   }, /*#__PURE__*/React.createElement("div", {
-    onClick: () => patient.foto && setShowPhoto(true),
+    onClick: () => patient.foto && setLightboxSrc(patient.foto),
     className: "w-16 h-16 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0 " + (patient.foto ? "cursor-pointer" : "")
   }, patient.foto ? /*#__PURE__*/React.createElement("img", {
     src: patient.foto,
@@ -1880,7 +1958,12 @@ function PatientDetail({
     className: "text-2xl font-semibold leading-tight"
   }, patient.nombre), /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-[#6B7A72]"
-  }, patient.propietario || "Sin propietario registrado"))), /*#__PURE__*/React.createElement("button", {
+  }, patient.propietario || "Sin propietario registrado"), patient.etiquetas && patient.etiquetas.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-1.5 mt-1.5"
+  }, patient.etiquetas.map(t => /*#__PURE__*/React.createElement("span", {
+    key: t,
+    className: "text-[10px] px-2 py-0.5 rounded-full bg-[#3D6B5C] text-white"
+  }, t))))), /*#__PURE__*/React.createElement("button", {
     onClick: onClose,
     className: "text-[#6B7A72] hover:text-[#23342F] text-xl leading-none"
   }, "✕")), /*#__PURE__*/React.createElement("div", {
@@ -1925,6 +2008,40 @@ function PatientDetail({
     label: "Próxima visita",
     value: formatDate(patient.proximaVisita, config?.dateFormat)
   }), /*#__PURE__*/React.createElement("div", {
+    className: "h-px bg-[#DDD5C4] my-4"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "mb-2 flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[11px] uppercase tracking-wider text-[#6B7A72]",
+    style: styles.mono
+  }, "Galería de fotos"), /*#__PURE__*/React.createElement("input", {
+    ref: galeriaFileRef,
+    type: "file",
+    accept: "image/*",
+    className: "hidden",
+    onChange: handleAddFoto
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => galeriaFileRef.current?.click(),
+    disabled: uploadingFoto,
+    className: "text-xs text-[#3D6B5C] font-medium hover:underline disabled:opacity-50"
+  }, uploadingFoto ? "Subiendo..." : "➕ Agregar foto")), patient.fotos && patient.fotos.length > 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-4 gap-2 mb-2"
+  }, patient.fotos.map((src, idx) => /*#__PURE__*/React.createElement("div", {
+    key: idx,
+    className: "relative group"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setLightboxSrc(src),
+    className: "block w-full aspect-square rounded-md overflow-hidden bg-[#EAF0EC]"
+  }, /*#__PURE__*/React.createElement("img", {
+    src: src,
+    alt: "",
+    className: "w-full h-full object-cover"
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: () => removeFoto(idx),
+    className: "absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white text-xs flex items-center justify-center"
+  }, "✕")))) : /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#A6A08F] mb-2"
+  }, "Sin fotos adicionales (heridas, evolución, radiografías, etc.)"), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 mt-6 flex-wrap"
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: () => onEdit(patient),
@@ -2105,6 +2222,69 @@ function HistorialMedico({
 /* ---------------------------------------------------------
    Control de vacunas
 ----------------------------------------------------------*/
+function printCarnetVacunas(patient, entries, config) {
+  const win = window.open("", "_blank");
+  if (!win) {
+    alert("Tu navegador bloqueó la ventana emergente. Permite ventanas emergentes para poder exportar el carnet.");
+    return;
+  }
+  const esc = s => (s || "").toString().replace(/</g, "&lt;");
+  const df = config?.dateFormat;
+  const hoy = new Date().toISOString().slice(0, 10);
+  const hoySort = hoy;
+  const rows = entries.map(v => `
+    <tr>
+      <td>${esc(v.nombre)}</td>
+      <td>${esc(formatDate(v.fechaAplicada, df))}</td>
+      <td>${v.proximaDosis ? esc(formatDate(v.proximaDosis, df)) + (v.proximaDosis < hoySort ? " ⚠️" : "") : "-"}</td>
+      <td>${esc(v.notas || "-")}</td>
+    </tr>`).join("");
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8" />
+    <title>Carnet de vacunación - ${esc(patient.nombre)}</title>
+    <style>
+      body{font-family: Arial, Helvetica, sans-serif; padding: 36px; color:#111; max-width:760px; margin:0 auto; font-size:13px;}
+      .header{display:flex; align-items:center; gap:14px; border-bottom:2px solid #3D6B5C; padding-bottom:14px; margin-bottom:16px;}
+      .header img{width:48px; height:48px; border-radius:8px; object-fit:cover;}
+      h1{font-size:20px; margin:0;}
+      table{width:100%; border-collapse:collapse; margin-top:10px;}
+      th{text-align:left; font-size:11px; text-transform:uppercase; color:#6B7A72; border-bottom:1px solid #DDD; padding:6px 8px;}
+      td{padding:8px; border-bottom:1px solid #EEE; font-size:13px;}
+      @media print { body{padding:16px;} }
+    </style>
+    </head><body>
+      <div class="header">
+        ${config?.logo ? `<img src="${config.logo}" alt="" />` : ""}
+        <div>
+          <h1>Carnet de vacunación</h1>
+          <div style="font-size:12px;color:#6B7A72;">${esc(config?.clinica || "")}</div>
+        </div>
+      </div>
+      <p><b>Paciente:</b> ${esc(patient.nombre)} ${patient.propietario ? " · <b>Propietario:</b> " + esc(patient.propietario) : ""}</p>
+      <table>
+        <thead><tr><th>Vacuna</th><th>Aplicada</th><th>Próxima dosis</th><th>Notas</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </body></html>`;
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 350);
+}
+function shareCarnetVacunas(patient, entries, config) {
+  const df = config?.dateFormat;
+  const lines = [`CARNET DE VACUNACIÓN`, config?.clinica || "", `Paciente: ${patient.nombre}`, patient.propietario ? `Propietario: ${patient.propietario}` : null, "", ...entries.map(v => `• ${v.nombre} — Aplicada: ${formatDate(v.fechaAplicada, df)}${v.proximaDosis ? " — Próxima: " + formatDate(v.proximaDosis, df) : ""}`)].filter(Boolean);
+  const text = lines.join("\n");
+  if (navigator.share) {
+    navigator.share({
+      title: `Carnet de vacunación — ${patient.nombre}`,
+      text
+    }).catch(() => {});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => alert("Carnet copiado. Puedes pegarlo en WhatsApp o donde prefieras enviarlo."));
+  } else {
+    window.prompt("Copia el carnet:", text);
+  }
+}
 function VacunasSection({
   patient,
   vacunas,
@@ -2156,14 +2336,22 @@ function VacunasSection({
   return /*#__PURE__*/React.createElement("div", {
     className: "max-w-2xl mt-6"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between mb-3"
+    className: "flex items-center justify-between mb-3 flex-wrap gap-2"
   }, /*#__PURE__*/React.createElement("h3", {
     style: styles.display,
     className: "text-lg font-semibold"
-  }, "Vacunas"), !showForm && /*#__PURE__*/React.createElement(GhostButton, {
+  }, "Vacunas"), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 flex-wrap"
+  }, entries.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => shareCarnetVacunas(patient, entries, config),
+    icon: "📤"
+  }, "Compartir carnet"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => printCarnetVacunas(patient, entries, config),
+    icon: "🖨️"
+  }, "PDF")), !showForm && /*#__PURE__*/React.createElement(GhostButton, {
     onClick: () => setShowForm(true),
     icon: "💉"
-  }, "Registrar vacuna")), showForm && /*#__PURE__*/React.createElement("div", {
+  }, "Registrar vacuna"))), showForm && /*#__PURE__*/React.createElement("div", {
     className: "bg-white border border-[#DDD5C4] rounded-lg p-6 mb-4"
   }, /*#__PURE__*/React.createElement(Field, {
     label: "Nombre de la vacuna"
@@ -2376,39 +2564,12 @@ function CobrosSection({
 /* ---------------------------------------------------------
    Lista de pacientes
 ----------------------------------------------------------*/
-function PatientsList({
-  patients,
+function PatientCard({
+  p,
   onSelect,
-  onNew,
   config
 }) {
-  const [query, setQuery] = useState("");
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return patients;
-    return patients.filter(p => p.nombre.toLowerCase().includes(q) || (p.propietario || "").toLowerCase().includes(q) || (p.raza || "").toLowerCase().includes(q));
-  }, [patients, query]);
-  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3 mb-5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "relative flex-1 max-w-sm"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "absolute left-3 top-1/2 -translate-y-1/2 text-[#A6A08F]"
-  }, "🔍"), /*#__PURE__*/React.createElement("input", {
-    value: query,
-    onChange: e => setQuery(e.target.value),
-    placeholder: "Buscar por nombre, propietario o raza...",
-    className: "w-full bg-white border border-[#DDD5C4] rounded-md pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#3D6B5C]"
-  })), /*#__PURE__*/React.createElement(PrimaryButton, {
-    onClick: onNew,
-    icon: "➕"
-  }, "Nuevo paciente")), filtered.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
-    title: patients.length === 0 ? "Aún no hay pacientes" : "Sin resultados",
-    subtitle: patients.length === 0 ? "Crea la primera ficha para empezar a llevar el registro clínico." : "Prueba con otro nombre, propietario o raza."
-  }) : /*#__PURE__*/React.createElement("div", {
-    className: "grid sm:grid-cols-2 lg:grid-cols-3 gap-3"
-  }, filtered.map(p => /*#__PURE__*/React.createElement("button", {
-    key: p.id,
+  return /*#__PURE__*/React.createElement("button", {
     onClick: () => onSelect(p),
     className: "text-left bg-white border border-[#DDD5C4] rounded-lg p-4 hover:border-[#3D6B5C] hover:shadow-sm transition"
   }, /*#__PURE__*/React.createElement("div", {
@@ -2425,10 +2586,159 @@ function PatientsList({
     className: "font-medium text-[#23342F] truncate"
   }, p.nombre), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72] truncate"
-  }, p.propietario || "Sin propietario"))), p.proximaVisita && /*#__PURE__*/React.createElement("div", {
+  }, p.propietario || "Sin propietario"))), p.etiquetas && p.etiquetas.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-1 mt-2"
+  }, p.etiquetas.map(t => /*#__PURE__*/React.createElement("span", {
+    key: t,
+    className: "text-[10px] px-1.5 py-0.5 rounded bg-[#EAF0EC] text-[#3D6B5C]",
+    style: styles.mono
+  }, t))), p.proximaVisita && /*#__PURE__*/React.createElement("div", {
     className: "mt-3 inline-flex items-center gap-1.5 text-[11px] text-[#B14E1C] bg-[#E08A3E]/10 px-2 py-1 rounded",
     style: styles.mono
-  }, "📅 ", formatDate(p.proximaVisita, config?.dateFormat))))));
+  }, "📅 ", formatDate(p.proximaVisita, config?.dateFormat)));
+}
+function PatientsList({
+  patients,
+  trashed,
+  onSelect,
+  onNew,
+  onRestore,
+  onPermanentDelete,
+  config
+}) {
+  const [query, setQuery] = useState("");
+  const [especieFiltro, setEspecieFiltro] = useState("");
+  const [orden, setOrden] = useState("nombre");
+  const [agrupar, setAgrupar] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
+  const especiesDisponibles = useMemo(() => [...new Set(patients.map(p => p.especie).filter(Boolean))].sort(), [patients]);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    let list = patients.filter(p => !q || p.nombre.toLowerCase().includes(q) || (p.propietario || "").toLowerCase().includes(q) || (p.raza || "").toLowerCase().includes(q));
+    if (especieFiltro) list = list.filter(p => p.especie === especieFiltro);
+    list = [...list].sort((a, b) => {
+      if (orden === "nombre") return a.nombre.localeCompare(b.nombre);
+      if (orden === "proxima") return (a.proximaVisita || "9999") < (b.proximaVisita || "9999") ? -1 : 1;
+      return 0;
+    });
+    return list;
+  }, [patients, query, especieFiltro, orden]);
+  const groups = useMemo(() => {
+    if (!agrupar) return null;
+    const map = {};
+    filtered.forEach(p => {
+      const key = p.propietario || "Sin propietario";
+      if (!map[key]) map[key] = [];
+      map[key].push(p);
+    });
+    return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [filtered, agrupar]);
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 mb-4 flex-wrap"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "relative flex-1 max-w-sm"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "absolute left-3 top-1/2 -translate-y-1/2 text-[#A6A08F]"
+  }, "🔍"), /*#__PURE__*/React.createElement("input", {
+    value: query,
+    onChange: e => setQuery(e.target.value),
+    placeholder: "Buscar por nombre, propietario o raza...",
+    className: "w-full bg-white border border-[#DDD5C4] rounded-md pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#3D6B5C]"
+  })), /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: onNew,
+    icon: "➕"
+  }, "Nuevo paciente")), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mb-5 flex-wrap"
+  }, /*#__PURE__*/React.createElement("select", {
+    value: especieFiltro,
+    onChange: e => setEspecieFiltro(e.target.value),
+    className: inputClass,
+    style: {
+      width: "auto"
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Todas las especies"), especiesDisponibles.map(e => /*#__PURE__*/React.createElement("option", {
+    key: e,
+    value: e
+  }, e))), /*#__PURE__*/React.createElement("select", {
+    value: orden,
+    onChange: e => setOrden(e.target.value),
+    className: inputClass,
+    style: {
+      width: "auto"
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "nombre"
+  }, "Ordenar: Nombre (A-Z)"), /*#__PURE__*/React.createElement("option", {
+    value: "proxima"
+  }, "Ordenar: Próxima visita")), /*#__PURE__*/React.createElement("label", {
+    className: "flex items-center gap-1.5 text-sm text-[#6B7A72] cursor-pointer select-none"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: agrupar,
+    onChange: e => setAgrupar(e.target.checked),
+    className: "w-4 h-4 accent-[#3D6B5C]"
+  }), "Agrupar por dueño")), filtered.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    title: patients.length === 0 ? "Aún no hay pacientes" : "Sin resultados",
+    subtitle: patients.length === 0 ? "Crea la primera ficha para empezar a llevar el registro clínico." : "Prueba con otro nombre, propietario, raza o especie."
+  }) : groups ? /*#__PURE__*/React.createElement("div", {
+    className: "space-y-6"
+  }, groups.map(([propietario, list]) => /*#__PURE__*/React.createElement("div", {
+    key: propietario
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "text-xs uppercase tracking-wider text-[#6B7A72] mb-2",
+    style: styles.mono
+  }, propietario), /*#__PURE__*/React.createElement("div", {
+    className: "grid sm:grid-cols-2 lg:grid-cols-3 gap-3"
+  }, list.map(p => /*#__PURE__*/React.createElement(PatientCard, {
+    key: p.id,
+    p: p,
+    onSelect: onSelect,
+    config: config
+  })))))) : /*#__PURE__*/React.createElement("div", {
+    className: "grid sm:grid-cols-2 lg:grid-cols-3 gap-3"
+  }, filtered.map(p => /*#__PURE__*/React.createElement(PatientCard, {
+    key: p.id,
+    p: p,
+    onSelect: onSelect,
+    config: config
+  }))), trashed && trashed.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "mt-8"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowTrash(s => !s),
+    className: "text-sm text-[#6B7A72] hover:text-[#23342F] flex items-center gap-1.5"
+  }, "🗑️ Papelera (", trashed.length, ") ", showTrash ? "▲" : "▼"), showTrash && /*#__PURE__*/React.createElement("div", {
+    className: "grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-3"
+  }, trashed.map(p => /*#__PURE__*/React.createElement("div", {
+    key: p.id,
+    className: "bg-white border border-dashed border-[#DDD5C4] rounded-lg p-4 opacity-80"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 mb-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-11 h-11 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
+  }, p.foto ? /*#__PURE__*/React.createElement("img", {
+    src: p.foto,
+    alt: "",
+    className: "w-full h-full object-cover"
+  }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-[#23342F] truncate"
+  }, p.nombre), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72] truncate"
+  }, p.propietario || "Sin propietario"))), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => onRestore(p),
+    icon: "↩️"
+  }, "Restaurar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => {
+      if (window.confirm(`¿Eliminar definitivamente a ${p.nombre}? Esto no se puede deshacer.`)) onPermanentDelete(p);
+    },
+    icon: "🗑️",
+    danger: true
+  }, "Eliminar")))))));
 }
 function GlobalSearch({
   patients,
@@ -3083,7 +3393,8 @@ const emptyConfig = () => ({
   correo: "",
   redes: "",
   direccion: "",
-  dateFormat: "YYYY-MM-DD"
+  dateFormat: "YYYY-MM-DD",
+  darkMode: false
 });
 function ConfigForm({
   config,
@@ -3237,7 +3548,19 @@ function ConfigForm({
     value: "MM/DD/YYYY"
   }, "MM/DD/AAAA (07/23/2026)"), /*#__PURE__*/React.createElement("option", {
     value: "DD-MM-YYYY"
-  }, "DD-MM-AAAA (23-07-2026)")))), !isSetup && /*#__PURE__*/React.createElement("div", {
+  }, "DD-MM-AAAA (23-07-2026)"))), /*#__PURE__*/React.createElement("label", {
+    className: "flex items-center gap-2.5 cursor-pointer select-none"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: !!data.darkMode,
+    onChange: e => setData(d => ({
+      ...d,
+      darkMode: e.target.checked
+    })),
+    className: "w-4 h-4 accent-[#3D6B5C]"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-sm"
+  }, "🌙 Modo oscuro"))), !isSetup && /*#__PURE__*/React.createElement("div", {
     className: "bg-white border border-[#DDD5C4] rounded-lg p-6 mt-4"
   }, /*#__PURE__*/React.createElement("span", {
     className: "block text-[11px] uppercase tracking-wider mb-2 text-[#6B7A72]",
@@ -3484,6 +3807,199 @@ function ActionCard({
     className: "text-sm text-[#6B7A72] mt-0.5"
   }, subtitle)));
 }
+
+/* ---------------------------------------------------------
+   Agenda: vista de calendario mensual con las próximas visitas
+----------------------------------------------------------*/
+function AgendaView({
+  patients,
+  setActive,
+  setSelected
+}) {
+  const [mesActual, setMesActual] = useState(() => {
+    const d = new Date();
+    return {
+      year: d.getFullYear(),
+      month: d.getMonth()
+    };
+  });
+  const porFecha = useMemo(() => {
+    const map = {};
+    patients.forEach(p => {
+      if (p.proximaVisita) {
+        if (!map[p.proximaVisita]) map[p.proximaVisita] = [];
+        map[p.proximaVisita].push(p);
+      }
+    });
+    return map;
+  }, [patients]);
+  const {
+    year,
+    month
+  } = mesActual;
+  const primerDia = new Date(year, month, 1);
+  const diasEnMes = new Date(year, month + 1, 0).getDate();
+  const offset = primerDia.getDay(); // 0 = domingo
+  const nombreMes = primerDia.toLocaleDateString("es-ES", {
+    month: "long",
+    year: "numeric"
+  });
+  const celdas = [];
+  for (let i = 0; i < offset; i++) celdas.push(null);
+  for (let d = 1; d <= diasEnMes; d++) celdas.push(d);
+  const [diaSeleccionado, setDiaSeleccionado] = useState(null);
+  const fechaISO = d => `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    style: styles.display,
+    className: "text-2xl font-semibold mb-5"
+  }, "Agenda"), /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-4 max-w-xl"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-4"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setMesActual(m => m.month === 0 ? {
+        year: m.year - 1,
+        month: 11
+      } : {
+        ...m,
+        month: m.month - 1
+      });
+      setDiaSeleccionado(null);
+    },
+    className: "text-[#6B7A72] hover:text-[#23342F] px-2"
+  }, "◀"), /*#__PURE__*/React.createElement("span", {
+    className: "font-semibold capitalize"
+  }, nombreMes), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setMesActual(m => m.month === 11 ? {
+        year: m.year + 1,
+        month: 0
+      } : {
+        ...m,
+        month: m.month + 1
+      });
+      setDiaSeleccionado(null);
+    },
+    className: "text-[#6B7A72] hover:text-[#23342F] px-2"
+  }, "▶")), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-7 gap-1 text-center text-[10px] text-[#6B7A72] mb-2",
+    style: styles.mono
+  }, ["D", "L", "M", "M", "J", "V", "S"].map((d, i) => /*#__PURE__*/React.createElement("div", {
+    key: i
+  }, d))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-7 gap-1"
+  }, celdas.map((d, i) => {
+    if (!d) return /*#__PURE__*/React.createElement("div", {
+      key: i
+    });
+    const iso = fechaISO(d);
+    const eventos = porFecha[iso] || [];
+    const esHoy = iso === new Date().toISOString().slice(0, 10);
+    const seleccionado = diaSeleccionado === iso;
+    return /*#__PURE__*/React.createElement("button", {
+      key: i,
+      onClick: () => setDiaSeleccionado(seleccionado ? null : iso),
+      className: "aspect-square rounded-md flex flex-col items-center justify-center text-xs relative " + (seleccionado ? "bg-[#3D6B5C] text-white" : esHoy ? "bg-[#EAF0EC] text-[#23342F]" : "text-[#23342F] hover:bg-[#EAF0EC]")
+    }, d, eventos.length > 0 && /*#__PURE__*/React.createElement("span", {
+      className: "w-1.5 h-1.5 rounded-full mt-0.5 " + (seleccionado ? "bg-white" : "bg-[#E08A3E]")
+    }));
+  }))), diaSeleccionado && /*#__PURE__*/React.createElement("div", {
+    className: "mt-4 max-w-xl"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "text-sm font-semibold mb-2"
+  }, formatDate(diaSeleccionado)), (porFecha[diaSeleccionado] || []).length === 0 ? /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-[#6B7A72]"
+  }, "Sin visitas programadas este día.") : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2"
+  }, porFecha[diaSeleccionado].map(p => /*#__PURE__*/React.createElement("button", {
+    key: p.id,
+    onClick: () => {
+      setActive("pacientes");
+      setSelected(p);
+    },
+    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 hover:border-[#3D6B5C] transition flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
+  }, p.foto ? /*#__PURE__*/React.createElement("img", {
+    src: p.foto,
+    alt: "",
+    className: "w-full h-full object-cover"
+  }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-sm"
+  }, p.nombre), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72]"
+  }, p.propietario || "Sin propietario")))))));
+}
+
+/* ---------------------------------------------------------
+   Reportes: totales de cobros por mes
+----------------------------------------------------------*/
+function ReportesView({
+  cobros
+}) {
+  const porMes = useMemo(() => {
+    const map = {};
+    cobros.forEach(c => {
+      const mes = (c.fecha || "").slice(0, 7); // YYYY-MM
+      if (!mes) return;
+      if (!map[mes]) map[mes] = {
+        total: 0,
+        pagado: 0,
+        pendiente: 0,
+        cantidad: 0
+      };
+      const monto = parseFloat(c.monto) || 0;
+      map[mes].total += monto;
+      map[mes].cantidad += 1;
+      if (c.pagado) map[mes].pagado += monto;else map[mes].pendiente += monto;
+    });
+    return Object.entries(map).sort((a, b) => a[0] < b[0] ? 1 : -1);
+  }, [cobros]);
+  const nombreMes = ym => {
+    const [y, m] = ym.split("-");
+    return new Date(parseInt(y), parseInt(m) - 1, 1).toLocaleDateString("es-ES", {
+      month: "long",
+      year: "numeric"
+    });
+  };
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    style: styles.display,
+    className: "text-2xl font-semibold mb-5"
+  }, "Reportes"), porMes.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    title: "Sin cobros registrados todavía",
+    subtitle: "Los cobros que registres en cada paciente se resumirán aquí por mes."
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-3 max-w-xl"
+  }, porMes.map(([mes, datos]) => /*#__PURE__*/React.createElement("div", {
+    key: mes,
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-2"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "font-semibold capitalize"
+  }, nombreMes(mes)), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-[#6B7A72]",
+    style: styles.mono
+  }, datos.cantidad, " cobro", datos.cantidad === 1 ? "" : "s")), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-3 gap-2 text-center"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "font-semibold text-[#23342F]"
+  }, "$", datos.total.toFixed(2)), /*#__PURE__*/React.createElement("div", {
+    className: "text-[10px] uppercase text-[#6B7A72]",
+    style: styles.mono
+  }, "Total")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "font-semibold text-[#3D6B5C]"
+  }, "$", datos.pagado.toFixed(2)), /*#__PURE__*/React.createElement("div", {
+    className: "text-[10px] uppercase text-[#6B7A72]",
+    style: styles.mono
+  }, "Pagado")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "font-semibold text-[#B14E1C]"
+  }, "$", datos.pendiente.toFixed(2)), /*#__PURE__*/React.createElement("div", {
+    className: "text-[10px] uppercase text-[#6B7A72]",
+    style: styles.mono
+  }, "Pendiente")))))));
+}
 function HomeScreen({
   patients,
   recetas,
@@ -3520,7 +4036,21 @@ function HomeScreen({
   }), /*#__PURE__*/React.createElement(StatCard, {
     label: "Exámenes",
     value: examenes.length
-  })), /*#__PURE__*/React.createElement("h2", {
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-3 mb-8 max-w-md"
+  }, /*#__PURE__*/React.createElement(ActionCard, {
+    icon: "📅",
+    title: "Agenda",
+    subtitle: "Calendario de próximas visitas",
+    onClick: () => setActive("agenda")
+  }), /*#__PURE__*/React.createElement(ActionCard, {
+    icon: "📊",
+    title: "Reportes",
+    subtitle: "Cobros totales por mes",
+    onClick: () => setActive("reportes")
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "hidden md:block"
+  }, /*#__PURE__*/React.createElement("h2", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
     style: styles.mono
   }, "Empezar"), /*#__PURE__*/React.createElement("div", {
@@ -3545,7 +4075,7 @@ function HomeScreen({
     title: "Exámenes",
     subtitle: "Registra resultados complementarios",
     onClick: () => setActive("examenes")
-  })), proximas.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }))), proximas.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "mb-8"
   }, /*#__PURE__*/React.createElement("h2", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
@@ -3646,6 +4176,9 @@ function VetApp() {
       window.removeEventListener("offline", goOffline);
     };
   }, []);
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", config?.darkMode ? "dark" : "light");
+  }, [config?.darkMode]);
 
   // Sesión (Firebase Auth con Google) y estado de carga de datos
   const [user, setUser] = useState(undefined); // undefined = comprobando sesión, null = sin sesión
@@ -3908,6 +4441,15 @@ function VetApp() {
     setToast(msg);
     setTimeout(() => setToast(""), 2200);
   };
+  const updatePatientFotos = (patient, fotos) => {
+    const record = {
+      ...patient,
+      fotos
+    };
+    setPatients(cur => cur.map(p => p.id === patient.id ? record : p));
+    collectionStore.setOne("patients", patient.id, record);
+    if (selected && selected.id === patient.id) setSelected(record);
+  };
   const savePatient = data => {
     let next;
     let record;
@@ -3959,11 +4501,15 @@ function VetApp() {
     }
   };
   const deletePatient = patient => {
-    const next = patients.filter(p => p.id !== patient.id);
+    const record = {
+      ...patient,
+      eliminadoEn: Date.now()
+    };
+    const next = patients.map(p => p.id === patient.id ? record : p);
     setPatients(next);
-    collectionStore.deleteOne("patients", patient.id);
+    collectionStore.setOne("patients", patient.id, record);
     setSelected(null);
-    showToast("Paciente eliminado");
+    showToast("Paciente movido a la papelera");
 
     // Si tenía una próxima visita programada, se abre la cancelación para
     // poder quitarla también del calendario del celular.
@@ -3975,6 +4521,22 @@ function VetApp() {
       });
       if (cancelIcs) openICS(cancelIcs, `cancelar-visita-${patient.nombre}.ics`);
     }
+  };
+  const restorePatient = patient => {
+    const record = {
+      ...patient
+    };
+    delete record.eliminadoEn;
+    const next = patients.map(p => p.id === patient.id ? record : p);
+    setPatients(next);
+    collectionStore.setOne("patients", patient.id, record);
+    showToast("Paciente restaurado");
+  };
+  const permanentlyDeletePatient = patient => {
+    const next = patients.filter(p => p.id !== patient.id);
+    setPatients(next);
+    collectionStore.deleteOne("patients", patient.id);
+    showToast("Paciente eliminado definitivamente");
   };
   const addReceta = r => {
     const next = [...recetas, r];
@@ -4162,6 +4724,8 @@ function VetApp() {
       }
     });
   }
+  const activePatients = patients.filter(p => !p.eliminadoEn);
+  const trashedPatients = patients.filter(p => p.eliminadoEn);
   return /*#__PURE__*/React.createElement("div", {
     style: styles.page,
     className: "flex flex-col min-h-screen"
@@ -4197,21 +4761,21 @@ function VetApp() {
       setEditing(null);
       setSelected(null);
     },
-    count: patients.length,
+    count: activePatients.length,
     config: config
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 px-5 sm:px-8 pt-8 pb-24 md:pb-8 max-w-5xl"
   }, toast && /*#__PURE__*/React.createElement("div", {
     className: "fixed top-4 right-4 z-50 bg-[#23342F] text-white text-sm px-4 py-2.5 rounded-md shadow-lg flex items-center gap-2"
   }, "✓ ", toast), /*#__PURE__*/React.createElement(GlobalSearch, {
-    patients: patients,
+    patients: activePatients,
     onSelect: p => {
       setActive("pacientes");
       setSelected(p);
       setEditing(null);
     }
   }), active === "inicio" && /*#__PURE__*/React.createElement(HomeScreen, {
-    patients: patients,
+    patients: activePatients,
     recetas: recetas,
     examenes: examenes,
     vacunas: vacunas,
@@ -4230,9 +4794,12 @@ function VetApp() {
     style: styles.display,
     className: "text-2xl font-semibold mb-5"
   }, "Pacientes"), /*#__PURE__*/React.createElement(PatientsList, {
-    patients: patients,
+    patients: activePatients,
+    trashed: trashedPatients,
     onSelect: setSelected,
     onNew: () => setActive("nuevo"),
+    onRestore: restorePatient,
+    onPermanentDelete: permanentlyDeletePatient,
     config: config
   })), active === "pacientes" && selected && !editing && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(PatientDetail, {
     patient: selected,
@@ -4242,6 +4809,7 @@ function VetApp() {
     },
     onDelete: deletePatient,
     onClose: () => setSelected(null),
+    onUpdateFotos: updatePatientFotos,
     config: config,
     recetas: recetas,
     examenes: examenes,
@@ -4280,19 +4848,25 @@ function VetApp() {
     onSave: savePatient,
     onCancel: () => setEditing(null)
   })), active === "recetas" && /*#__PURE__*/React.createElement(RecetasView, {
-    patients: patients,
+    patients: activePatients,
     recetas: recetas,
     onAdd: addReceta,
     onUpdate: updateReceta,
     onDelete: deleteReceta,
     config: config
   }), active === "examenes" && /*#__PURE__*/React.createElement(ExamenesView, {
-    patients: patients,
+    patients: activePatients,
     examenes: examenes,
     onAdd: addExamen,
     onUpdate: updateExamen,
     onDelete: deleteExamen,
     config: config
+  }), active === "agenda" && /*#__PURE__*/React.createElement(AgendaView, {
+    patients: activePatients,
+    setActive: setActive,
+    setSelected: setSelected
+  }), active === "reportes" && /*#__PURE__*/React.createElement(ReportesView, {
+    cobros: cobros
   }), active === "config" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold mb-1"
