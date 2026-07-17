@@ -152,6 +152,12 @@
   .hover\:border-\[\#B9C4BD\]:hover{border-color:#B9C4BD}
   .bg-\[\#EEEAE0\]{background-color:#EEEAE0}
   .leading-relaxed{line-height:1.625}
+
+  .overflow-y-auto{overflow-y:auto}
+  .my-auto{margin-top:auto;margin-bottom:auto}
+
+  .object-contain{object-fit:contain}
+  .overflow-auto{overflow:auto}
 </style>
 </head>
 <body>
@@ -818,13 +824,17 @@ function PhotoAdjustModal({
   }, [src]);
   if (!imgEl) {
     return /*#__PURE__*/React.createElement("div", {
-      className: "fixed inset-0 z-50 flex items-center justify-center",
+      className: "fixed inset-0 z-50 flex items-center justify-center px-4",
       style: {
         background: "rgba(0,0,0,.55)"
       }
     }, /*#__PURE__*/React.createElement("div", {
-      className: "bg-white rounded-lg p-6 text-sm text-[#6B7A72]"
-    }, "Cargando imagen..."));
+      className: "bg-white rounded-lg p-6 text-sm text-[#6B7A72] text-center"
+    }, /*#__PURE__*/React.createElement("p", {
+      className: "mb-3"
+    }, "Cargando imagen..."), /*#__PURE__*/React.createElement(GhostButton, {
+      onClick: onCancel
+    }, "Cancelar")));
   }
   const baseScale = Math.max(size / imgEl.width, size / imgEl.height);
   const totalScale = baseScale * scale;
@@ -896,16 +906,21 @@ function PhotoAdjustModal({
     }, "image/jpeg", 0.88);
   };
   return /*#__PURE__*/React.createElement("div", {
-    className: "fixed inset-0 z-50 flex items-center justify-center px-4",
+    className: "fixed inset-0 z-50 flex items-start justify-center px-4 py-8 overflow-y-auto",
     style: {
       background: "rgba(0,0,0,.55)"
     }
   }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-lg p-5 max-w-sm w-full"
+    className: "bg-white rounded-lg p-5 max-w-sm w-full my-auto"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-start justify-between mb-1"
   }, /*#__PURE__*/React.createElement("h3", {
     style: styles.display,
-    className: "text-lg font-semibold mb-1"
-  }, "Ajustar foto"), /*#__PURE__*/React.createElement("p", {
+    className: "text-lg font-semibold"
+  }, "Ajustar foto"), /*#__PURE__*/React.createElement("button", {
+    onClick: onCancel,
+    className: "text-[#A6A08F] hover:text-[#23342F] text-lg leading-none px-1"
+  }, "✕")), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#6B7A72] mb-4"
   }, "Arrastra la imagen para moverla y usa el control para acercar o alejar."), /*#__PURE__*/React.createElement("div", {
     onMouseDown: e => startDrag(e.clientX, e.clientY),
@@ -1369,6 +1384,152 @@ function PatientDetail({
 }
 
 /* ---------------------------------------------------------
+   Historial médico del paciente
+----------------------------------------------------------*/
+function HistorialMedico({
+  patient,
+  historial,
+  onAdd,
+  onUpdate,
+  onDelete
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [motivoConsulta, setMotivoConsulta] = useState("");
+  const [signos, setSignos] = useState("");
+  const [tratamiento, setTratamiento] = useState("");
+  const [recomendaciones, setRecomendaciones] = useState("");
+  const [examenes, setExamenes] = useState("");
+  const entries = historial.filter(h => h.patientId === patient.id).sort((a, b) => a.fecha < b.fecha ? 1 : -1);
+  const reset = () => {
+    setMotivoConsulta("");
+    setSignos("");
+    setTratamiento("");
+    setRecomendaciones("");
+    setExamenes("");
+    setShowForm(false);
+    setEditingId(null);
+  };
+  const startEdit = h => {
+    setEditingId(h.id);
+    setMotivoConsulta(h.motivoConsulta || "");
+    setSignos(h.signos || "");
+    setTratamiento(h.tratamiento || "");
+    setRecomendaciones(h.recomendaciones || "");
+    setExamenes(h.examenes || "");
+    setShowForm(true);
+  };
+  const save = () => {
+    if (!motivoConsulta.trim()) return;
+    const data = {
+      id: editingId || uid(),
+      patientId: patient.id,
+      patientName: patient.nombre,
+      motivoConsulta,
+      signos,
+      tratamiento,
+      recomendaciones,
+      examenes,
+      fecha: editingId ? entries.find(h => h.id === editingId)?.fecha || new Date().toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)
+    };
+    if (editingId) onUpdate(data);else onAdd(data);
+    reset();
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "max-w-2xl mt-6"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-3"
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: styles.display,
+    className: "text-lg font-semibold"
+  }, "Historial médico"), !showForm && /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => setShowForm(true),
+    icon: "➕"
+  }, "Agregar entrada")), showForm && /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-6 mb-4"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Motivo de consulta"
+  }, /*#__PURE__*/React.createElement(TextArea, {
+    rows: 2,
+    value: motivoConsulta,
+    onChange: e => setMotivoConsulta(e.target.value),
+    placeholder: "Razón de la visita..."
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Signos / síntomas"
+  }, /*#__PURE__*/React.createElement(TextArea, {
+    rows: 2,
+    value: signos,
+    onChange: e => setSignos(e.target.value),
+    placeholder: "Signos clínicos observados..."
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Tratamiento aplicado"
+  }, /*#__PURE__*/React.createElement(TextArea, {
+    rows: 2,
+    value: tratamiento,
+    onChange: e => setTratamiento(e.target.value),
+    placeholder: "Tratamiento inyectable u otro aplicado en la visita..."
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Recomendaciones"
+  }, /*#__PURE__*/React.createElement(TextArea, {
+    rows: 2,
+    value: recomendaciones,
+    onChange: e => setRecomendaciones(e.target.value),
+    placeholder: "Indicaciones para el propietario..."
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Exámenes complementarios"
+  }, /*#__PURE__*/React.createElement(TextArea, {
+    rows: 2,
+    value: examenes,
+    onChange: e => setExamenes(e.target.value),
+    placeholder: "Exámenes solicitados o realizados..."
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 mt-2"
+  }, /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: save,
+    disabled: !motivoConsulta.trim(),
+    icon: "✓"
+  }, editingId ? "Guardar cambios" : "Agregar al historial"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: reset
+  }, "Cancelar"))), entries.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    title: "Sin entradas todavía",
+    subtitle: "Cada consulta que registres aquí quedará guardada como historial de este paciente."
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-3"
+  }, entries.map(h => /*#__PURE__*/React.createElement("div", {
+    key: h.id,
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-start justify-between"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72]",
+    style: styles.mono
+  }, h.fecha), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => startEdit(h),
+    className: "text-[#A6A08F] hover:text-[#3D6B5C]"
+  }, "✏️"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onDelete(h.id),
+    className: "text-[#A6A08F] hover:text-[#B14E1C]"
+  }, "🗑️"))), /*#__PURE__*/React.createElement(DetailRow, {
+    label: "Motivo de consulta",
+    value: h.motivoConsulta
+  }), /*#__PURE__*/React.createElement(DetailRow, {
+    label: "Signos / síntomas",
+    value: h.signos
+  }), /*#__PURE__*/React.createElement(DetailRow, {
+    label: "Tratamiento",
+    value: h.tratamiento
+  }), /*#__PURE__*/React.createElement(DetailRow, {
+    label: "Recomendaciones",
+    value: h.recomendaciones
+  }), /*#__PURE__*/React.createElement(DetailRow, {
+    label: "Exámenes complementarios",
+    value: h.examenes
+  })))));
+}
+
+/* ---------------------------------------------------------
    Lista de pacientes
 ----------------------------------------------------------*/
 function PatientsList({
@@ -1448,6 +1609,9 @@ function buildRecetaText(r, patient, config) {
   if (r.indicaciones) {
     lines.push("", "Indicaciones:", r.indicaciones);
   }
+  if (r.recomendaciones) {
+    lines.push("", "Recomendaciones:", r.recomendaciones);
+  }
   if (config?.doctorNombre) {
     lines.push("", `Atendido por: ${config.doctorTitulo || "Dr."} ${config.doctorNombre}`);
   }
@@ -1488,7 +1652,8 @@ function printReceta(r, patient, config) {
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8" />
     <title>Receta - ${esc(r.patientName)}</title>
     <style>
-      body{font-family: Arial, Helvetica, sans-serif; padding: 36px; color:#111; max-width:760px; margin:0 auto; font-size:14px;}
+      @page { size: landscape; margin: 14mm; }
+      body{font-family: Arial, Helvetica, sans-serif; padding: 36px; color:#111; max-width:980px; margin:0 auto; font-size:14px;}
       .header{display:flex; align-items:flex-start; gap:18px; margin-bottom:20px;}
       .header img{width:56px; height:56px; border-radius:8px; object-fit:cover; flex-shrink:0;}
       .header-text h1{font-size:20px; margin:0 0 6px 0; text-transform:uppercase;}
@@ -1498,11 +1663,20 @@ function printReceta(r, patient, config) {
       .columns{display:flex; gap:30px;}
       .col{flex:1;}
       .col h2{font-size:15px; text-transform:uppercase; margin:0 0 12px 0;}
+      .recomendaciones{margin-top:20px;}
+      .recomendaciones h2{font-size:15px; text-transform:uppercase; margin:0 0 10px 0;}
       .item{font-size:13px; line-height:1.5; margin-bottom:12px;}
       .footer{margin-top:40px; font-size:12px; line-height:1.7; color:#333;}
-      @media print { body{padding:18px;} }
+      .back-bar{position:sticky; top:0; background:#23342F; padding:10px 16px; margin:-36px -36px 24px -36px; display:flex; align-items:center; justify-content:space-between;}
+      .back-bar button{background:#3D6B5C; color:#fff; border:none; border-radius:6px; padding:8px 16px; font-size:13px; font-family:inherit; cursor:pointer;}
+      .back-bar span{color:#fff; font-size:12px;}
+      @media print { body{padding:18px;} .back-bar{display:none;} }
     </style>
     </head><body>
+      <div class="back-bar">
+        <span>Vista de impresión</span>
+        <button onclick="window.close(); if(!window.closed){ history.back(); }">← Cerrar y volver a la app</button>
+      </div>
       <div class="header">
         ${config?.logo ? `<img src="${config.logo}" alt="" />` : ""}
         <div class="header-text">
@@ -1530,6 +1704,13 @@ function printReceta(r, patient, config) {
         </div>
       </div>
 
+      ${r.recomendaciones ? `
+      <div class="divider"></div>
+      <div class="recomendaciones">
+        <h2>Recomendaciones</h2>
+        <div class="item">${esc(r.recomendaciones).replace(/\n/g, "<br>")}</div>
+      </div>` : ""}
+
       <div class="footer">
         ${config?.doctorNombre ? `Médico responsable: ${esc(config.doctorTitulo || "Dr.")} ${esc(config.doctorNombre)}<br>` : ""}
         Próxima consulta: ${patient?.proximaVisita ? esc(patient.proximaVisita) : "No hay próxima consulta programada"}<br>
@@ -1549,30 +1730,56 @@ function RecetasView({
   patients,
   recetas,
   onAdd,
+  onUpdate,
   onDelete,
   config
 }) {
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [patientId, setPatientId] = useState("");
   const [medicamentos, setMedicamentos] = useState("");
   const [indicaciones, setIndicaciones] = useState("");
+  const [recomendaciones, setRecomendaciones] = useState("");
   const reset = () => {
     setPatientId("");
     setMedicamentos("");
     setIndicaciones("");
+    setRecomendaciones("");
     setShowForm(false);
+    setEditingId(null);
+  };
+  const startEdit = r => {
+    setEditingId(r.id);
+    setPatientId(r.patientId);
+    setMedicamentos(r.medicamentos);
+    setIndicaciones(r.indicaciones || "");
+    setRecomendaciones(r.recomendaciones || "");
+    setShowForm(true);
   };
   const save = () => {
     const patient = patients.find(p => p.id === patientId);
     if (!patient || !medicamentos.trim()) return;
-    onAdd({
-      id: uid(),
-      patientId,
-      patientName: patient.nombre,
-      medicamentos,
-      indicaciones,
-      fecha: new Date().toISOString().slice(0, 10)
-    });
+    if (editingId) {
+      onUpdate({
+        id: editingId,
+        patientId,
+        patientName: patient.nombre,
+        medicamentos,
+        indicaciones,
+        recomendaciones,
+        fecha: recetas.find(r => r.id === editingId)?.fecha || new Date().toISOString().slice(0, 10)
+      });
+    } else {
+      onAdd({
+        id: uid(),
+        patientId,
+        patientName: patient.nombre,
+        medicamentos,
+        indicaciones,
+        recomendaciones,
+        fecha: new Date().toISOString().slice(0, 10)
+      });
+    }
     reset();
   };
   const sorted = [...recetas].sort((a, b) => a.fecha < b.fecha ? 1 : -1);
@@ -1611,13 +1818,20 @@ function RecetasView({
     value: indicaciones,
     onChange: e => setIndicaciones(e.target.value),
     placeholder: "Dar 2 cada 24 horas vía oral por 21 días con estómago lleno\nDar 3cc 10 minutos antes de la Doxipet"
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Recomendaciones generales"
+  }, /*#__PURE__*/React.createElement(TextArea, {
+    rows: 3,
+    value: recomendaciones,
+    onChange: e => setRecomendaciones(e.target.value),
+    placeholder: "Ej. Reposo, evitar baños por 5 días, dieta blanda, control en 15 días..."
   })), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2 mt-2"
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: save,
     disabled: !patientId || !medicamentos.trim(),
     icon: "✓"
-  }, "Guardar receta"), /*#__PURE__*/React.createElement(GhostButton, {
+  }, editingId ? "Guardar cambios" : "Guardar receta"), /*#__PURE__*/React.createElement(GhostButton, {
     onClick: reset
   }, "Cancelar"))), sorted.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
     title: "Aún no hay recetas",
@@ -1636,14 +1850,21 @@ function RecetasView({
     }, r.patientName), /*#__PURE__*/React.createElement("div", {
       className: "text-xs text-[#6B7A72]",
       style: styles.mono
-    }, r.fecha)), /*#__PURE__*/React.createElement("button", {
+    }, r.fecha)), /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-3"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => startEdit(r),
+      className: "text-[#A6A08F] hover:text-[#3D6B5C]"
+    }, "✏️"), /*#__PURE__*/React.createElement("button", {
       onClick: () => onDelete(r.id),
       className: "text-[#A6A08F] hover:text-[#B14E1C]"
-    }, "🗑️")), /*#__PURE__*/React.createElement("p", {
+    }, "🗑️"))), /*#__PURE__*/React.createElement("p", {
       className: "text-sm mt-2 whitespace-pre-wrap"
     }, r.medicamentos), r.indicaciones && /*#__PURE__*/React.createElement("p", {
       className: "text-sm mt-1.5 text-[#6B7A72] whitespace-pre-wrap"
-    }, r.indicaciones), /*#__PURE__*/React.createElement("div", {
+    }, r.indicaciones), r.recomendaciones && /*#__PURE__*/React.createElement("p", {
+      className: "text-sm mt-1.5 text-[#6B7A72] whitespace-pre-wrap"
+    }, /*#__PURE__*/React.createElement("b", null, "Recomendaciones:"), " ", r.recomendaciones), /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-2 mt-3 flex-wrap"
     }, /*#__PURE__*/React.createElement(GhostButton, {
       onClick: () => shareReceta(r, patient, config),
@@ -1652,6 +1873,50 @@ function RecetasView({
       onClick: () => printReceta(r, patient, config),
       icon: "🖨️"
     }, "Guardar como PDF")));
+  })));
+}
+function AttachmentViewerModal({
+  att,
+  onClose
+}) {
+  const isImage = att.type && att.type.startsWith("image/");
+  const url = att.url || att.dataUrl;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 flex flex-col",
+    style: {
+      background: "rgba(0,0,0,.85)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between px-4 py-3",
+    style: {
+      background: "#23342F"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-white text-sm truncate pr-3"
+  }, att.name), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 shrink-0"
+  }, /*#__PURE__*/React.createElement("a", {
+    href: url,
+    download: att.name,
+    target: "_blank",
+    rel: "noopener",
+    className: "text-white text-xs border border-white/30 rounded px-3 py-1.5 hover:bg-white/10 transition"
+  }, "⬇ Descargar"), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "text-white text-2xl leading-none px-1"
+  }, "✕"))), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 overflow-auto bg-[#111]"
+  }, isImage ? /*#__PURE__*/React.createElement("img", {
+    src: url,
+    alt: att.name,
+    className: "w-full h-full object-contain"
+  }) : /*#__PURE__*/React.createElement("iframe", {
+    src: url,
+    title: att.name,
+    className: "w-full h-full",
+    style: {
+      border: "none"
+    }
   })));
 }
 function openAttachment(att) {
@@ -1676,15 +1941,18 @@ function ExamenesView({
   patients,
   examenes,
   onAdd,
+  onUpdate,
   onDelete
 }) {
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [patientId, setPatientId] = useState("");
   const [tipo, setTipo] = useState("");
   const [resultados, setResultados] = useState("");
   const [attachments, setAttachments] = useState([]);
   const [attError, setAttError] = useState("");
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [viewingAtt, setViewingAtt] = useState(null);
   const fileRef = useRef(null);
   const MAX_TOTAL_BYTES = 4 * 1024 * 1024; // ~4MB, solo aplica si Cloudinary no está configurado
 
@@ -1695,6 +1963,15 @@ function ExamenesView({
     setAttachments([]);
     setAttError("");
     setShowForm(false);
+    setEditingId(null);
+  };
+  const startEdit = ex => {
+    setEditingId(ex.id);
+    setPatientId(ex.patientId);
+    setTipo(ex.tipo);
+    setResultados(ex.resultados || "");
+    setAttachments(ex.attachments || []);
+    setShowForm(true);
   };
   const handleFiles = async e => {
     const files = Array.from(e.target.files || []);
@@ -1753,15 +2030,27 @@ function ExamenesView({
   const save = () => {
     const patient = patients.find(p => p.id === patientId);
     if (!patient || !tipo.trim()) return;
-    onAdd({
-      id: uid(),
-      patientId,
-      patientName: patient.nombre,
-      tipo,
-      resultados,
-      attachments,
-      fecha: new Date().toISOString().slice(0, 10)
-    });
+    if (editingId) {
+      onUpdate({
+        id: editingId,
+        patientId,
+        patientName: patient.nombre,
+        tipo,
+        resultados,
+        attachments,
+        fecha: examenes.find(e => e.id === editingId)?.fecha || new Date().toISOString().slice(0, 10)
+      });
+    } else {
+      onAdd({
+        id: uid(),
+        patientId,
+        patientName: patient.nombre,
+        tipo,
+        resultados,
+        attachments,
+        fecha: new Date().toISOString().slice(0, 10)
+      });
+    }
     reset();
   };
   const sorted = [...examenes].sort((a, b) => a.fecha < b.fecha ? 1 : -1);
@@ -1830,7 +2119,7 @@ function ExamenesView({
     onClick: save,
     disabled: !patientId || !tipo.trim(),
     icon: "✓"
-  }, "Guardar examen"), /*#__PURE__*/React.createElement(GhostButton, {
+  }, editingId ? "Guardar cambios" : "Guardar examen"), /*#__PURE__*/React.createElement(GhostButton, {
     onClick: reset
   }, "Cancelar"))), sorted.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
     title: "Aún no hay exámenes",
@@ -1847,20 +2136,28 @@ function ExamenesView({
   }, ex.patientName), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72]",
     style: styles.mono
-  }, ex.fecha, " · ", ex.tipo)), /*#__PURE__*/React.createElement("button", {
+  }, ex.fecha, " · ", ex.tipo)), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => startEdit(ex),
+    className: "text-[#A6A08F] hover:text-[#3D6B5C]"
+  }, "✏️"), /*#__PURE__*/React.createElement("button", {
     onClick: () => onDelete(ex.id),
     className: "text-[#A6A08F] hover:text-[#B14E1C]"
-  }, "🗑️")), ex.resultados && /*#__PURE__*/React.createElement("p", {
+  }, "🗑️"))), ex.resultados && /*#__PURE__*/React.createElement("p", {
     className: "text-sm mt-2 whitespace-pre-wrap"
   }, ex.resultados), ex.attachments && ex.attachments.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap gap-2 mt-3"
   }, ex.attachments.map((att, idx) => /*#__PURE__*/React.createElement("button", {
     key: idx,
-    onClick: () => openAttachment(att),
+    onClick: () => setViewingAtt(att),
     className: "flex items-center gap-2 bg-[#EAF0EC] rounded-md px-3 py-1.5 text-xs hover:bg-[#DDE7E1] transition"
   }, /*#__PURE__*/React.createElement("span", null, att.type === "application/pdf" ? "📄" : "🖼️"), /*#__PURE__*/React.createElement("span", {
     className: "max-w-[160px] truncate"
-  }, att.name))))))));
+  }, att.name))))))), viewingAtt && /*#__PURE__*/React.createElement(AttachmentViewerModal, {
+    att: viewingAtt,
+    onClose: () => setViewingAtt(null)
+  }));
 }
 
 /* ---------------------------------------------------------
@@ -2334,6 +2631,7 @@ function VetApp() {
   const [patients, setPatients] = useState([]);
   const [recetas, setRecetas] = useState([]);
   const [examenes, setExamenes] = useState([]);
+  const [historial, setHistorial] = useState([]);
   const [config, setConfig] = useState(null);
   const [showGreeting, setShowGreeting] = useState(true);
   const [editing, setEditing] = useState(null);
@@ -2372,7 +2670,7 @@ function VetApp() {
     }
     let cancelled = false;
     (async () => {
-      const [p, r, e, c] = await Promise.all([collectionStore.getAll("patients"), collectionStore.getAll("recetas"), collectionStore.getAll("examenes"), store.get("config")]);
+      const [p, r, e, h, c] = await Promise.all([collectionStore.getAll("patients"), collectionStore.getAll("recetas"), collectionStore.getAll("examenes"), collectionStore.getAll("historial"), store.get("config")]);
       if (cancelled) return;
       const firestoreVacio = !(p && p.length) && !(r && r.length) && !(e && e.length) && !c;
       const legacyDismissed = localStorage.getItem("vetapp:legacyDismissed") === "1";
@@ -2386,6 +2684,7 @@ function VetApp() {
       setPatients(p || []);
       setRecetas(r || []);
       setExamenes(e || []);
+      setHistorial(h || []);
       setConfig(c || null);
       setDataLoaded(true);
     })();
@@ -2572,6 +2871,12 @@ function VetApp() {
     collectionStore.setOne("recetas", r.id, r);
     showToast("Receta guardada");
   };
+  const updateReceta = r => {
+    const next = recetas.map(x => x.id === r.id ? r : x);
+    setRecetas(next);
+    collectionStore.setOne("recetas", r.id, r);
+    showToast("Receta actualizada");
+  };
   const deleteReceta = id => {
     const next = recetas.filter(r => r.id !== id);
     setRecetas(next);
@@ -2583,10 +2888,33 @@ function VetApp() {
     collectionStore.setOne("examenes", ex.id, ex);
     showToast("Examen guardado");
   };
+  const updateExamen = ex => {
+    const next = examenes.map(x => x.id === ex.id ? ex : x);
+    setExamenes(next);
+    collectionStore.setOne("examenes", ex.id, ex);
+    showToast("Examen actualizado");
+  };
   const deleteExamen = id => {
     const next = examenes.filter(e => e.id !== id);
     setExamenes(next);
     collectionStore.deleteOne("examenes", id);
+  };
+  const addHistorial = h => {
+    const next = [...historial, h];
+    setHistorial(next);
+    collectionStore.setOne("historial", h.id, h);
+    showToast("Entrada agregada al historial");
+  };
+  const updateHistorial = h => {
+    const next = historial.map(x => x.id === h.id ? h : x);
+    setHistorial(next);
+    collectionStore.setOne("historial", h.id, h);
+    showToast("Entrada actualizada");
+  };
+  const deleteHistorial = id => {
+    const next = historial.filter(h => h.id !== id);
+    setHistorial(next);
+    collectionStore.deleteOne("historial", id);
   };
   const exportBackup = () => {
     const backup = {
@@ -2596,6 +2924,7 @@ function VetApp() {
       patients,
       recetas,
       examenes,
+      historial,
       config
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], {
@@ -2617,19 +2946,22 @@ function VetApp() {
     reader.onload = e => {
       try {
         const data = JSON.parse(e.target.result);
-        const ok = window.confirm("Esto va a reemplazar todos los datos actuales (pacientes, recetas, exámenes y configuración) por los del respaldo. ¿Continuar?");
+        const ok = window.confirm("Esto va a reemplazar todos los datos actuales (pacientes, recetas, exámenes, historial y configuración) por los del respaldo. ¿Continuar?");
         if (!ok) return;
         const nextPatients = Array.isArray(data.patients) ? data.patients : [];
         const nextRecetas = Array.isArray(data.recetas) ? data.recetas : [];
         const nextExamenes = Array.isArray(data.examenes) ? data.examenes : [];
+        const nextHistorial = Array.isArray(data.historial) ? data.historial : [];
         const nextConfig = data.config || null;
         setPatients(nextPatients);
         setRecetas(nextRecetas);
         setExamenes(nextExamenes);
+        setHistorial(nextHistorial);
         setConfig(nextConfig);
         nextPatients.forEach(p => collectionStore.setOne("patients", p.id || uid(), p));
         nextRecetas.forEach(r => collectionStore.setOne("recetas", r.id || uid(), r));
         nextExamenes.forEach(ex => collectionStore.setOne("examenes", ex.id || uid(), ex));
+        nextHistorial.forEach(h => collectionStore.setOne("historial", h.id || uid(), h));
         store.set("config", nextConfig);
         showToast("Respaldo restaurado");
       } catch (err) {
@@ -2715,7 +3047,7 @@ function VetApp() {
     patients: patients,
     onSelect: setSelected,
     onNew: () => setActive("nuevo")
-  })), active === "pacientes" && selected && !editing && /*#__PURE__*/React.createElement(PatientDetail, {
+  })), active === "pacientes" && selected && !editing && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(PatientDetail, {
     patient: selected,
     onEdit: p => {
       setEditing(p);
@@ -2723,7 +3055,13 @@ function VetApp() {
     },
     onDelete: deletePatient,
     onClose: () => setSelected(null)
-  }), active === "pacientes" && editing && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+  }), /*#__PURE__*/React.createElement(HistorialMedico, {
+    patient: selected,
+    historial: historial,
+    onAdd: addHistorial,
+    onUpdate: updateHistorial,
+    onDelete: deleteHistorial
+  })), active === "pacientes" && editing && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold mb-1"
   }, "Editar ficha — ", editing.nombre), /*#__PURE__*/React.createElement("p", {
@@ -2736,12 +3074,14 @@ function VetApp() {
     patients: patients,
     recetas: recetas,
     onAdd: addReceta,
+    onUpdate: updateReceta,
     onDelete: deleteReceta,
     config: config
   }), active === "examenes" && /*#__PURE__*/React.createElement(ExamenesView, {
     patients: patients,
     examenes: examenes,
     onAdd: addExamen,
+    onUpdate: updateExamen,
     onDelete: deleteExamen
   }), active === "config" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
