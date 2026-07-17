@@ -1260,7 +1260,7 @@ function EmptyState({
    Compartir / imprimir receta
 ----------------------------------------------------------*/
 function buildRecetaText(r, patient, config) {
-  const lines = [config?.clinica ? config.clinica.toUpperCase() : "RECETA MÉDICA VETERINARIA", config?.clinica ? "Receta médica veterinaria" : null, `Fecha: ${r.fecha}`, "", `Paciente: ${r.patientName}`, patient?.propietario ? `Propietario: ${patient.propietario}` : null, patient?.raza ? `Raza: ${patient.raza}` : null, patient?.peso ? `Peso: ${patient.peso} kg` : null, "", "Medicamentos y dosis:", r.medicamentos];
+  const lines = [config?.clinica ? config.clinica.toUpperCase() : "RECETA MÉDICA VETERINARIA", config?.clinica ? "Receta médica veterinaria" : null, `Fecha: ${r.fecha}`, "", `Paciente: ${r.patientName}`, patient?.propietario ? `Propietario: ${patient.propietario}` : null, patient?.raza ? `Raza: ${patient.raza}` : null, patient?.edad ? `Edad: ${patient.edad}` : null, patient?.peso ? `Peso: ${patient.peso} kg` : null, patient?.fechaNacimiento ? `Fecha de nacimiento: ${patient.fechaNacimiento}` : null, "", "Medicamentos y dosis:", r.medicamentos];
   if (r.indicaciones) {
     lines.push("", "Indicaciones:", r.indicaciones);
   }
@@ -1315,7 +1315,9 @@ function printReceta(r, patient, config) {
       <div class="row"><span class="label">Paciente</span><div class="value">${esc(r.patientName)}</div></div>
       ${patient?.propietario ? `<div class="row"><span class="label">Propietario</span><div class="value">${esc(patient.propietario)}</div></div>` : ""}
       ${patient?.raza ? `<div class="row"><span class="label">Raza</span><div class="value">${esc(patient.raza)}</div></div>` : ""}
+      ${patient?.edad ? `<div class="row"><span class="label">Edad</span><div class="value">${esc(patient.edad)}</div></div>` : ""}
       ${patient?.peso ? `<div class="row"><span class="label">Peso</span><div class="value">${esc(patient.peso)} kg</div></div>` : ""}
+      ${patient?.fechaNacimiento ? `<div class="row"><span class="label">Fecha de nacimiento</span><div class="value">${esc(patient.fechaNacimiento)}</div></div>` : ""}
       <div class="divider"></div>
       <div class="section">
         <span class="label">Medicamentos y dosis</span>
