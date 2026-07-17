@@ -138,6 +138,8 @@
   input[type=range]{-webkit-appearance:none;appearance:none;height:4px;background:#DDD5C4;border-radius:9999px;outline:none;}
   input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:9999px;background:#3D6B5C;cursor:pointer;}
   input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:9999px;background:#3D6B5C;border:none;cursor:pointer;}
+
+  .min-h-screen{min-height:100vh}
 </style>
 </head>
 <body>
@@ -1267,6 +1269,10 @@ function buildRecetaText(r, patient, config) {
   if (config?.doctorNombre) {
     lines.push("", `Atendido por: ${config.doctorTitulo || "Dr."} ${config.doctorNombre}`);
   }
+  const contacto = [config?.telefono ? `Tel: ${config.telefono}` : null, config?.correo ? `Correo: ${config.correo}` : null, config?.redes ? `Redes: ${config.redes}` : null].filter(l => l !== null);
+  if (contacto.length) {
+    lines.push(...contacto);
+  }
   return lines.filter(l => l !== null).join("\n");
 }
 function shareReceta(r, patient, config) {
@@ -1303,6 +1309,7 @@ function printReceta(r, patient, config) {
       .section{margin-top:22px;}
       .divider{height:1px; background:#DDD5C4; margin:20px 0;}
       .firma{margin-top:50px; font-size:13px; color:#6B7A72;}
+      .contacto{margin-top:6px; font-size:11px; color:#A6A08F;}
       @media print { body{padding:20px;} }
     </style>
     </head><body>
@@ -1325,6 +1332,7 @@ function printReceta(r, patient, config) {
       </div>
       ${r.indicaciones ? `<div class="section"><span class="label">Indicaciones</span><div class="value">${esc(r.indicaciones).replace(/\n/g, "<br>")}</div></div>` : ""}
       ${config?.doctorNombre ? `<div class="firma">${esc(config.doctorTitulo || "Dr.")} ${esc(config.doctorNombre)}</div>` : ""}
+      ${config?.telefono || config?.correo || config?.redes ? `<div class="contacto">${[config?.telefono ? "Tel: " + esc(config.telefono) : "", config?.correo ? "Correo: " + esc(config.correo) : "", config?.redes ? "Redes: " + esc(config.redes) : ""].filter(Boolean).join(" · ")}</div>` : ""}
     </body></html>`;
   win.document.write(html);
   win.document.close();
@@ -1550,7 +1558,10 @@ const emptyConfig = () => ({
   clinica: "",
   doctorNombre: "",
   doctorTitulo: "Dr.",
-  logo: null
+  logo: null,
+  telefono: "",
+  correo: "",
+  redes: ""
 });
 function ConfigForm({
   config,
@@ -1663,7 +1674,27 @@ function ConfigForm({
     value: data.doctorNombre,
     onChange: set("doctorNombre"),
     placeholder: "Ej. Ana Gómez"
-  }))))), /*#__PURE__*/React.createElement("div", {
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-3"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Teléfono de contacto"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    value: data.telefono,
+    onChange: set("telefono"),
+    placeholder: "Ej. 099 123 4567"
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Correo electrónico"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    value: data.correo,
+    onChange: set("correo"),
+    placeholder: "Ej. contacto@clinica.com"
+  }))), /*#__PURE__*/React.createElement(Field, {
+    label: "Redes sociales"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    value: data.redes,
+    onChange: set("redes"),
+    placeholder: "Ej. @clinicasanroque (Instagram/Facebook)"
+  }))), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2 mt-5"
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: () => onSave(data),
