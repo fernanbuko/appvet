@@ -168,6 +168,8 @@
   .max-h-48{max-height:12rem}
 
   .pointer-events-none{pointer-events:none}
+
+  .inset-y-0{top:0;bottom:0}
 </style>
 </head>
 <body>
@@ -804,16 +806,18 @@ function downloadICS(ics, filename) {
 // Abre el archivo .ics directamente (en vez de solo descargarlo en silencio),
 // para que el celular ofrezca de inmediato "Agregar al calendario".
 // IMPORTANTE: se usa un data URI (no un blob URL) porque los blob: solo son
-// válidos dentro de la misma pestaña que los crea — al abrirse en una pestaña
-// nueva (window.open) el navegador no puede leerlos y la pantalla solo
-// parpadea sin mostrar nada.
+// válidos dentro de la misma pestaña que los crea. Además se simula el clic
+// en un enlace (en vez de window.open), porque los navegadores móviles
+// suelen bloquear window.open al tratarlo como ventana emergente no deseada.
 function openICS(ics, filename) {
   const dataUrl = "data:text/calendar;charset=utf-8," + encodeURIComponent(ics);
-  const opened = window.open(dataUrl, "_blank");
-  if (!opened) {
-    // Si el navegador bloqueó la ventana emergente, se usa la descarga normal
-    downloadICS(ics, filename);
-  }
+  const a = document.createElement("a");
+  a.href = dataUrl;
+  a.target = "_blank";
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 /* ---------------------------------------------------------
@@ -930,9 +934,20 @@ function SearchableSelect({
       paddingRight: "2rem"
     },
     autoComplete: "off"
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#A6A08F] text-xs"
-  }, "▾"), open && shown.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "pointer-events-none absolute inset-y-0 right-3 flex items-center"
+  }, /*#__PURE__*/React.createElement("svg", {
+    width: "10",
+    height: "6",
+    viewBox: "0 0 10 6",
+    fill: "none"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M1 1L5 5L9 1",
+    stroke: "#A6A08F",
+    strokeWidth: "1.5",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }))), open && shown.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "absolute z-20 left-0 right-0 mt-1 bg-white border border-[#DDD5C4] rounded-md shadow-lg max-h-48 overflow-y-auto"
   }, shown.map(opt => /*#__PURE__*/React.createElement("button", {
     key: opt,
@@ -3142,11 +3157,14 @@ function VetApp() {
     setSelected(next.find(p => data.id ? p.id === data.id : true) || null);
     showToast("Ficha guardada");
 
-    // La próxima visita se abre automáticamente para agregarla al calendario
-    // del celular. Si la fecha cambió o se quitó, primero se abre la
-    // cancelación del recordatorio anterior de este paciente.
-    const fechaCambio = prevPatient && prevPatient.proximaVisita && prevPatient.proximaVisita !== record.proximaVisita;
-    if (fechaCambio) {
+    // La próxima visita se abre para agregarla al calendario del celular,
+    // pero SOLO cuando esa fecha es nueva o cambió — si solo editaste otro
+    // dato del paciente (peso, raza, etc.) y la fecha sigue igual, no se
+    // vuelve a abrir nada.
+    const prevVisita = prevPatient ? prevPatient.proximaVisita : null;
+    const seQuitoOCambioLaFecha = prevVisita && prevVisita !== record.proximaVisita;
+    const hayFechaNuevaODistinta = record.proximaVisita && record.proximaVisita !== prevVisita;
+    if (seQuitoOCambioLaFecha) {
       const cancelIcs = makeICS({
         title: `Próx. visita — ${record.nombre}`,
         uid: record.id,
@@ -3154,7 +3172,7 @@ function VetApp() {
       });
       if (cancelIcs) openICS(cancelIcs, `cancelar-visita-${record.nombre}.ics`);
     }
-    if (record.proximaVisita) {
+    if (hayFechaNuevaODistinta) {
       const ics = makeICS({
         title: `Próx. visita — ${record.nombre}`,
         description: `Paciente: ${record.nombre}\nPropietario: ${record.propietario || "-"}`,
