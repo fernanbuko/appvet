@@ -2038,6 +2038,30 @@ function PatientDetail({
     const mensaje = `Hola${patient.propietario ? " " + patient.propietario : ""}, le escribimos de ${config?.clinica || "la clínica"} sobre ${patient.nombre}. `;
     window.open(whatsappLink(patient.telefonoPropietario, mensaje), "_blank");
   };
+
+  // Calcula si el cumpleaños de la mascota es hoy o cae dentro de los
+  // próximos 7 días (solo compara mes/día, sin importar el año de nacimiento).
+  const cumpleanosInfo = (() => {
+    if (!patient.fechaNacimiento) return null;
+    const [, mesStr, diaStr] = patient.fechaNacimiento.split("-");
+    const hoy = new Date();
+    const cumpleEsteAno = new Date(hoy.getFullYear(), parseInt(mesStr) - 1, parseInt(diaStr));
+    let diff = Math.round((cumpleEsteAno - new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())) / 86400000);
+    if (diff < 0) {
+      // Ya pasó este año, calcular para el próximo
+      const cumpleProxAno = new Date(hoy.getFullYear() + 1, parseInt(mesStr) - 1, parseInt(diaStr));
+      diff = Math.round((cumpleProxAno - new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())) / 86400000);
+    }
+    if (diff > 7) return null;
+    return {
+      esHoy: diff === 0,
+      dias: diff
+    };
+  })();
+  const felicitarCumpleanosWhatsApp = () => {
+    const mensaje = `¡Feliz cumpleaños, ${patient.nombre}! 🎉🐾 Todo el equipo de ${config?.clinica || "la clínica"} le desea muchos años más ` + `de salud y travesuras. Un saludo especial de parte nuestra.`;
+    window.open(whatsappLink(patient.telefonoPropietario, mensaje), "_blank");
+  };
   const handleAddFoto = async e => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -2227,12 +2251,17 @@ function PatientDetail({
   }), /*#__PURE__*/React.createElement("span", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-2 block",
     style: styles.mono
-  }, "Comunicación con el dueño"), /*#__PURE__*/React.createElement("div", {
+  }, "Comunicación con el dueño"), cumpleanosInfo && /*#__PURE__*/React.createElement("div", {
+    className: "mb-2 bg-[#E08A3E]/10 border border-[#E08A3E]/40 rounded-lg p-3 text-sm text-[#B14E1C]"
+  }, "🎂 ", cumpleanosInfo.esHoy ? `¡Hoy es el cumpleaños de ${patient.nombre}!` : `El cumpleaños de ${patient.nombre} es en ${cumpleanosInfo.dias} día${cumpleanosInfo.dias === 1 ? "" : "s"}.`), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 flex-wrap"
   }, patient.proximaVisita && /*#__PURE__*/React.createElement(GhostButton, {
     onClick: recordarVisitaWhatsApp,
     icon: "📲"
-  }, "Recordar próxima visita"), /*#__PURE__*/React.createElement(GhostButton, {
+  }, "Recordar próxima visita"), cumpleanosInfo && /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: felicitarCumpleanosWhatsApp,
+    icon: "🎂"
+  }, "Felicitar cumpleaños"), /*#__PURE__*/React.createElement(GhostButton, {
     onClick: mensajeGeneralWhatsApp,
     icon: "💬"
   }, "Mensaje por WhatsApp"))), /*#__PURE__*/React.createElement("div", {
@@ -2259,6 +2288,32 @@ function PatientDetail({
 /* ---------------------------------------------------------
    Historial médico del paciente
 ----------------------------------------------------------*/
+const PLANTILLAS_CONSULTA = {
+  "Desparasitación": {
+    motivoConsulta: "Control de desparasitación",
+    signos: "Sin signos clínicos relevantes al momento del control.",
+    tratamiento: "Se administra antiparasitario interno/externo según peso y edad del paciente.",
+    recomendaciones: "Repetir cada 3 meses. Evitar bañar al paciente en las 48 horas siguientes a la aplicación."
+  },
+  "Control de rutina": {
+    motivoConsulta: "Control de rutina / chequeo general",
+    signos: "Paciente activo, sin signos clínicos anormales observados durante el examen físico.",
+    tratamiento: "",
+    recomendaciones: "Continuar con la alimentación y cuidados habituales. Próximo control sugerido en 6 meses."
+  },
+  "Vacunación": {
+    motivoConsulta: "Aplicación de vacuna programada",
+    signos: "Paciente sano al momento de la aplicación.",
+    tratamiento: "Se aplica vacuna correspondiente según el esquema de vacunación del paciente.",
+    recomendaciones: "Vigilar posibles reacciones en las próximas 24-48 horas (letargo, hinchazón en el sitio de aplicación, decaimiento). Evitar ejercicio intenso el día de hoy."
+  },
+  "Consulta por síntomas": {
+    motivoConsulta: "Consulta por síntomas presentados por el paciente.",
+    signos: "",
+    tratamiento: "",
+    recomendaciones: ""
+  }
+};
 function HistorialMedico({
   patient,
   historial,
@@ -2285,6 +2340,14 @@ function HistorialMedico({
     setPeso("");
     setShowForm(false);
     setEditingId(null);
+  };
+  const aplicarPlantilla = nombre => {
+    const p = PLANTILLAS_CONSULTA[nombre];
+    if (!p) return;
+    setMotivoConsulta(p.motivoConsulta);
+    setSignos(p.signos);
+    setTratamiento(p.tratamiento);
+    setRecomendaciones(p.recomendaciones);
   };
   const startEdit = h => {
     setEditingId(h.id);
@@ -2325,7 +2388,21 @@ function HistorialMedico({
     icon: "➕"
   }, "Agregar entrada")), showForm && /*#__PURE__*/React.createElement("div", {
     className: "bg-white border border-[#DDD5C4] rounded-lg p-6 mb-4"
-  }, /*#__PURE__*/React.createElement(Field, {
+  }, !editingId && /*#__PURE__*/React.createElement(Field, {
+    label: "Plantilla rápida (opcional)"
+  }, /*#__PURE__*/React.createElement("select", {
+    onChange: e => {
+      if (e.target.value) aplicarPlantilla(e.target.value);
+      e.target.value = "";
+    },
+    className: inputClass,
+    defaultValue: ""
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Elige una plantilla para llenar los campos..."), Object.keys(PLANTILLAS_CONSULTA).map(n => /*#__PURE__*/React.createElement("option", {
+    key: n,
+    value: n
+  }, n)))), /*#__PURE__*/React.createElement(Field, {
     label: "Motivo de consulta"
   }, /*#__PURE__*/React.createElement(TextArea, {
     rows: 2,
@@ -2622,13 +2699,22 @@ function VacunasSection({
   }, "🗑️"))), v.notas && /*#__PURE__*/React.createElement("p", {
     className: "text-sm mt-2 text-[#6B7A72] whitespace-pre-wrap"
   }, v.notas), v.proximaDosis && /*#__PURE__*/React.createElement("div", {
-    className: "mt-2 inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded",
+    className: "mt-2 flex items-center gap-2 flex-wrap"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded",
     style: {
       ...styles.mono,
       color: vencida(v) ? "#B14E1C" : "#3D6B5C",
       background: vencida(v) ? "rgba(224,138,62,.1)" : "rgba(61,107,92,.1)"
     }
-  }, vencida(v) ? "⚠ Próxima dosis vencida: " : "📅 Próxima dosis: ", formatDate(v.proximaDosis, config?.dateFormat))))));
+  }, vencida(v) ? "⚠ Próxima dosis vencida: " : "📅 Próxima dosis: ", formatDate(v.proximaDosis, config?.dateFormat)), patient.telefonoPropietario && /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      const df = config?.dateFormat;
+      const mensaje = `Hola${patient.propietario ? " " + patient.propietario : ""}, le escribimos de ${config?.clinica || "la clínica"} ` + `para recordarle que a ${patient.nombre} le corresponde la vacuna "${v.nombre}" el ${formatDate(v.proximaDosis, df)}. ` + `Le esperamos para coordinar la cita. ¡Gracias!`;
+      window.open(whatsappLink(patient.telefonoPropietario, mensaje), "_blank");
+    },
+    className: "text-[11px] text-[#3D6B5C] font-medium hover:underline"
+  }, "📲 Recordar por WhatsApp"))))));
 }
 
 /* ---------------------------------------------------------
@@ -4281,6 +4367,20 @@ function HomeScreen({
   const hoy = new Date().toISOString().slice(0, 10);
   const en30dias = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const vacunasProximas = (vacunas || []).filter(v => v.proximaDosis && v.proximaDosis <= en30dias).sort((a, b) => a.proximaDosis < b.proximaDosis ? -1 : 1).slice(0, 3);
+  const cumpleanosProximos = patients.filter(p => p.fechaNacimiento).map(p => {
+    const [, mesStr, diaStr] = p.fechaNacimiento.split("-");
+    const ahora = new Date();
+    let cumple = new Date(ahora.getFullYear(), parseInt(mesStr) - 1, parseInt(diaStr));
+    let dias = Math.round((cumple - new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate())) / 86400000);
+    if (dias < 0) {
+      cumple = new Date(ahora.getFullYear() + 1, parseInt(mesStr) - 1, parseInt(diaStr));
+      dias = Math.round((cumple - new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate())) / 86400000);
+    }
+    return {
+      ...p,
+      diasParaCumple: dias
+    };
+  }).filter(p => p.diasParaCumple <= 7).sort((a, b) => a.diasParaCumple - b.diasParaCumple).slice(0, 3);
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "mb-8"
   }, config?.logo ? /*#__PURE__*/React.createElement("img", {
@@ -4364,7 +4464,9 @@ function HomeScreen({
   }, p.propietario || "Sin propietario")), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#B14E1C] bg-[#E08A3E]/10 px-2 py-1 rounded text-right",
     style: styles.mono
-  }, "📅 ", formatDate(p.proximaVisita, config?.dateFormat), p.proximaVisitaHora && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("br", null), p.proximaVisitaHora)))))), vacunasProximas.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+  }, "📅 ", formatDate(p.proximaVisita, config?.dateFormat), p.proximaVisitaHora && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("br", null), p.proximaVisitaHora)))))), vacunasProximas.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "mb-8"
+  }, /*#__PURE__*/React.createElement("h2", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
     style: styles.mono
   }, "Vacunas próximas o vencidas"), /*#__PURE__*/React.createElement("div", {
@@ -4383,7 +4485,26 @@ function HomeScreen({
       color: v.proximaDosis < hoy ? "#B14E1C" : "#3D6B5C",
       background: v.proximaDosis < hoy ? "rgba(224,138,62,.1)" : "rgba(61,107,92,.1)"
     }
-  }, "💉 ", formatDate(v.proximaDosis, config?.dateFormat)))))));
+  }, "💉 ", formatDate(v.proximaDosis, config?.dateFormat)))))), cumpleanosProximos.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
+    style: styles.mono
+  }, "Cumpleaños próximos"), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2 max-w-md"
+  }, cumpleanosProximos.map(p => /*#__PURE__*/React.createElement("div", {
+    key: p.id,
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-sm"
+  }, p.nombre), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72]"
+  }, p.propietario || "Sin propietario")), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs px-2 py-1 rounded",
+    style: {
+      ...styles.mono,
+      color: "#3D6B5C",
+      background: "rgba(61,107,92,.1)"
+    }
+  }, "🎂 ", p.diasParaCumple === 0 ? "¡Hoy!" : `en ${p.diasParaCumple} día${p.diasParaCumple === 1 ? "" : "s"}`))))));
 }
 
 /* ---------------------------------------------------------
