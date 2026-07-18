@@ -257,6 +257,8 @@
   .border-white\/30{border-color:rgba(255,255,255,.3)}
 
   .-mx-2{margin-left:-.5rem;margin-right:-.5rem}
+
+  .bg-black{background-color:#000}
 </style>
 </head>
 <body>
@@ -3080,7 +3082,16 @@ function QRScannerModal({
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            facingMode: "environment"
+            facingMode: "environment",
+            width: {
+              ideal: 720
+            },
+            height: {
+              ideal: 720
+            },
+            advanced: [{
+              focusMode: "continuous"
+            }]
           }
         });
         if (cancelado) {
@@ -3102,12 +3113,18 @@ function QRScannerModal({
       const video = videoRef.current;
       const canvas = canvasRef.current;
       if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA && typeof jsQR === "function") {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        // Se reduce la imagen a un tamaño máximo de 480px de ancho antes de
+        // analizarla: jsQR es mucho más rápido con imágenes pequeñas, y para
+        // leer un QR no hace falta la resolución completa de la cámara.
+        const escala = Math.min(1, 480 / video.videoWidth);
+        canvas.width = Math.round(video.videoWidth * escala);
+        canvas.height = Math.round(video.videoHeight * escala);
         const ctx = canvas.getContext("2d");
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "dontInvert"
+        });
         if (code && code.data) {
           onScan(code.data);
           return; // deja de escanear una vez encontrado
