@@ -1451,6 +1451,7 @@ const emptyPatient = () => ({
   raza: "",
   fechaNacimiento: "",
   propietario: "",
+  telefonoPropietario: "",
   ubicacion: "",
   motivoConsulta: "",
   signos: "",
@@ -1622,6 +1623,12 @@ function PatientForm({
     value: data.propietario,
     onChange: set("propietario"),
     placeholder: "Ej. María Pérez"
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Teléfono del propietario (WhatsApp)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    value: data.telefonoPropietario,
+    onChange: set("telefonoPropietario"),
+    placeholder: "Ej. 0991234567"
   })), /*#__PURE__*/React.createElement(Field, {
     label: "Ubicación (cantón, Guayas)"
   }, /*#__PURE__*/React.createElement(SearchableSelect, {
@@ -1816,12 +1823,21 @@ function WeightChart({
   const x = i => padding + i * (width - padding * 2) / (points.length - 1);
   const y = p => height - padding - (p - minP) / rangeP * (height - padding * 2);
   const pathD = points.map((p, i) => `${i === 0 ? "M" : "L"} ${x(i)} ${y(p.peso)}`).join(" ");
+
+  // Alerta si el peso cambió de forma marcada respecto a la visita anterior
+  // (más de 15% de diferencia, hacia arriba o hacia abajo).
+  const anterior = points[points.length - 2].peso;
+  const actual = points[points.length - 1].peso;
+  const cambioPorc = anterior > 0 ? (actual - anterior) / anterior * 100 : 0;
+  const alertaPeso = Math.abs(cambioPorc) >= 15;
   return /*#__PURE__*/React.createElement("div", {
     className: "max-w-2xl mt-6"
   }, /*#__PURE__*/React.createElement("h3", {
     style: styles.display,
     className: "text-lg font-semibold mb-3"
-  }, "Evolución de peso"), /*#__PURE__*/React.createElement("div", {
+  }, "Evolución de peso"), alertaPeso && /*#__PURE__*/React.createElement("div", {
+    className: "mb-3 bg-[#E08A3E]/10 border border-[#E08A3E]/40 rounded-lg p-3 text-sm text-[#B14E1C] flex items-start gap-2"
+  }, /*#__PURE__*/React.createElement("span", null, "⚠️"), /*#__PURE__*/React.createElement("span", null, "El peso ", cambioPorc > 0 ? "subió" : "bajó", " un ", /*#__PURE__*/React.createElement("b", null, Math.abs(cambioPorc).toFixed(0), "%"), " desde la visita anterior (", anterior, " kg → ", actual, " kg). Podría valer la pena revisarlo con más atención.")), /*#__PURE__*/React.createElement("div", {
     className: "bg-white border border-[#DDD5C4] rounded-lg p-4 overflow-x-auto"
   }, /*#__PURE__*/React.createElement("svg", {
     width: width,
@@ -1976,8 +1992,20 @@ function PatientDetail({
 }) {
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [uploadingFoto, setUploadingFoto] = useState(false);
+  const [showQR, setShowQR] = useState(false);
   const galeriaFileRef = useRef(null);
   const galeriaCameraRef = useRef(null);
+  const qrUrl = window.location.origin + window.location.pathname + "?patient=" + patient.id;
+  const qrImgSrc = "https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=" + encodeURIComponent(qrUrl);
+  const recordarVisitaWhatsApp = () => {
+    const df = config?.dateFormat;
+    const mensaje = `Hola${patient.propietario ? " " + patient.propietario : ""}, le escribimos de ${config?.clinica || "la clínica"} ` + `para recordarle la próxima visita de ${patient.nombre} el ${formatDate(patient.proximaVisita, df)}` + (patient.proximaVisitaHora ? ` a las ${patient.proximaVisitaHora}` : "") + ". ¡Le esperamos!";
+    window.open(whatsappLink(patient.telefonoPropietario, mensaje), "_blank");
+  };
+  const mensajeGeneralWhatsApp = () => {
+    const mensaje = `Hola${patient.propietario ? " " + patient.propietario : ""}, le escribimos de ${config?.clinica || "la clínica"} sobre ${patient.nombre}. `;
+    window.open(whatsappLink(patient.telefonoPropietario, mensaje), "_blank");
+  };
   const handleAddFoto = async e => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -2018,7 +2046,28 @@ function PatientDetail({
   }, lightboxSrc && /*#__PURE__*/React.createElement(ImageLightbox, {
     src: lightboxSrc,
     onClose: () => setLightboxSrc(null)
-  }), /*#__PURE__*/React.createElement("div", {
+  }), showQR && /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 flex items-center justify-center px-4",
+    style: {
+      background: "rgba(0,0,0,.6)"
+    },
+    onClick: () => setShowQR(false)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-lg p-6 text-center max-w-xs",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "font-semibold mb-1"
+  }, patient.nombre), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#6B7A72] mb-4"
+  }, "Escanea para abrir esta ficha directamente"), /*#__PURE__*/React.createElement("img", {
+    src: qrImgSrc,
+    alt: "Código QR",
+    className: "mx-auto rounded-md",
+    width: "220",
+    height: "220"
+  }), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => setShowQR(false)
+  }, "Cerrar"))), /*#__PURE__*/React.createElement("div", {
     className: "flex items-start justify-between mb-5"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-4"
@@ -2064,6 +2113,9 @@ function PatientDetail({
   }), /*#__PURE__*/React.createElement(DetailRow, {
     label: "Ubicación",
     value: patient.ubicacion
+  }), /*#__PURE__*/React.createElement(DetailRow, {
+    label: "Teléfono propietario",
+    value: patient.telefonoPropietario
   })), /*#__PURE__*/React.createElement("div", {
     className: "h-px bg-[#DDD5C4] my-4"
   }), /*#__PURE__*/React.createElement(DetailRow, {
@@ -2138,7 +2190,20 @@ function PatientDetail({
     className: "absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white text-xs flex items-center justify-center"
   }, "✕")))) : /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#A6A08F] mb-2"
-  }, "Sin fotos adicionales (heridas, evolución, radiografías, etc.)"), /*#__PURE__*/React.createElement("div", {
+  }, "Sin fotos adicionales (heridas, evolución, radiografías, etc.)"), patient.telefonoPropietario && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "h-px bg-[#DDD5C4] my-4"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-2 block",
+    style: styles.mono
+  }, "Comunicación con el dueño"), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 flex-wrap"
+  }, patient.proximaVisita && /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: recordarVisitaWhatsApp,
+    icon: "📲"
+  }, "Recordar próxima visita"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: mensajeGeneralWhatsApp,
+    icon: "💬"
+  }, "Mensaje por WhatsApp"))), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 mt-6 flex-wrap"
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: () => onEdit(patient),
@@ -2147,6 +2212,9 @@ function PatientDetail({
     onClick: handleICS,
     icon: "⬇"
   }, "Añadir cita al calendario"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => setShowQR(true),
+    icon: "🔳"
+  }, "Código QR"), /*#__PURE__*/React.createElement(GhostButton, {
     onClick: () => exportPatientPDF(patient, config, recetas || [], examenes || [], historial || []),
     icon: "🖨️"
   }, "Exportar ficha en PDF"), /*#__PURE__*/React.createElement(GhostButton, {
@@ -2367,6 +2435,16 @@ function printCarnetVacunas(patient, entries, config) {
   win.document.close();
   win.focus();
   setTimeout(() => win.print(), 350);
+}
+
+// Arma un enlace de WhatsApp hacia el propietario. Limpia el número (quita
+// espacios/guiones) y, si empieza en 0 (formato local ecuatoriano), le pone
+// el código de país +593 delante para que WhatsApp lo reconozca bien.
+function whatsappLink(telefono, mensaje) {
+  let limpio = (telefono || "").replace(/[^\d+]/g, "");
+  if (limpio.startsWith("0")) limpio = "593" + limpio.slice(1);
+  if (limpio.startsWith("+")) limpio = limpio.slice(1);
+  return `https://wa.me/${limpio}?text=${encodeURIComponent(mensaje)}`;
 }
 function shareCarnetVacunas(patient, entries, config) {
   const df = config?.dateFormat;
@@ -4386,6 +4464,26 @@ function VetApp() {
       cancelled = true;
     };
   }, [user]);
+
+  // Si se entró desde un código QR (enlace con ?patient=ID), abre esa ficha
+  // directo en cuanto los pacientes ya estén cargados.
+  useEffect(() => {
+    if (!dataLoaded || patients.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const idParam = params.get("patient");
+    if (idParam) {
+      const encontrado = patients.find(p => p.id === idParam && !p.eliminadoEn);
+      if (encontrado) {
+        setActive("pacientes");
+        setSelected(encontrado);
+      }
+      // Limpia el parámetro de la URL para no reabrirlo en cada recarga
+      const url = new URL(window.location.href);
+      url.searchParams.delete("patient");
+      window.history.replaceState({}, "", url);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataLoaded, patients.length]);
 
   // Una vez cargados los datos iniciales, se activa la sincronización en
   // tiempo real: cualquier cambio (desde este dispositivo u otro con la
