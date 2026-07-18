@@ -1453,6 +1453,7 @@ const emptyPatient = () => ({
   motivoConsulta: "",
   signos: "",
   tratamientoInyectable: "",
+  diagnosticoPresuntivo: "",
   recomendaciones: "",
   examenesComplementarios: "",
   proximaVisita: "",
@@ -1703,6 +1704,13 @@ function PatientForm({
     onChange: set("tratamientoInyectable"),
     placeholder: "Fármaco, dosis, vía..."
   }))), step === 2 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Field, {
+    label: "Diagnóstico presuntivo"
+  }, /*#__PURE__*/React.createElement(TextArea, {
+    rows: 3,
+    value: data.diagnosticoPresuntivo,
+    onChange: set("diagnosticoPresuntivo"),
+    placeholder: "Diagnóstico probable según los hallazgos clínicos..."
+  })), /*#__PURE__*/React.createElement(Field, {
     label: "Recomendaciones"
   }, /*#__PURE__*/React.createElement(TextArea, {
     rows: 5,
@@ -1855,6 +1863,19 @@ function WeightChart({
     className: "text-xs text-[#6B7A72] mt-2"
   }, "Kilogramos por fecha, según lo registrado en el historial médico."));
 }
+
+// Pie de página con los datos de contacto de la clínica, para que cada PDF
+// (ficha, receta, carnet) lo incluya de forma consistente sin depender de
+// ninguna función del navegador (que en iPhone no existe para esto).
+function pieDePaginaHTML(config) {
+  const partes = [config?.direccion, config?.telefono, config?.correo, config?.redes].filter(Boolean);
+  if (!config?.clinica && partes.length === 0) return "";
+  return `
+    <div style="margin-top:32px; padding-top:12px; border-top:1px solid #DDD; font-size:11px; color:#6B7A72; text-align:center;">
+      ${config?.clinica ? `<div style="font-weight:600; color:#23342F; margin-bottom:2px;">${config.clinica}</div>` : ""}
+      ${partes.length ? `<div>${partes.join(" · ")}</div>` : ""}
+    </div>`;
+}
 function exportPatientPDF(patient, config, recetas, examenes, historial) {
   const win = window.open("", "_blank");
   if (!win) {
@@ -1906,6 +1927,7 @@ function exportPatientPDF(patient, config, recetas, examenes, historial) {
       ${row("Motivo de consulta", patient.motivoConsulta)}
       ${row("Signos / síntomas", patient.signos)}
       ${row("Tratamiento inyectable", patient.tratamientoInyectable)}
+      ${row("Diagnóstico presuntivo", patient.diagnosticoPresuntivo)}
       ${row("Recomendaciones", patient.recomendaciones)}
       ${row("Exámenes complementarios", patient.examenesComplementarios)}
       ${row("Próxima visita", patient.proximaVisita ? formatDate(patient.proximaVisita, df) : "")}
@@ -1932,6 +1954,7 @@ function exportPatientPDF(patient, config, recetas, examenes, historial) {
           <div class="fecha">${esc(formatDate(e.fecha, df))} · ${esc(e.tipo)}</div>
           ${row("Resultados", e.resultados)}
         </div>`).join("")}` : ""}
+      ${pieDePaginaHTML(config)}
     </body></html>`;
   win.document.write(html);
   win.document.close();
@@ -2052,6 +2075,9 @@ function PatientDetail({
     value: patient.tratamientoInyectable
   }), /*#__PURE__*/React.createElement("div", {
     className: "h-px bg-[#DDD5C4] my-4"
+  }), /*#__PURE__*/React.createElement(DetailRow, {
+    label: "Diagnóstico presuntivo",
+    value: patient.diagnosticoPresuntivo
   }), /*#__PURE__*/React.createElement(DetailRow, {
     label: "Recomendaciones",
     value: patient.recomendaciones
@@ -2333,6 +2359,7 @@ function printCarnetVacunas(patient, entries, config) {
         <thead><tr><th>Vacuna</th><th>Aplicada</th><th>Próxima dosis</th><th>Notas</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
+      ${pieDePaginaHTML(config)}
     </body></html>`;
   win.document.write(html);
   win.document.close();
@@ -4587,7 +4614,7 @@ function VetApp() {
     collectionStore.setOne("patients", record.id, record);
     setEditing(null);
     setActive("pacientes");
-    setSelected(next.find(p => data.id ? p.id === data.id : true) || null);
+    setSelected(next.find(p => p.id === record.id) || null);
     showToast("Ficha guardada");
 
     // La próxima visita se abre para agregarla al calendario del celular,
