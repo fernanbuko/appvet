@@ -255,6 +255,8 @@
 
   .bg-black\/60{background-color:rgba(0,0,0,.6)}
   .border-white\/30{border-color:rgba(255,255,255,.3)}
+
+  .-mx-2{margin-left:-.5rem;margin-right:-.5rem}
 </style>
 </head>
 <body>
@@ -4163,7 +4165,8 @@ function AgendaView({
 ----------------------------------------------------------*/
 function ReportesView({
   cobros,
-  patients
+  patients,
+  onSelectPatient
 }) {
   // Solo se cuentan los cobros de pacientes que siguen activos (no eliminados
   // ni en la papelera) — si borras un paciente, sus cobros ya no aparecen aquí.
@@ -4222,9 +4225,12 @@ function ReportesView({
     className: "divide-y divide-[#EEEAE0] mb-3"
   }, datos.items.map(c => {
     const propietario = propietarioDe(c.patientId);
-    return /*#__PURE__*/React.createElement("div", {
+    const patientObj = (patients || []).find(p => p.id === c.patientId);
+    return /*#__PURE__*/React.createElement("button", {
       key: c.id,
-      className: "py-2 flex items-center justify-between gap-3"
+      onClick: () => patientObj && onSelectPatient && onSelectPatient(patientObj),
+      disabled: !patientObj,
+      className: "w-full py-2 flex items-center justify-between gap-3 text-left hover:bg-[#EAF0EC] transition rounded-md px-2 -mx-2"
     }, /*#__PURE__*/React.createElement("div", {
       className: "min-w-0"
     }, /*#__PURE__*/React.createElement("div", {
@@ -5178,7 +5184,12 @@ function VetApp() {
     setSelected: setSelected
   }), active === "reportes" && /*#__PURE__*/React.createElement(ReportesView, {
     cobros: cobros,
-    patients: activePatients
+    patients: activePatients,
+    onSelectPatient: p => {
+      setActive("pacientes");
+      setSelected(p);
+      setEditing(null);
+    }
   }), active === "config" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold mb-1"
