@@ -837,6 +837,7 @@ function makeICS({
   title,
   description,
   date,
+  hora,
   uid: fixedUid,
   cancel
 }) {
@@ -845,7 +846,18 @@ function makeICS({
   const stamp = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
   const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//VetData//ES", cancel ? "METHOD:CANCEL" : "METHOD:PUBLISH", "BEGIN:VEVENT", `UID:${fixedUid}@vetdata`, `DTSTAMP:${stamp}`];
   if (dt) {
-    lines.push(`DTSTART;VALUE=DATE:${dt}`, `DTEND;VALUE=DATE:${dt}`);
+    if (hora) {
+      // Evento con hora específica (dura 30 minutos), en vez de "todo el día"
+      const [hh, mm] = hora.split(":");
+      const inicio = `${dt}T${hh}${mm}00`;
+      const finMin = (parseInt(hh) * 60 + parseInt(mm) + 30) % 1440;
+      const finH = String(Math.floor(finMin / 60)).padStart(2, "0");
+      const finM = String(finMin % 60).padStart(2, "0");
+      const fin = `${dt}T${finH}${finM}00`;
+      lines.push(`DTSTART:${inicio}`, `DTEND:${fin}`);
+    } else {
+      lines.push(`DTSTART;VALUE=DATE:${dt}`, `DTEND;VALUE=DATE:${dt}`);
+    }
   }
   lines.push(`SUMMARY:${title}`, `SEQUENCE:${cancel ? 1 : 0}`);
   if (cancel) {
@@ -1438,6 +1450,7 @@ const emptyPatient = () => ({
   recomendaciones: "",
   examenesComplementarios: "",
   proximaVisita: "",
+  proximaVisitaHora: "",
   anotarCalendario: false,
   updatedAt: null,
   etiquetas: [],
@@ -1703,9 +1716,15 @@ function PatientForm({
     type: "date",
     value: data.proximaVisita,
     onChange: set("proximaVisita")
-  })), data.proximaVisita && /*#__PURE__*/React.createElement("p", {
+  })), data.proximaVisita && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Field, {
+    label: "Hora (opcional)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "time",
+    value: data.proximaVisitaHora,
+    onChange: set("proximaVisitaHora")
+  })), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#6B7A72] mt-2 flex items-center gap-1.5"
-  }, "📅 Al guardar, esta fecha se descarga automáticamente para agregarla al calendario de tu celular."))), /*#__PURE__*/React.createElement("div", {
+  }, "📅 Al guardar, esta fecha se descarga automáticamente para agregarla al calendario de tu celular.")))), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mt-5"
   }, /*#__PURE__*/React.createElement("div", null, step > 0 && /*#__PURE__*/React.createElement(GhostButton, {
     onClick: () => setStep(s => s - 1),
@@ -1957,6 +1976,7 @@ function PatientDetail({
       title: `Próx. visita — ${patient.nombre}`,
       description: `Paciente: ${patient.nombre}\nPropietario: ${patient.propietario || "-"}`,
       date: patient.proximaVisita,
+      hora: patient.proximaVisitaHora,
       uid: patient.id
     });
     if (ics) openICS(ics, `visita-${patient.nombre}.ics`);
@@ -2035,7 +2055,7 @@ function PatientDetail({
     className: "h-px bg-[#DDD5C4] my-4"
   }), /*#__PURE__*/React.createElement(DetailRow, {
     label: "Próxima visita",
-    value: formatDate(patient.proximaVisita, config?.dateFormat)
+    value: patient.proximaVisita ? formatDate(patient.proximaVisita, config?.dateFormat) + (patient.proximaVisitaHora ? ` — ${patient.proximaVisitaHora}` : "") : ""
   }), /*#__PURE__*/React.createElement("div", {
     className: "h-px bg-[#DDD5C4] my-4"
   }), /*#__PURE__*/React.createElement("div", {
@@ -3860,6 +3880,7 @@ function AgendaView({
         map[p.proximaVisita].push(p);
       }
     });
+    Object.values(map).forEach(list => list.sort((a, b) => (a.proximaVisitaHora || "99:99") < (b.proximaVisitaHora || "99:99") ? -1 : 1));
     return map;
   }, [patients]);
   const {
@@ -3954,11 +3975,16 @@ function AgendaView({
     src: p.foto,
     alt: "",
     className: "w-full h-full object-cover"
-  }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0 flex-1"
+  }, /*#__PURE__*/React.createElement("div", {
     className: "font-medium text-sm"
   }, p.nombre), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72]"
-  }, p.propietario || "Sin propietario")))))));
+  }, p.propietario || "Sin propietario")), p.proximaVisitaHora && /*#__PURE__*/React.createElement("span", {
+    className: "text-xs font-semibold text-[#3D6B5C] shrink-0",
+    style: styles.mono
+  }, p.proximaVisitaHora))))));
 }
 
 /* ---------------------------------------------------------
@@ -4156,9 +4182,9 @@ function HomeScreen({
   }, p.nombre), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72]"
   }, p.propietario || "Sin propietario")), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-[#B14E1C] bg-[#E08A3E]/10 px-2 py-1 rounded",
+    className: "text-xs text-[#B14E1C] bg-[#E08A3E]/10 px-2 py-1 rounded text-right",
     style: styles.mono
-  }, "📅 ", formatDate(p.proximaVisita, config?.dateFormat)))))), vacunasProximas.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+  }, "📅 ", formatDate(p.proximaVisita, config?.dateFormat), p.proximaVisitaHora && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("br", null), p.proximaVisitaHora)))))), vacunasProximas.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
     style: styles.mono
   }, "Vacunas próximas o vencidas"), /*#__PURE__*/React.createElement("div", {
@@ -4561,6 +4587,7 @@ function VetApp() {
         title: `Próx. visita — ${record.nombre}`,
         description: `Paciente: ${record.nombre}\nPropietario: ${record.propietario || "-"}`,
         date: record.proximaVisita,
+        hora: record.proximaVisitaHora,
         uid: record.id
       });
       if (ics) openICS(ics, `visita-${record.nombre}.ics`);
