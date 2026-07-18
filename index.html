@@ -1952,6 +1952,7 @@ function PatientDetail({
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [uploadingFoto, setUploadingFoto] = useState(false);
   const galeriaFileRef = useRef(null);
+  const galeriaCameraRef = useRef(null);
   const handleAddFoto = async e => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -2069,17 +2070,30 @@ function PatientDetail({
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72]",
     style: styles.mono
-  }, "Galería de fotos"), /*#__PURE__*/React.createElement("input", {
+  }, "Galería de fotos"), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("input", {
     ref: galeriaFileRef,
     type: "file",
     accept: "image/*",
+    className: "hidden",
+    onChange: handleAddFoto
+  }), /*#__PURE__*/React.createElement("input", {
+    ref: galeriaCameraRef,
+    type: "file",
+    accept: "image/*",
+    capture: "environment",
     className: "hidden",
     onChange: handleAddFoto
   }), /*#__PURE__*/React.createElement("button", {
     onClick: () => galeriaFileRef.current?.click(),
     disabled: uploadingFoto,
     className: "text-xs text-[#3D6B5C] font-medium hover:underline disabled:opacity-50"
-  }, uploadingFoto ? "Subiendo..." : "➕ Agregar foto")), patient.fotos && patient.fotos.length > 0 ? /*#__PURE__*/React.createElement("div", {
+  }, uploadingFoto ? "Subiendo..." : "➕ Elegir foto"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => galeriaCameraRef.current?.click(),
+    disabled: uploadingFoto,
+    className: "text-xs text-[#3D6B5C] font-medium hover:underline disabled:opacity-50"
+  }, "📷 Tomar foto"))), patient.fotos && patient.fotos.length > 0 ? /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-4 gap-2 mb-2"
   }, patient.fotos.map((src, idx) => /*#__PURE__*/React.createElement("div", {
     key: idx,
