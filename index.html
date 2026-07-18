@@ -4014,9 +4014,12 @@ function ReportesView({
   cobros,
   patients
 }) {
+  // Solo se cuentan los cobros de pacientes que siguen activos (no eliminados
+  // ni en la papelera) — si borras un paciente, sus cobros ya no aparecen aquí.
+  const cobrosVigentes = useMemo(() => cobros.filter(c => (patients || []).some(p => p.id === c.patientId)), [cobros, patients]);
   const porMes = useMemo(() => {
     const map = {};
-    cobros.forEach(c => {
+    cobrosVigentes.forEach(c => {
       const mes = (c.fecha || "").slice(0, 7); // YYYY-MM
       if (!mes) return;
       if (!map[mes]) map[mes] = {
@@ -4034,7 +4037,7 @@ function ReportesView({
     });
     Object.values(map).forEach(m => m.items.sort((a, b) => a.fecha < b.fecha ? 1 : -1));
     return Object.entries(map).sort((a, b) => a[0] < b[0] ? 1 : -1);
-  }, [cobros]);
+  }, [cobrosVigentes]);
   const propietarioDe = patientId => {
     const p = (patients || []).find(x => x.id === patientId);
     return p?.propietario || "";
@@ -4649,7 +4652,31 @@ function VetApp() {
     const next = patients.filter(p => p.id !== patient.id);
     setPatients(next);
     collectionStore.deleteOne("patients", patient.id);
-    showToast("Paciente eliminado definitivamente");
+
+    // Borrado en cascada: también se eliminan las recetas, exámenes, historial,
+    // vacunas y cobros asociados a este paciente, para no dejar registros
+    // huérfanos dando vueltas (por ejemplo, en Reportes).
+    recetas.filter(r => r.patientId === patient.id).forEach(r => {
+      collectionStore.deleteOne("recetas", r.id);
+    });
+    setRecetas(cur => cur.filter(r => r.patientId !== patient.id));
+    examenes.filter(e => e.patientId === patient.id).forEach(e => {
+      collectionStore.deleteOne("examenes", e.id);
+    });
+    setExamenes(cur => cur.filter(e => e.patientId !== patient.id));
+    historial.filter(h => h.patientId === patient.id).forEach(h => {
+      collectionStore.deleteOne("historial", h.id);
+    });
+    setHistorial(cur => cur.filter(h => h.patientId !== patient.id));
+    vacunas.filter(v => v.patientId === patient.id).forEach(v => {
+      collectionStore.deleteOne("vacunas", v.id);
+    });
+    setVacunas(cur => cur.filter(v => v.patientId !== patient.id));
+    cobros.filter(c => c.patientId === patient.id).forEach(c => {
+      collectionStore.deleteOne("cobros", c.id);
+    });
+    setCobros(cur => cur.filter(c => c.patientId !== patient.id));
+    showToast("Paciente y sus registros eliminados definitivamente");
   };
   const addReceta = r => {
     const next = [...recetas, r];
