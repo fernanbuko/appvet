@@ -298,7 +298,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
 /**
  * @license React
@@ -1319,8 +1318,7 @@ function Sidebar({
   active,
   setActive,
   count,
-  config,
-  onScanClick
+  config
 }) {
   return /*#__PURE__*/React.createElement("div", {
     className: "hidden md:flex md:w-60 md:min-h-screen bg-[#23342F] text-white md:flex-col"
@@ -1336,10 +1334,7 @@ function Sidebar({
   }, "🐾"), /*#__PURE__*/React.createElement("span", {
     style: styles.display,
     className: "text-lg font-semibold text-white"
-  }, config?.clinica || "VetData")), /*#__PURE__*/React.createElement("button", {
-    onClick: onScanClick,
-    className: "flex items-center gap-3 px-5 py-3 text-sm font-medium text-[#B9C4BD] hover:bg-white/5 hover:text-white transition border-b border-white/10"
-  }, /*#__PURE__*/React.createElement("span", null, "📷"), " Escanear código QR"), /*#__PURE__*/React.createElement("nav", {
+  }, config?.clinica || "VetData")), /*#__PURE__*/React.createElement("nav", {
     className: "flex flex-col flex-1"
   }, NAV.map(item => {
     const isActive = active === item.key;
@@ -1362,8 +1357,7 @@ function Sidebar({
 function MobileTopBar({
   active,
   setActive,
-  config,
-  onScanClick
+  config
 }) {
   return /*#__PURE__*/React.createElement("div", {
     className: "md:hidden flex items-center justify-between bg-[#23342F] text-white px-4 py-3"
@@ -1379,15 +1373,10 @@ function MobileTopBar({
   }, "🐾"), /*#__PURE__*/React.createElement("span", {
     style: styles.display,
     className: "text-base font-semibold text-white"
-  }, config?.clinica || "VetData")), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: onScanClick,
-    className: "w-9 h-9 rounded-full flex items-center justify-center text-base bg-white/10 transition"
-  }, "📷"), /*#__PURE__*/React.createElement("button", {
+  }, config?.clinica || "VetData")), /*#__PURE__*/React.createElement("button", {
     onClick: () => setActive("config"),
     className: "w-9 h-9 rounded-full flex items-center justify-center text-base transition " + (active === "config" ? "bg-white/20" : "bg-white/10")
-  }, "⚙️")));
+  }, "⚙️"));
 }
 
 /* ---------------------------------------------------------
@@ -3061,127 +3050,6 @@ function PatientsList({
     danger: true
   }, "Eliminar")))))));
 }
-
-/* ---------------------------------------------------------
-   Lector de código QR: abre la cámara, busca un código QR en
-   cada cuadro de video (con jsQR) y, cuando lo encuentra, extrae
-   el ID de paciente del enlace y lo entrega mediante onScan.
-----------------------------------------------------------*/
-function QRScannerModal({
-  onScan,
-  onClose
-}) {
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const streamRef = useRef(null);
-  const rafRef = useRef(null);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    let cancelado = false;
-
-    // Si la librería de lectura de QR no llegó a cargar (sin internet en ese
-    // momento, bloqueada por el navegador, etc.), antes se quedaba escaneando
-    // en silencio para siempre sin avisar. Ahora, si no está lista pasados
-    // 4 segundos, se muestra un error claro en vez de seguir sin hacer nada.
-    const chequeoLibreria = setTimeout(() => {
-      if (!cancelado && typeof jsQR !== "function") {
-        setError("No se pudo cargar el lector de códigos QR (necesita internet la primera vez). Revisa tu conexión e intenta de nuevo.");
-      }
-    }, 4000);
-    async function iniciar() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "environment",
-            width: {
-              ideal: 720
-            },
-            height: {
-              ideal: 720
-            }
-          }
-        });
-        if (cancelado) {
-          stream.getTracks().forEach(t => t.stop());
-          return;
-        }
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-        }
-        escanear();
-      } catch (e) {
-        setError("No se pudo acceder a la cámara. Revisa los permisos de cámara para este sitio.");
-      }
-    }
-    function escanear() {
-      if (cancelado) return;
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA && typeof jsQR === "function") {
-        // Se reduce la imagen a un tamaño máximo de 480px de ancho antes de
-        // analizarla: jsQR es mucho más rápido con imágenes pequeñas, y para
-        // leer un QR no hace falta la resolución completa de la cámara.
-        const escala = Math.min(1, 480 / video.videoWidth);
-        canvas.width = Math.round(video.videoWidth * escala);
-        canvas.height = Math.round(video.videoHeight * escala);
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: "attemptBoth"
-        });
-        if (code && code.data) {
-          onScan(code.data);
-          return; // deja de escanear una vez encontrado
-        }
-      }
-      rafRef.current = requestAnimationFrame(escanear);
-    }
-    iniciar();
-    return () => {
-      cancelado = true;
-      clearTimeout(chequeoLibreria);
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  return /*#__PURE__*/React.createElement("div", {
-    className: "fixed inset-0 z-50 bg-black flex flex-col"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between px-4 py-3 text-white"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "font-medium"
-  }, "Escanear código QR"), /*#__PURE__*/React.createElement("button", {
-    onClick: onClose,
-    className: "text-2xl leading-none"
-  }, "✕")), /*#__PURE__*/React.createElement("div", {
-    className: "flex-1 relative flex items-center justify-center overflow-hidden"
-  }, error ? /*#__PURE__*/React.createElement("p", {
-    className: "text-white text-sm px-8 text-center"
-  }, error) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("video", {
-    ref: videoRef,
-    className: "w-full h-full object-cover",
-    playsInline: true,
-    muted: true
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "absolute inset-0 flex items-center justify-center pointer-events-none"
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      width: 220,
-      height: 220,
-      border: "3px solid #E08A3E",
-      borderRadius: 16
-    }
-  }))), /*#__PURE__*/React.createElement("canvas", {
-    ref: canvasRef,
-    className: "hidden"
-  })), /*#__PURE__*/React.createElement("p", {
-    className: "text-white/70 text-xs text-center pb-6 px-8"
-  }, "Apunta la cámara al código QR de la ficha del paciente."));
-}
 function GlobalSearch({
   patients,
   onSelect
@@ -4701,29 +4569,6 @@ function VetApp() {
   const [selected, setSelected] = useState(null);
   const [toast, setToast] = useState("");
   const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
-  const [showScanner, setShowScanner] = useState(false);
-  const handleQRScan = texto => {
-    setShowScanner(false);
-    let idParam = null;
-    try {
-      const url = new URL(texto);
-      idParam = url.searchParams.get("patient");
-    } catch {
-      idParam = null; // no era una URL válida
-    }
-    if (!idParam) {
-      alert("El código escaneado no corresponde a un paciente de VetData.");
-      return;
-    }
-    const encontrado = patients.find(p => p.id === idParam && !p.eliminadoEn);
-    if (encontrado) {
-      setActive("pacientes");
-      setSelected(encontrado);
-      showToast(`Ficha de ${encontrado.nombre} abierta`);
-    } else {
-      alert("No se encontró ningún paciente con ese código (puede que haya sido eliminado).");
-    }
-  };
   useEffect(() => {
     const goOnline = () => {
       setIsOnline(true);
@@ -5335,10 +5180,7 @@ function VetApp() {
   return /*#__PURE__*/React.createElement("div", {
     style: styles.page,
     className: "flex flex-col min-h-screen"
-  }, showScanner && /*#__PURE__*/React.createElement(QRScannerModal, {
-    onScan: handleQRScan,
-    onClose: () => setShowScanner(false)
-  }), !isOnline && /*#__PURE__*/React.createElement("div", {
+  }, !isOnline && /*#__PURE__*/React.createElement("div", {
     style: {
       width: "100%",
       background: "#E08A3E",
@@ -5360,8 +5202,7 @@ function VetApp() {
       setEditing(null);
       setSelected(null);
     },
-    config: config,
-    onScanClick: () => setShowScanner(true)
+    config: config
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex flex-col md:flex-row flex-1"
   }, /*#__PURE__*/React.createElement(Sidebar, {
@@ -5372,8 +5213,7 @@ function VetApp() {
       setSelected(null);
     },
     count: activePatients.length,
-    config: config,
-    onScanClick: () => setShowScanner(true)
+    config: config
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 px-5 sm:px-8 pt-8 pb-24 md:pb-8 max-w-5xl"
   }, toast && /*#__PURE__*/React.createElement("div", {
