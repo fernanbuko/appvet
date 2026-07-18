@@ -2647,7 +2647,14 @@ function CobrosSection({
   const [pagado, setPagado] = useState(true);
   const entries = cobros.filter(c => c.patientId === patient.id).sort((a, b) => a.fecha < b.fecha ? 1 : -1);
   const total = entries.reduce((sum, c) => sum + (parseFloat(c.monto) || 0), 0);
-  const pendiente = entries.filter(c => !c.pagado).reduce((sum, c) => sum + (parseFloat(c.monto) || 0), 0);
+  const pendientes = entries.filter(c => !c.pagado);
+  const pendiente = pendientes.reduce((sum, c) => sum + (parseFloat(c.monto) || 0), 0);
+  const cobrarPorWhatsApp = () => {
+    const df = config?.dateFormat;
+    const detalle = pendientes.map(c => `• ${c.concepto} (${formatDate(c.fecha, df)}): $${parseFloat(c.monto).toFixed(2)}`).join("\n");
+    const mensaje = `Hola${patient.propietario ? " " + patient.propietario : ""}, le escribimos de ${config?.clinica || "la clínica"} ` + `sobre un saldo pendiente de ${patient.nombre}:\n\n${detalle}\n\nTotal pendiente: $${pendiente.toFixed(2)}\n\n` + `Quedamos atentos para coordinar el pago. ¡Gracias!`;
+    window.open(whatsappLink(patient.telefonoPropietario, mensaje), "_blank");
+  };
   const reset = () => {
     setConcepto("");
     setMonto("");
@@ -2702,7 +2709,14 @@ function CobrosSection({
   }, "$", pendiente.toFixed(2)), /*#__PURE__*/React.createElement("div", {
     className: "text-[10px] uppercase tracking-wider text-[#6B7A72]",
     style: styles.mono
-  }, "Pendiente de pago"))), showForm && /*#__PURE__*/React.createElement("div", {
+  }, "Pendiente de pago"))), pendiente > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "mb-4"
+  }, patient.telefonoPropietario ? /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: cobrarPorWhatsApp,
+    icon: "📲"
+  }, "Cobrar $", pendiente.toFixed(2), " por WhatsApp") : /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#A6A08F]"
+  }, "Agrega el teléfono del propietario en la ficha para poder enviarle el cobro pendiente por WhatsApp.")), showForm && /*#__PURE__*/React.createElement("div", {
     className: "bg-white border border-[#DDD5C4] rounded-lg p-6 mb-4"
   }, /*#__PURE__*/React.createElement(Field, {
     label: "Concepto"
