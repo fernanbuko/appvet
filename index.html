@@ -638,11 +638,22 @@ const firebaseReady = firebaseConfig.apiKey && firebaseConfig.apiKey !== "TU_API
 const CLOUDINARY_CLOUD_NAME = "zcuh5bjn";
 const CLOUDINARY_UPLOAD_PRESET = "vetdata_uploads";
 const cloudinaryReady = CLOUDINARY_CLOUD_NAME !== "TU_CLOUD_NAME" && CLOUDINARY_UPLOAD_PRESET !== "TU_UPLOAD_PRESET";
-async function uploadToCloudinary(fileOrBlob, folder) {
+// Carpeta de esta app + de este usuario/clínica dentro de Cloudinary — así, aunque la
+// cuenta de Cloudinary se comparta con otras apps, nunca se mezclan los archivos, y
+// dentro de VetData, cada doctor/a (o cada equipo de clínica) tiene los suyos aparte.
+// Sigue la misma lógica que ya usa teamCollection() para los datos en Firestore:
+// si hay un código de clínica configurado, se usa el espacio de equipo compartido;
+// si no, el espacio personal del usuario.
+function carpetaCloudinariaDeEsteUsuario() {
+  const identificador = currentClinicaId ? `clinica_${currentClinicaId}` : (currentUid || "sin_cuenta");
+  return `vetdata/${identificador}`;
+}
+async function uploadToCloudinary(fileOrBlob, subcarpeta) {
   const formData = new FormData();
   formData.append("file", fileOrBlob);
   formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-  if (folder) formData.append("folder", folder);
+  const carpetaCompleta = subcarpeta ? `${carpetaCloudinariaDeEsteUsuario()}/${subcarpeta}` : carpetaCloudinariaDeEsteUsuario();
+  formData.append("asset_folder", carpetaCompleta);
   const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`, {
     method: "POST",
     body: formData
@@ -1545,7 +1556,7 @@ function PatientForm({
     shape: "circle",
     size: 260,
     outputSize: 500,
-    folder: "vetdata/pacientes",
+    folder: "pacientes",
     onCancel: () => setCropSrc(null),
     onConfirm: dataUrl => {
       setData(d => ({
@@ -2071,7 +2082,7 @@ function PatientDetail({
     try {
       let url;
       if (cloudinaryReady) {
-        const result = await uploadToCloudinary(file, "vetdata/galeria");
+        const result = await uploadToCloudinary(file, "galeria");
         url = result.url;
       } else {
         url = await resizeImage(file, 900);
@@ -3526,7 +3537,7 @@ function ExamenesView({
         try {
           const {
             url
-          } = await uploadToCloudinary(file, "vetdata/examenes");
+          } = await uploadToCloudinary(file, "examenes");
           nuevos.push({
             name: file.name,
             type: file.type,
@@ -3751,7 +3762,7 @@ function ConfigForm({
     shape: "square",
     size: 260,
     outputSize: 400,
-    folder: "vetdata/logos",
+    folder: "logos",
     onCancel: () => setCropSrc(null),
     onConfirm: dataUrl => {
       setData(d => ({
