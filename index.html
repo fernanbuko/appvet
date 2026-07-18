@@ -1487,7 +1487,7 @@ function MobileBottomNav({
    Formulario paciente (4 hojas)
 ----------------------------------------------------------*/
 const emptyPatient = () => ({
-  id: null,
+  id: uid(),
   foto: null,
   especie: "",
   nombre: "",
@@ -1556,7 +1556,7 @@ function PatientForm({
     shape: "circle",
     size: 260,
     outputSize: 500,
-    folder: "pacientes",
+    folder: `pacientes/${data.id}`,
     onCancel: () => setCropSrc(null),
     onConfirm: dataUrl => {
       setData(d => ({
@@ -2082,7 +2082,7 @@ function PatientDetail({
     try {
       let url;
       if (cloudinaryReady) {
-        const result = await uploadToCloudinary(file, "galeria");
+        const result = await uploadToCloudinary(file, `pacientes/${patient.id}/galeria`);
         url = result.url;
       } else {
         url = await resizeImage(file, 900);
@@ -3537,7 +3537,7 @@ function ExamenesView({
         try {
           const {
             url
-          } = await uploadToCloudinary(file, "examenes");
+          } = await uploadToCloudinary(file, `pacientes/${patientId || "sin_asignar"}/examenes`);
           nuevos.push({
             name: file.name,
             type: file.type,
