@@ -296,6 +296,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
 /**
  * @license React
@@ -1316,7 +1317,8 @@ function Sidebar({
   active,
   setActive,
   count,
-  config
+  config,
+  onScanClick
 }) {
   return /*#__PURE__*/React.createElement("div", {
     className: "hidden md:flex md:w-60 md:min-h-screen bg-[#23342F] text-white md:flex-col"
@@ -1332,7 +1334,10 @@ function Sidebar({
   }, "🐾"), /*#__PURE__*/React.createElement("span", {
     style: styles.display,
     className: "text-lg font-semibold text-white"
-  }, config?.clinica || "VetData")), /*#__PURE__*/React.createElement("nav", {
+  }, config?.clinica || "VetData")), /*#__PURE__*/React.createElement("button", {
+    onClick: onScanClick,
+    className: "flex items-center gap-3 px-5 py-3 text-sm font-medium text-[#B9C4BD] hover:bg-white/5 hover:text-white transition border-b border-white/10"
+  }, /*#__PURE__*/React.createElement("span", null, "📷"), " Escanear código QR"), /*#__PURE__*/React.createElement("nav", {
     className: "flex flex-col flex-1"
   }, NAV.map(item => {
     const isActive = active === item.key;
@@ -1355,7 +1360,8 @@ function Sidebar({
 function MobileTopBar({
   active,
   setActive,
-  config
+  config,
+  onScanClick
 }) {
   return /*#__PURE__*/React.createElement("div", {
     className: "md:hidden flex items-center justify-between bg-[#23342F] text-white px-4 py-3"
@@ -1371,10 +1377,15 @@ function MobileTopBar({
   }, "🐾"), /*#__PURE__*/React.createElement("span", {
     style: styles.display,
     className: "text-base font-semibold text-white"
-  }, config?.clinica || "VetData")), /*#__PURE__*/React.createElement("button", {
+  }, config?.clinica || "VetData")), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onScanClick,
+    className: "w-9 h-9 rounded-full flex items-center justify-center text-base bg-white/10 transition"
+  }, "📷"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setActive("config"),
     className: "w-9 h-9 rounded-full flex items-center justify-center text-base transition " + (active === "config" ? "bg-white/20" : "bg-white/10")
-  }, "⚙️"));
+  }, "⚙️")));
 }
 
 /* ---------------------------------------------------------
@@ -3048,6 +3059,104 @@ function PatientsList({
     danger: true
   }, "Eliminar")))))));
 }
+
+/* ---------------------------------------------------------
+   Lector de código QR: abre la cámara, busca un código QR en
+   cada cuadro de video (con jsQR) y, cuando lo encuentra, extrae
+   el ID de paciente del enlace y lo entrega mediante onScan.
+----------------------------------------------------------*/
+function QRScannerModal({
+  onScan,
+  onClose
+}) {
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+  const rafRef = useRef(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let cancelado = false;
+    async function iniciar() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "environment"
+          }
+        });
+        if (cancelado) {
+          stream.getTracks().forEach(t => t.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+        }
+        escanear();
+      } catch (e) {
+        setError("No se pudo acceder a la cámara. Revisa los permisos de cámara para este sitio.");
+      }
+    }
+    function escanear() {
+      if (cancelado) return;
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA && typeof jsQR === "function") {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        if (code && code.data) {
+          onScan(code.data);
+          return; // deja de escanear una vez encontrado
+        }
+      }
+      rafRef.current = requestAnimationFrame(escanear);
+    }
+    iniciar();
+    return () => {
+      cancelado = true;
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 bg-black flex flex-col"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between px-4 py-3 text-white"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-medium"
+  }, "Escanear código QR"), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "text-2xl leading-none"
+  }, "✕")), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 relative flex items-center justify-center overflow-hidden"
+  }, error ? /*#__PURE__*/React.createElement("p", {
+    className: "text-white text-sm px-8 text-center"
+  }, error) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("video", {
+    ref: videoRef,
+    className: "w-full h-full object-cover",
+    playsInline: true,
+    muted: true
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "absolute inset-0 flex items-center justify-center pointer-events-none"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 220,
+      height: 220,
+      border: "3px solid #E08A3E",
+      borderRadius: 16
+    }
+  }))), /*#__PURE__*/React.createElement("canvas", {
+    ref: canvasRef,
+    className: "hidden"
+  })), /*#__PURE__*/React.createElement("p", {
+    className: "text-white/70 text-xs text-center pb-6 px-8"
+  }, "Apunta la cámara al código QR de la ficha del paciente."));
+}
 function GlobalSearch({
   patients,
   onSelect
@@ -3177,14 +3286,22 @@ function printReceta(r, patient, config) {
     length: maxItems
   }).map((_, i) => arr[i] ? `<div class="item"><b>${i + 1}-</b> ${esc(arr[i])}</div>` : "").join("");
   const hoy = new Date().toISOString().slice(0, 10);
+  const qrBlock = patient?.id ? `<div class="qr-block">
+         <img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(window.location.origin + window.location.pathname + "?patient=" + patient.id)}" alt="QR" />
+         <span>Ficha del paciente</span>
+       </div>` : "";
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8" />
     <title>Receta - ${esc(r.patientName)}</title>
     <style>
       @page { size: landscape; margin: 14mm; }
       body{font-family: Arial, Helvetica, sans-serif; padding: 36px; color:#111; max-width:980px; margin:0 auto; font-size:14px;}
-      .header{display:flex; align-items:flex-start; gap:18px; margin-bottom:20px;}
+      .header{display:flex; align-items:flex-start; gap:18px; margin-bottom:20px; justify-content:space-between;}
+      .header-left{display:flex; align-items:flex-start; gap:18px;}
       .header img{width:56px; height:56px; border-radius:8px; object-fit:cover; flex-shrink:0;}
       .header-text h1{font-size:20px; margin:0 0 6px 0; text-transform:uppercase;}
+      .qr-block{text-align:center; flex-shrink:0;}
+      .qr-block img{width:70px; height:70px;}
+      .qr-block span{display:block; font-size:9px; color:#666; margin-top:2px;}
       .meta{font-size:13px; line-height:1.6;}
       .meta b{font-weight:700;}
       .divider{height:1px; background:#DDD; margin:18px 0;}
@@ -3206,17 +3323,20 @@ function printReceta(r, patient, config) {
         <button onclick="window.close(); if(!window.closed){ history.back(); }">← Cerrar y volver a la app</button>
       </div>
       <div class="header">
-        ${config?.logo ? `<img src="${config.logo}" alt="" />` : ""}
-        <div class="header-text">
-          <h1>Receta</h1>
-          <div class="meta">
-            ${config?.clinica ? `${esc(config.clinica)}<br>` : ""}
-            <b>MASCOTA:</b> ${esc(r.patientName)}<br>
-            ${patient?.propietario ? `<b>CLIENTE:</b> ${esc(patient.propietario)}<br>` : ""}
-            <b>FECHA EMISIÓN:</b> ${esc(formatDate(r.fecha, config?.dateFormat))}<br>
-            <b>FECHA IMPRESIÓN:</b> ${esc(formatDate(hoy, config?.dateFormat))}
+        <div class="header-left">
+          ${config?.logo ? `<img src="${config.logo}" alt="" />` : ""}
+          <div class="header-text">
+            <h1>Receta</h1>
+            <div class="meta">
+              ${config?.clinica ? `${esc(config.clinica)}<br>` : ""}
+              <b>MASCOTA:</b> ${esc(r.patientName)}<br>
+              ${patient?.propietario ? `<b>CLIENTE:</b> ${esc(patient.propietario)}<br>` : ""}
+              <b>FECHA EMISIÓN:</b> ${esc(formatDate(r.fecha, config?.dateFormat))}<br>
+              <b>FECHA IMPRESIÓN:</b> ${esc(formatDate(hoy, config?.dateFormat))}
+            </div>
           </div>
         </div>
+        ${qrBlock}
       </div>
 
       <div class="divider"></div>
@@ -4556,6 +4676,29 @@ function VetApp() {
   const [selected, setSelected] = useState(null);
   const [toast, setToast] = useState("");
   const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+  const [showScanner, setShowScanner] = useState(false);
+  const handleQRScan = texto => {
+    setShowScanner(false);
+    let idParam = null;
+    try {
+      const url = new URL(texto);
+      idParam = url.searchParams.get("patient");
+    } catch {
+      idParam = null; // no era una URL válida
+    }
+    if (!idParam) {
+      alert("El código escaneado no corresponde a un paciente de VetData.");
+      return;
+    }
+    const encontrado = patients.find(p => p.id === idParam && !p.eliminadoEn);
+    if (encontrado) {
+      setActive("pacientes");
+      setSelected(encontrado);
+      showToast(`Ficha de ${encontrado.nombre} abierta`);
+    } else {
+      alert("No se encontró ningún paciente con ese código (puede que haya sido eliminado).");
+    }
+  };
   useEffect(() => {
     const goOnline = () => {
       setIsOnline(true);
@@ -5167,7 +5310,10 @@ function VetApp() {
   return /*#__PURE__*/React.createElement("div", {
     style: styles.page,
     className: "flex flex-col min-h-screen"
-  }, !isOnline && /*#__PURE__*/React.createElement("div", {
+  }, showScanner && /*#__PURE__*/React.createElement(QRScannerModal, {
+    onScan: handleQRScan,
+    onClose: () => setShowScanner(false)
+  }), !isOnline && /*#__PURE__*/React.createElement("div", {
     style: {
       width: "100%",
       background: "#E08A3E",
@@ -5189,7 +5335,8 @@ function VetApp() {
       setEditing(null);
       setSelected(null);
     },
-    config: config
+    config: config,
+    onScanClick: () => setShowScanner(true)
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex flex-col md:flex-row flex-1"
   }, /*#__PURE__*/React.createElement(Sidebar, {
@@ -5200,7 +5347,8 @@ function VetApp() {
       setSelected(null);
     },
     count: activePatients.length,
-    config: config
+    config: config,
+    onScanClick: () => setShowScanner(true)
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 px-5 sm:px-8 pt-8 pb-24 md:pb-8 max-w-5xl"
   }, toast && /*#__PURE__*/React.createElement("div", {
