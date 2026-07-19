@@ -1623,6 +1623,7 @@ const emptyPatient = () => ({
   id: uid(),
   foto: null,
   especie: "",
+  sexo: "",
   nombre: "",
   peso: "",
   edad: "",
@@ -1823,6 +1824,18 @@ function PatientForm({
     onChange: set("especie"),
     placeholder: "Especifica la especie..."
   }))), /*#__PURE__*/React.createElement(Field, {
+    label: "Sexo"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, ["Macho", "Hembra"].map(s => /*#__PURE__*/React.createElement("button", {
+    key: s,
+    type: "button",
+    onClick: () => setData(d => ({
+      ...d,
+      sexo: d.sexo === s ? "" : s
+    })),
+    className: "flex-1 py-2.5 rounded-md text-sm font-medium border transition " + (data.sexo === s ? s === "Macho" ? "bg-[#3D6B5C] border-[#3D6B5C] text-white" : "bg-[#B14E1C] border-[#B14E1C] text-white" : "border-[#DDD5C4] text-[#23342F] hover:bg-white")
+  }, s === "Macho" ? "♂ Macho" : "♀ Hembra")))), /*#__PURE__*/React.createElement(Field, {
     label: "Nombre del propietario"
   }, /*#__PURE__*/React.createElement(TextInput, {
     value: data.propietario,
@@ -2178,6 +2191,7 @@ function exportPatientPDF(patient, config, recetas, examenes, historial) {
       ${row("Propietario", patient.propietario)}
       ${row("Ubicación", patient.ubicacion)}
       ${row("Especie", patient.especie)}
+      ${row("Sexo", patient.sexo)}
       ${row("Raza", patient.raza)}
       ${row("Peso", patient.peso ? patient.peso + " kg" : "")}
       ${row("Edad", patient.edad)}
@@ -2370,6 +2384,9 @@ function PatientDetail({
   }, /*#__PURE__*/React.createElement(DetailRow, {
     label: "Especie",
     value: patient.especie
+  }), /*#__PURE__*/React.createElement(DetailRow, {
+    label: "Sexo",
+    value: patient.sexo ? patient.sexo === "Macho" ? "♂ Macho" : "♀ Hembra" : ""
   }), /*#__PURE__*/React.createElement(DetailRow, {
     label: "Peso",
     value: patient.peso ? `${patient.peso} kg` : ""
@@ -2927,6 +2944,163 @@ function VacunasSection({
     onClick: () => {
       const df = config?.dateFormat;
       const mensaje = `Hola${patient.propietario ? " " + patient.propietario : ""}, le escribimos de ${config?.clinica || "la clínica"} ` + `para recordarle que a ${patient.nombre} le corresponde la vacuna "${v.nombre}" el ${formatDate(v.proximaDosis, df)}. ` + `Le esperamos para coordinar la cita. ¡Gracias!`;
+      window.open(whatsappLink(patient.telefonoPropietario, mensaje), "_blank");
+    },
+    className: "text-[11px] text-[#3D6B5C] font-medium hover:underline"
+  }, "📲 Recordar por WhatsApp"))))));
+}
+
+/* ---------------------------------------------------------
+   Control de desparasitación (interna/externa), muy similar
+   a la sección de Vacunas: registra cada aplicación, avisa
+   cuando toca la siguiente y permite recordar por WhatsApp.
+----------------------------------------------------------*/
+function DesparasitacionSection({
+  patient,
+  desparasitaciones,
+  onAdd,
+  onUpdate,
+  onDelete,
+  config
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [tipo, setTipo] = useState("Interna y externa");
+  const [producto, setProducto] = useState("");
+  const [fechaAplicada, setFechaAplicada] = useState(new Date().toISOString().slice(0, 10));
+  const [proximaDosis, setProximaDosis] = useState("");
+  const [notas, setNotas] = useState("");
+  const entries = desparasitaciones.filter(d => d.patientId === patient.id).sort((a, b) => a.fechaAplicada < b.fechaAplicada ? 1 : -1);
+  const reset = () => {
+    setTipo("Interna y externa");
+    setProducto("");
+    setFechaAplicada(new Date().toISOString().slice(0, 10));
+    setProximaDosis("");
+    setNotas("");
+    setShowForm(false);
+    setEditingId(null);
+  };
+  const startEdit = d => {
+    setEditingId(d.id);
+    setTipo(d.tipo || "Interna y externa");
+    setProducto(d.producto || "");
+    setFechaAplicada(d.fechaAplicada);
+    setProximaDosis(d.proximaDosis || "");
+    setNotas(d.notas || "");
+    setShowForm(true);
+  };
+  const save = () => {
+    if (!producto.trim()) return;
+    const data = {
+      id: editingId || uid(),
+      patientId: patient.id,
+      patientName: patient.nombre,
+      tipo,
+      producto,
+      fechaAplicada,
+      proximaDosis,
+      notas
+    };
+    if (editingId) onUpdate(data);else onAdd(data);
+    reset();
+  };
+  const hoy = new Date().toISOString().slice(0, 10);
+  const vencida = d => d.proximaDosis && d.proximaDosis < hoy;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "max-w-2xl mt-6"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-3 flex-wrap gap-2"
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: styles.display,
+    className: "text-lg font-semibold"
+  }, "Control de desparasitación"), !showForm && /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => setShowForm(true),
+    icon: "🐛"
+  }, "Registrar desparasitación")), showForm && /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-6 mb-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-4"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Tipo"
+  }, /*#__PURE__*/React.createElement("select", {
+    value: tipo,
+    onChange: e => setTipo(e.target.value),
+    className: inputClass
+  }, /*#__PURE__*/React.createElement("option", null, "Interna y externa"), /*#__PURE__*/React.createElement("option", null, "Interna"), /*#__PURE__*/React.createElement("option", null, "Externa"))), /*#__PURE__*/React.createElement(Field, {
+    label: "Producto usado"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    value: producto,
+    onChange: e => setProducto(e.target.value),
+    placeholder: "Ej. Drontal, Nexgard..."
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-4"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Fecha aplicada"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: fechaAplicada,
+    onChange: e => setFechaAplicada(e.target.value)
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Próxima dosis (opcional)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: proximaDosis,
+    onChange: e => setProximaDosis(e.target.value)
+  }))), /*#__PURE__*/React.createElement(Field, {
+    label: "Notas"
+  }, /*#__PURE__*/React.createElement(TextArea, {
+    rows: 2,
+    value: notas,
+    onChange: e => setNotas(e.target.value),
+    placeholder: "Peso al aplicar, reacciones, observaciones..."
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 mt-2"
+  }, /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: save,
+    disabled: !producto.trim(),
+    icon: "✓"
+  }, editingId ? "Guardar cambios" : "Registrar desparasitación"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: reset
+  }, "Cancelar"))), entries.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    title: "Sin desparasitaciones registradas",
+    subtitle: "Los tratamientos antiparasitarios que apliques a este paciente aparecerán aquí."
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-3"
+  }, entries.map(d => /*#__PURE__*/React.createElement("div", {
+    key: d.id,
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-start justify-between"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium"
+  }, d.producto, " ", /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-[#6B7A72] font-normal"
+  }, "· ", d.tipo)), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72]",
+    style: styles.mono
+  }, "Aplicada: ", formatDate(d.fechaAplicada, config?.dateFormat))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => startEdit(d),
+    className: "text-[#A6A08F] hover:text-[#3D6B5C]"
+  }, "✏️"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onDelete(d.id),
+    className: "text-[#A6A08F] hover:text-[#B14E1C]"
+  }, "🗑️"))), d.notas && /*#__PURE__*/React.createElement("p", {
+    className: "text-sm mt-2 text-[#6B7A72] whitespace-pre-wrap"
+  }, d.notas), d.proximaDosis && /*#__PURE__*/React.createElement("div", {
+    className: "mt-2 flex items-center gap-2 flex-wrap"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded",
+    style: {
+      ...styles.mono,
+      color: vencida(d) ? "var(--accent-orange)" : "var(--accent-green)",
+      background: vencida(d) ? "var(--accent-orange-bg)" : "var(--accent-green-bg)"
+    }
+  }, vencida(d) ? "⚠ Próxima dosis vencida: " : "📅 Próxima dosis: ", formatDate(d.proximaDosis, config?.dateFormat)), patient.telefonoPropietario && /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      const df = config?.dateFormat;
+      const mensaje = `Hola${patient.propietario ? " " + patient.propietario : ""}, le escribimos de ${config?.clinica || "la clínica"} ` + `para recordarle que a ${patient.nombre} le corresponde su desparasitación (${d.tipo}) el ${formatDate(d.proximaDosis, df)}. ` + `Le esperamos para coordinar la cita. ¡Gracias!`;
       window.open(whatsappLink(patient.telefonoPropietario, mensaje), "_blank");
     },
     className: "text-[11px] text-[#3D6B5C] font-medium hover:underline"
@@ -4007,7 +4181,8 @@ function ConfigForm({
   onSave,
   onCancel,
   isSetup,
-  onToggleDarkMode
+  onToggleDarkMode,
+  onUpdateInmediato
 }) {
   const [data, setData] = useState(() => migrarConfig(config));
   // Recuerda cómo se veía la configuración la última vez que este formulario
@@ -4051,6 +4226,27 @@ function ConfigForm({
     ...d,
     [key]: e.target.value
   }));
+
+  // Agrega o quita una cuenta de una red social y la guarda de inmediato
+  // (no espera a "Guardar cambios"), para que no se pierda si sales de
+  // Configuración antes de guardar todo el formulario — igual que ya pasa
+  // con las vacunas o los cobros en la ficha de cada paciente.
+  const actualizarListaRedSocial = (campoLista, listaNueva) => {
+    setData(d => ({
+      ...d,
+      [campoLista]: listaNueva
+    }));
+    if (onUpdateInmediato) {
+      onUpdateInmediato(prevConfig => {
+        const nuevo = {
+          ...migrarConfig(prevConfig),
+          [campoLista]: listaNueva
+        };
+        ultimaConfigSincronizadaRef.current = JSON.stringify(nuevo);
+        return nuevo;
+      });
+    }
+  };
   const handleLogo = async e => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -4253,10 +4449,7 @@ function ConfigForm({
     onKeyDown: e => {
       if (e.key === "Enter" && draftInstagram.trim()) {
         e.preventDefault();
-        setData(d => ({
-          ...d,
-          instagramList: [...new Set([...(d.instagramList || []), draftInstagram.trim()])]
-        }));
+        actualizarListaRedSocial("instagramList", [...new Set([...(data.instagramList || []), draftInstagram.trim()])]);
         setDraftInstagram("");
       }
     },
@@ -4265,10 +4458,7 @@ function ConfigForm({
     type: "button",
     onClick: () => {
       if (!draftInstagram.trim()) return;
-      setData(d => ({
-        ...d,
-        instagramList: [...new Set([...(d.instagramList || []), draftInstagram.trim()])]
-      }));
+      actualizarListaRedSocial("instagramList", [...new Set([...(data.instagramList || []), draftInstagram.trim()])]);
       setDraftInstagram("");
     },
     className: "shrink-0 w-11 rounded-md border border-[#DDD5C4] text-[#3D6B5C] font-semibold hover:bg-white transition"
@@ -4282,10 +4472,7 @@ function ConfigForm({
     onKeyDown: e => {
       if (e.key === "Enter" && draftFacebook.trim()) {
         e.preventDefault();
-        setData(d => ({
-          ...d,
-          facebookList: [...new Set([...(d.facebookList || []), draftFacebook.trim()])]
-        }));
+        actualizarListaRedSocial("facebookList", [...new Set([...(data.facebookList || []), draftFacebook.trim()])]);
         setDraftFacebook("");
       }
     },
@@ -4294,10 +4481,7 @@ function ConfigForm({
     type: "button",
     onClick: () => {
       if (!draftFacebook.trim()) return;
-      setData(d => ({
-        ...d,
-        facebookList: [...new Set([...(d.facebookList || []), draftFacebook.trim()])]
-      }));
+      actualizarListaRedSocial("facebookList", [...new Set([...(data.facebookList || []), draftFacebook.trim()])]);
       setDraftFacebook("");
     },
     className: "shrink-0 w-11 rounded-md border border-[#DDD5C4] text-[#3D6B5C] font-semibold hover:bg-white transition"
@@ -4311,10 +4495,7 @@ function ConfigForm({
     onKeyDown: e => {
       if (e.key === "Enter" && draftTiktok.trim()) {
         e.preventDefault();
-        setData(d => ({
-          ...d,
-          tiktokList: [...new Set([...(d.tiktokList || []), draftTiktok.trim()])]
-        }));
+        actualizarListaRedSocial("tiktokList", [...new Set([...(data.tiktokList || []), draftTiktok.trim()])]);
         setDraftTiktok("");
       }
     },
@@ -4323,10 +4504,7 @@ function ConfigForm({
     type: "button",
     onClick: () => {
       if (!draftTiktok.trim()) return;
-      setData(d => ({
-        ...d,
-        tiktokList: [...new Set([...(d.tiktokList || []), draftTiktok.trim()])]
-      }));
+      actualizarListaRedSocial("tiktokList", [...new Set([...(data.tiktokList || []), draftTiktok.trim()])]);
       setDraftTiktok("");
     },
     className: "shrink-0 w-11 rounded-md border border-[#DDD5C4] text-[#3D6B5C] font-semibold hover:bg-white transition"
@@ -4341,10 +4519,7 @@ function ConfigForm({
     icon: "📷",
     onClick: () => window.open(`https://instagram.com/${cuenta}`, "_blank")
   }, cuenta), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setData(d => ({
-      ...d,
-      instagramList: d.instagramList.filter((_, idx) => idx !== i)
-    })),
+    onClick: () => actualizarListaRedSocial("instagramList", data.instagramList.filter((_, idx) => idx !== i)),
     className: "absolute flex items-center justify-center rounded-full bg-[#B14E1C] text-white",
     style: {
       top: -8,
@@ -4363,10 +4538,7 @@ function ConfigForm({
     icon: "👍",
     onClick: () => window.open(`https://facebook.com/${cuenta}`, "_blank")
   }, cuenta), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setData(d => ({
-      ...d,
-      facebookList: d.facebookList.filter((_, idx) => idx !== i)
-    })),
+    onClick: () => actualizarListaRedSocial("facebookList", data.facebookList.filter((_, idx) => idx !== i)),
     className: "absolute flex items-center justify-center rounded-full bg-[#B14E1C] text-white",
     style: {
       top: -8,
@@ -4385,10 +4557,7 @@ function ConfigForm({
     icon: "🎵",
     onClick: () => window.open(`https://www.tiktok.com/@${cuenta}`, "_blank")
   }, cuenta), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setData(d => ({
-      ...d,
-      tiktokList: d.tiktokList.filter((_, idx) => idx !== i)
-    })),
+    onClick: () => actualizarListaRedSocial("tiktokList", data.tiktokList.filter((_, idx) => idx !== i)),
     className: "absolute flex items-center justify-center rounded-full bg-[#B14E1C] text-white",
     style: {
       top: -8,
@@ -4621,7 +4790,8 @@ function GreetingScreen({
   onEnter,
   onSetup,
   onEdit,
-  onToggleDarkMode
+  onToggleDarkMode,
+  onUpdateInmediato
 }) {
   const hasConfig = !!(config && nombreCompletoDoctor(config));
   return /*#__PURE__*/React.createElement("div", {
@@ -4660,7 +4830,8 @@ function GreetingScreen({
     config: null,
     onSave: onSetup,
     isSetup: true,
-    onToggleDarkMode: onToggleDarkMode
+    onToggleDarkMode: onToggleDarkMode,
+    onUpdateInmediato: onUpdateInmediato
   })), /*#__PURE__*/React.createElement("button", {
     onClick: onEnter,
     className: "text-xs text-[#A6A08F] mt-4 hover:text-[#6B7A72] hover:underline"
@@ -4946,6 +5117,7 @@ function HomeScreen({
   recetas,
   examenes,
   vacunas,
+  desparasitaciones,
   setActive,
   setSelected,
   config
@@ -4954,6 +5126,7 @@ function HomeScreen({
   const hoy = new Date().toISOString().slice(0, 10);
   const en30dias = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const vacunasProximas = (vacunas || []).filter(v => v.proximaDosis && v.proximaDosis <= en30dias).sort((a, b) => a.proximaDosis < b.proximaDosis ? -1 : 1).slice(0, 3);
+  const desparasitacionesProximas = (desparasitaciones || []).filter(d => d.proximaDosis && d.proximaDosis <= en30dias).sort((a, b) => a.proximaDosis < b.proximaDosis ? -1 : 1).slice(0, 3);
   const cumpleanosProximos = patients.filter(p => p.fechaNacimiento).map(p => {
     const [, mesStr, diaStr] = p.fechaNacimiento.split("-");
     const ahora = new Date();
@@ -5081,7 +5254,28 @@ function HomeScreen({
       color: v.proximaDosis < hoy ? "var(--accent-orange)" : "var(--accent-green)",
       background: v.proximaDosis < hoy ? "var(--accent-orange-bg)" : "var(--accent-green-bg)"
     }
-  }, "💉 ", formatDate(v.proximaDosis, config?.dateFormat)))))), cumpleanosProximos.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+  }, "💉 ", formatDate(v.proximaDosis, config?.dateFormat)))))), desparasitacionesProximas.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "mb-8"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
+    style: styles.mono
+  }, "Desparasitación próxima o vencida"), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2 max-w-md"
+  }, desparasitacionesProximas.map(d => /*#__PURE__*/React.createElement("div", {
+    key: d.id,
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-sm"
+  }, d.patientName), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72]"
+  }, d.producto, " · ", d.tipo)), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs px-2 py-1 rounded",
+    style: {
+      ...styles.mono,
+      color: d.proximaDosis < hoy ? "var(--accent-orange)" : "var(--accent-green)",
+      background: d.proximaDosis < hoy ? "var(--accent-orange-bg)" : "var(--accent-green-bg)"
+    }
+  }, "🐛 ", formatDate(d.proximaDosis, config?.dateFormat)))))), cumpleanosProximos.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
     style: styles.mono
   }, "Cumpleaños próximos"), /*#__PURE__*/React.createElement("div", {
@@ -5145,6 +5339,7 @@ function VetApp() {
   const [examenes, setExamenes] = useState([]);
   const [historial, setHistorial] = useState([]);
   const [vacunas, setVacunas] = useState([]);
+  const [desparasitaciones, setDesparasitaciones] = useState([]);
   const [cobros, setCobros] = useState([]);
   const [config, setConfig] = useState(null);
   const [showGreeting, setShowGreeting] = useState(true);
@@ -5208,7 +5403,7 @@ function VetApp() {
       if (cancelled) return;
       currentClinicaId = c?.clinicaId || null;
       actualizarCarpetaDoctor(c);
-      const [p, r, e, h, v, cb] = await Promise.all([collectionStore.getAll("patients"), collectionStore.getAll("recetas"), collectionStore.getAll("examenes"), collectionStore.getAll("historial"), collectionStore.getAll("vacunas"), collectionStore.getAll("cobros")]);
+      const [p, r, e, h, v, cb, dw] = await Promise.all([collectionStore.getAll("patients"), collectionStore.getAll("recetas"), collectionStore.getAll("examenes"), collectionStore.getAll("historial"), collectionStore.getAll("vacunas"), collectionStore.getAll("cobros"), collectionStore.getAll("desparasitaciones")]);
       if (cancelled) return;
       const firestoreVacio = !(p && p.length) && !(r && r.length) && !(e && e.length) && !c;
       const legacyDismissed = localStorage.getItem("vetapp:legacyDismissed") === "1";
@@ -5225,6 +5420,7 @@ function VetApp() {
       setHistorial(h || []);
       setVacunas(v || []);
       setCobros(cb || []);
+      setDesparasitaciones(dw || []);
       setConfig(c || null);
       setDataLoaded(true);
     })();
@@ -5452,6 +5648,20 @@ function VetApp() {
     }
   };
 
+  // Guarda de inmediato un cambio puntual de configuración (por ejemplo,
+  // agregar o quitar una cuenta de red social), sin esperar a que toquen
+  // "Guardar cambios" — así no se pierde nada si salen de Configuración antes
+  // de guardar todo el formulario. Usa una actualización funcional (lee el
+  // config más reciente en ese momento) para no pisar otros cambios que
+  // puedan estar guardándose casi al mismo tiempo.
+  const actualizarConfigInmediato = actualizador => {
+    setConfig(actual => {
+      const nuevaConfig = actualizador(actual || emptyConfig());
+      store.set("config", nuevaConfig);
+      return nuevaConfig;
+    });
+  };
+
   // Aplica el modo oscuro de inmediato de forma VISUAL (sin esperar a
   // "Guardar cambios"). Ya no se guarda aparte en Firestore en este mismo
   // momento: si lo hacía mientras había otros cambios sin guardar en el
@@ -5587,6 +5797,10 @@ function VetApp() {
       collectionStore.deleteOne("vacunas", v.id);
     });
     setVacunas(cur => cur.filter(v => v.patientId !== patient.id));
+    desparasitaciones.filter(d => d.patientId === patient.id).forEach(d => {
+      collectionStore.deleteOne("desparasitaciones", d.id);
+    });
+    setDesparasitaciones(cur => cur.filter(d => d.patientId !== patient.id));
     cobros.filter(c => c.patientId === patient.id).forEach(c => {
       collectionStore.deleteOne("cobros", c.id);
     });
@@ -5660,6 +5874,23 @@ function VetApp() {
     const next = vacunas.filter(v => v.id !== id);
     setVacunas(next);
     collectionStore.deleteOne("vacunas", id);
+  };
+  const addDesparasitacion = d => {
+    const next = [...desparasitaciones, d];
+    setDesparasitaciones(next);
+    collectionStore.setOne("desparasitaciones", d.id, d);
+    showToast("Desparasitación registrada");
+  };
+  const updateDesparasitacion = d => {
+    const next = desparasitaciones.map(x => x.id === d.id ? d : x);
+    setDesparasitaciones(next);
+    collectionStore.setOne("desparasitaciones", d.id, d);
+    showToast("Desparasitación actualizada");
+  };
+  const deleteDesparasitacion = id => {
+    const next = desparasitaciones.filter(d => d.id !== id);
+    setDesparasitaciones(next);
+    collectionStore.deleteOne("desparasitaciones", id);
   };
   const addCobro = c => {
     const next = [...cobros, c];
@@ -5777,7 +6008,8 @@ function VetApp() {
         setShowGreeting(false);
         setActive("config");
       },
-      onToggleDarkMode: handleToggleDarkMode
+      onToggleDarkMode: handleToggleDarkMode,
+      onUpdateInmediato: actualizarConfigInmediato
     });
   }
   const activePatients = patients.filter(p => !p.eliminadoEn);
@@ -5866,6 +6098,7 @@ function VetApp() {
     recetas: recetas,
     examenes: examenes,
     vacunas: vacunas,
+    desparasitaciones: desparasitaciones,
     setActive: setActive,
     setSelected: setSelected,
     config: config
@@ -5911,6 +6144,13 @@ function VetApp() {
     onAdd: addVacuna,
     onUpdate: updateVacuna,
     onDelete: deleteVacuna,
+    config: config
+  }), /*#__PURE__*/React.createElement(DesparasitacionSection, {
+    patient: selected,
+    desparasitaciones: desparasitaciones,
+    onAdd: addDesparasitacion,
+    onUpdate: updateDesparasitacion,
+    onDelete: deleteDesparasitacion,
     config: config
   }), /*#__PURE__*/React.createElement(HistorialMedico, {
     patient: selected,
@@ -5970,7 +6210,8 @@ function VetApp() {
     config: config,
     onSave: saveConfig,
     onCancel: () => setActive("inicio"),
-    onToggleDarkMode: handleToggleDarkMode
+    onToggleDarkMode: handleToggleDarkMode,
+    onUpdateInmediato: actualizarConfigInmediato
   }), /*#__PURE__*/React.createElement("div", {
     className: "max-w-xl mt-8"
   }, /*#__PURE__*/React.createElement("h3", {
