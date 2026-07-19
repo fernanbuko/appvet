@@ -1626,6 +1626,28 @@ function PatientForm({
   const cameraRef = useRef(null);
   const [imgError, setImgError] = useState("");
   const [cropSrc, setCropSrc] = useState(null);
+
+  // Día y mes de nacimiento (se ponen a mano); el año se calcula solo
+  // restando la edad al año actual. Si ya había una fecha de nacimiento
+  // guardada (editando una ficha existente), se recupera el día/mes de ahí.
+  const [diaNacimiento, setDiaNacimiento] = useState(initial && initial.fechaNacimiento ? initial.fechaNacimiento.split("-")[2] : "");
+  const [mesNacimiento, setMesNacimiento] = useState(initial && initial.fechaNacimiento ? initial.fechaNacimiento.split("-")[1] : "");
+  const actualizarFechaNacimiento = (edadTexto, dia, mes) => {
+    const coincidencia = (edadTexto || "").match(/\d+/);
+    const edadNum = coincidencia ? parseInt(coincidencia[0], 10) : NaN;
+    if (!isNaN(edadNum) && dia && mes) {
+      const anioNacimiento = new Date().getFullYear() - edadNum;
+      setData(d => ({
+        ...d,
+        fechaNacimiento: `${anioNacimiento}-${mes}-${dia}`
+      }));
+    } else {
+      setData(d => ({
+        ...d,
+        fechaNacimiento: ""
+      }));
+    }
+  };
   const set = key => e => setData(d => ({
     ...d,
     [key]: e.target ? e.target.value : e
@@ -1788,11 +1810,18 @@ function PatientForm({
     onChange: set("peso"),
     placeholder: "Ej. 8.5"
   })), /*#__PURE__*/React.createElement(Field, {
-    label: "Edad"
+    label: "Edad (años)"
   }, /*#__PURE__*/React.createElement(TextInput, {
     value: data.edad,
-    onChange: set("edad"),
-    placeholder: "Ej. 3 años"
+    onChange: e => {
+      const val = e.target.value;
+      setData(d => ({
+        ...d,
+        edad: val
+      }));
+      actualizarFechaNacimiento(val, diaNacimiento, mesNacimiento);
+    },
+    placeholder: "Ej. 3"
   })), /*#__PURE__*/React.createElement(Field, {
     label: "Raza"
   }, razasDeEspecie ? /*#__PURE__*/React.createElement(SearchableSelect, {
@@ -1808,12 +1837,38 @@ function PatientForm({
     onChange: set("raza"),
     placeholder: "Ej. Mestizo"
   })), /*#__PURE__*/React.createElement(Field, {
-    label: "Fecha de nacimiento"
-  }, /*#__PURE__*/React.createElement(TextInput, {
-    type: "date",
-    value: data.fechaNacimiento,
-    onChange: set("fechaNacimiento")
-  }))), /*#__PURE__*/React.createElement(Field, {
+    label: "Fecha de nacimiento (aprox.)"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-2"
+  }, /*#__PURE__*/React.createElement("select", {
+    value: diaNacimiento,
+    onChange: e => {
+      setDiaNacimiento(e.target.value);
+      actualizarFechaNacimiento(data.edad, e.target.value, mesNacimiento);
+    },
+    className: inputClass
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Día"), Array.from({
+    length: 31
+  }, (_, i) => i + 1).map(d => /*#__PURE__*/React.createElement("option", {
+    key: d,
+    value: String(d).padStart(2, "0")
+  }, d))), /*#__PURE__*/React.createElement("select", {
+    value: mesNacimiento,
+    onChange: e => {
+      setMesNacimiento(e.target.value);
+      actualizarFechaNacimiento(data.edad, diaNacimiento, e.target.value);
+    },
+    className: inputClass
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Mes"), ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].map((m, i) => /*#__PURE__*/React.createElement("option", {
+    key: m,
+    value: String(i + 1).padStart(2, "0")
+  }, m)))), data.fechaNacimiento && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#6B7A72] mt-1.5"
+  }, "📅 Nació aproximadamente el ", formatDate(data.fechaNacimiento)))), /*#__PURE__*/React.createElement(Field, {
     label: "Etiquetas rápidas"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap gap-2"
@@ -2244,10 +2299,16 @@ function PatientDetail({
     className: "w-full h-full object-cover"
   }) : /*#__PURE__*/React.createElement("span", {
     className: "text-xl"
-  }, "🐾")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+  }, "🐾")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] uppercase tracking-wider text-[#A6A08F]",
+    style: styles.mono
+  }, "Nombre del paciente"), /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold leading-tight"
-  }, patient.nombre), /*#__PURE__*/React.createElement("p", {
+  }, patient.nombre), /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] uppercase tracking-wider text-[#A6A08F] mt-1 block",
+    style: styles.mono
+  }, "Nombre del propietario"), /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-[#6B7A72]"
   }, patient.propietario || "Sin propietario registrado"), patient.etiquetas && patient.etiquetas.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap gap-1.5 mt-1.5"
@@ -3024,21 +3085,24 @@ function PatientsList({
 }) {
   const [query, setQuery] = useState("");
   const [especieFiltro, setEspecieFiltro] = useState("");
+  const [etiquetaFiltro, setEtiquetaFiltro] = useState("");
   const [orden, setOrden] = useState("nombre");
   const [agrupar, setAgrupar] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
   const especiesDisponibles = useMemo(() => [...new Set(patients.map(p => p.especie).filter(Boolean))].sort(), [patients]);
+  const etiquetasDisponibles = useMemo(() => [...new Set(patients.flatMap(p => p.etiquetas || []))].sort(), [patients]);
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     let list = patients.filter(p => !q || p.nombre.toLowerCase().includes(q) || (p.propietario || "").toLowerCase().includes(q) || (p.raza || "").toLowerCase().includes(q));
     if (especieFiltro) list = list.filter(p => p.especie === especieFiltro);
+    if (etiquetaFiltro) list = list.filter(p => (p.etiquetas || []).includes(etiquetaFiltro));
     list = [...list].sort((a, b) => {
       if (orden === "nombre") return a.nombre.localeCompare(b.nombre);
       if (orden === "proxima") return (a.proximaVisita || "9999") < (b.proximaVisita || "9999") ? -1 : 1;
       return 0;
     });
     return list;
-  }, [patients, query, especieFiltro, orden]);
+  }, [patients, query, especieFiltro, etiquetaFiltro, orden]);
   const groups = useMemo(() => {
     if (!agrupar) return null;
     const map = {};
@@ -3095,7 +3159,22 @@ function PatientsList({
     checked: agrupar,
     onChange: e => setAgrupar(e.target.checked),
     className: "w-4 h-4 accent-[#3D6B5C]"
-  }), "Agrupar por dueño")), filtered.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+  }), "Agrupar por dueño")), etiquetasDisponibles.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mb-5 flex-wrap"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-[#A6A08F]",
+    style: styles.mono
+  }, "ETIQUETAS:"), etiquetasDisponibles.map(t => {
+    const activa = etiquetaFiltro === t;
+    return /*#__PURE__*/React.createElement("button", {
+      key: t,
+      onClick: () => setEtiquetaFiltro(activa ? "" : t),
+      className: "text-xs px-3 py-1.5 rounded-full border transition " + (activa ? "bg-[#3D6B5C] border-[#3D6B5C] text-white" : "bg-white border-[#DDD5C4] text-[#6B7A72] hover:border-[#3D6B5C]")
+    }, t);
+  }), etiquetaFiltro && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setEtiquetaFiltro(""),
+    className: "text-xs text-[#A6A08F] hover:text-[#B14E1C] underline"
+  }, "Quitar filtro")), filtered.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
     title: patients.length === 0 ? "Aún no hay pacientes" : "Sin resultados",
     subtitle: patients.length === 0 ? "Crea la primera ficha para empezar a llevar el registro clínico." : "Prueba con otro nombre, propietario, raza o especie."
   }) : groups ? /*#__PURE__*/React.createElement("div", {
