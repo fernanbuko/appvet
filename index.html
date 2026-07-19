@@ -3961,6 +3961,47 @@ const emptyConfig = () => ({
   dateFormat: "YYYY-MM-DD",
   darkMode: false
 });
+function migrarConfig(base) {
+  let migrado = base || emptyConfig();
+  // Cuentas configuradas antes de este cambio solo tienen "doctorNombre" en
+  // una sola casilla: se reparte una vez en Nombres/Apellidos para que no
+  // aparezca vacío la primera vez que abren este formulario.
+  if (!migrado.doctorNombres && !migrado.doctorApellidos && migrado.doctorNombre) {
+    const partes = migrado.doctorNombre.trim().split(" ");
+    migrado = {
+      ...migrado,
+      doctorNombres: partes[0] || "",
+      doctorApellidos: partes.slice(1).join(" ")
+    };
+  }
+  // Migrar de "una sola cuenta por red" (versión anterior) a listas, para
+  // no perder lo que ya habían guardado.
+  if (!migrado.instagramList && migrado.instagram) migrado = {
+    ...migrado,
+    instagramList: [migrado.instagram]
+  };
+  if (!migrado.facebookList && migrado.facebook) migrado = {
+    ...migrado,
+    facebookList: [migrado.facebook]
+  };
+  if (!migrado.tiktokList && migrado.tiktok) migrado = {
+    ...migrado,
+    tiktokList: [migrado.tiktok]
+  };
+  if (!migrado.instagramList) migrado = {
+    ...migrado,
+    instagramList: []
+  };
+  if (!migrado.facebookList) migrado = {
+    ...migrado,
+    facebookList: []
+  };
+  if (!migrado.tiktokList) migrado = {
+    ...migrado,
+    tiktokList: []
+  };
+  return migrado;
+}
 function ConfigForm({
   config,
   onSave,
@@ -3968,48 +4009,15 @@ function ConfigForm({
   isSetup,
   onToggleDarkMode
 }) {
-  const [data, setData] = useState(() => {
-    const base = config || emptyConfig();
-    let migrado = base;
-    // Cuentas configuradas antes de este cambio solo tienen "doctorNombre" en
-    // una sola casilla: se reparte una vez en Nombres/Apellidos para que no
-    // aparezca vacío la primera vez que abren este formulario.
-    if (!migrado.doctorNombres && !migrado.doctorApellidos && migrado.doctorNombre) {
-      const partes = migrado.doctorNombre.trim().split(" ");
-      migrado = {
-        ...migrado,
-        doctorNombres: partes[0] || "",
-        doctorApellidos: partes.slice(1).join(" ")
-      };
-    }
-    // Migrar de "una sola cuenta por red" (versión anterior) a listas, para
-    // no perder lo que ya habían guardado.
-    if (!migrado.instagramList && migrado.instagram) migrado = {
-      ...migrado,
-      instagramList: [migrado.instagram]
-    };
-    if (!migrado.facebookList && migrado.facebook) migrado = {
-      ...migrado,
-      facebookList: [migrado.facebook]
-    };
-    if (!migrado.tiktokList && migrado.tiktok) migrado = {
-      ...migrado,
-      tiktokList: [migrado.tiktok]
-    };
-    if (!migrado.instagramList) migrado = {
-      ...migrado,
-      instagramList: []
-    };
-    if (!migrado.facebookList) migrado = {
-      ...migrado,
-      facebookList: []
-    };
-    if (!migrado.tiktokList) migrado = {
-      ...migrado,
-      tiktokList: []
-    };
-    return migrado;
-  });
+  const [data, setData] = useState(() => migrarConfig(config));
+  // Si otro dispositivo con la misma cuenta cambia la configuración (por
+  // ejemplo, agrega o borra una red social desde el celular), este efecto
+  // hace que este formulario se actualice solo para reflejarlo, en vez de
+  // quedarse con los datos de cuando se abrió por primera vez.
+  useEffect(() => {
+    setData(migrarConfig(config));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config]);
   const [logoError, setLogoError] = useState("");
   const [cropSrc, setCropSrc] = useState(null);
   const [fotoError, setFotoError] = useState("");
@@ -5426,16 +5434,15 @@ function VetApp() {
     }
   };
 
-  // Aplica el modo oscuro de inmediato (sin esperar a "Guardar cambios") y lo
-  // guarda ya mismo, para que el resto de la app también lo refleje al instante.
+  // Aplica el modo oscuro de inmediato de forma VISUAL (sin esperar a
+  // "Guardar cambios"). Ya no se guarda aparte en Firestore en este mismo
+  // momento: si lo hacía mientras había otros cambios sin guardar en el
+  // formulario (por ejemplo, una red social recién agregada), esa copia
+  // vieja podía sobrescribir por accidente lo que se guardaba después con
+  // "Guardar cambios". El guardado real ahora siempre pasa junto con el
+  // resto del formulario, al tocar ese botón.
   const handleToggleDarkMode = nuevoValor => {
     document.documentElement.setAttribute("data-theme", nuevoValor ? "dark" : "light");
-    const nuevaConfig = {
-      ...(config || emptyConfig()),
-      darkMode: nuevoValor
-    };
-    setConfig(nuevaConfig);
-    store.set("config", nuevaConfig);
   };
   const showToast = msg => {
     setToast(msg);
