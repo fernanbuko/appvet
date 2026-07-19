@@ -3822,7 +3822,8 @@ function ConfigForm({
   config,
   onSave,
   onCancel,
-  isSetup
+  isSetup,
+  onToggleDarkMode
 }) {
   const [data, setData] = useState(() => {
     const base = config || emptyConfig();
@@ -3988,19 +3989,42 @@ function ConfigForm({
     value: "MM/DD/YYYY"
   }, "MM/DD/AAAA (07/23/2026)"), /*#__PURE__*/React.createElement("option", {
     value: "DD-MM-YYYY"
-  }, "DD-MM-AAAA (23-07-2026)"))), /*#__PURE__*/React.createElement("label", {
-    className: "flex items-center gap-2.5 cursor-pointer select-none"
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "checkbox",
-    checked: !!data.darkMode,
-    onChange: e => setData(d => ({
-      ...d,
-      darkMode: e.target.checked
-    })),
-    className: "w-4 h-4 accent-[#3D6B5C]"
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "text-sm"
-  }, "🌙 Modo oscuro"))), !isSetup && /*#__PURE__*/React.createElement("div", {
+  }, "DD-MM-AAAA (23-07-2026)"))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-sm flex items-center gap-2"
+  }, "🌙 Modo oscuro"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => {
+      const nuevoValor = !data.darkMode;
+      setData(d => ({
+        ...d,
+        darkMode: nuevoValor
+      }));
+      if (onToggleDarkMode) onToggleDarkMode(nuevoValor);
+    },
+    style: {
+      width: 46,
+      height: 26,
+      borderRadius: 999,
+      background: data.darkMode ? "#3D6B5C" : "#DDD5C4",
+      position: "relative",
+      transition: "background .2s",
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      position: "absolute",
+      top: 3,
+      left: data.darkMode ? 23 : 3,
+      width: 20,
+      height: 20,
+      borderRadius: "50%",
+      background: "#fff",
+      boxShadow: "0 1px 3px rgba(0,0,0,.3)",
+      transition: "left .2s"
+    }
+  })))), !isSetup && /*#__PURE__*/React.createElement("div", {
     className: "bg-white border border-[#DDD5C4] rounded-lg p-6 mt-4"
   }, /*#__PURE__*/React.createElement("span", {
     className: "block text-[11px] uppercase tracking-wider mb-2 text-[#6B7A72]",
@@ -4170,7 +4194,8 @@ function GreetingScreen({
   config,
   onEnter,
   onSetup,
-  onEdit
+  onEdit,
+  onToggleDarkMode
 }) {
   const hasConfig = !!(config && nombreCompletoDoctor(config));
   return /*#__PURE__*/React.createElement("div", {
@@ -4206,7 +4231,8 @@ function GreetingScreen({
   }, /*#__PURE__*/React.createElement(ConfigForm, {
     config: null,
     onSave: onSetup,
-    isSetup: true
+    isSetup: true,
+    onToggleDarkMode: onToggleDarkMode
   })), /*#__PURE__*/React.createElement("button", {
     onClick: onEnter,
     className: "text-xs text-[#A6A08F] mt-4 hover:text-[#6B7A72] hover:underline"
@@ -4987,6 +5013,18 @@ function VetApp() {
       showToast("Datos guardados");
     }
   };
+
+  // Aplica el modo oscuro de inmediato (sin esperar a "Guardar cambios") y lo
+  // guarda ya mismo, para que el resto de la app también lo refleje al instante.
+  const handleToggleDarkMode = nuevoValor => {
+    document.documentElement.setAttribute("data-theme", nuevoValor ? "dark" : "light");
+    const nuevaConfig = {
+      ...(config || emptyConfig()),
+      darkMode: nuevoValor
+    };
+    setConfig(nuevaConfig);
+    store.set("config", nuevaConfig);
+  };
   const showToast = msg => {
     setToast(msg);
     setTimeout(() => setToast(""), 2200);
@@ -5301,7 +5339,8 @@ function VetApp() {
       onEdit: () => {
         setShowGreeting(false);
         setActive("config");
-      }
+      },
+      onToggleDarkMode: handleToggleDarkMode
     });
   }
   const activePatients = patients.filter(p => !p.eliminadoEn);
@@ -5461,7 +5500,8 @@ function VetApp() {
   }, "Datos de la clínica y del doctor/a que se usan en el saludo y en las recetas."), /*#__PURE__*/React.createElement(ConfigForm, {
     config: config,
     onSave: saveConfig,
-    onCancel: () => setActive("inicio")
+    onCancel: () => setActive("inicio"),
+    onToggleDarkMode: handleToggleDarkMode
   }), /*#__PURE__*/React.createElement("div", {
     className: "max-w-xl mt-8"
   }, /*#__PURE__*/React.createElement("h3", {
