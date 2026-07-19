@@ -1648,6 +1648,11 @@ function PatientForm({
       }));
     }
   };
+
+  // Año de nacimiento calculado con solo la edad, para que se vea de
+  // inmediato al escribirla (sin tener que esperar a elegir día y mes).
+  const edadCoincidencia = (data.edad || "").match(/\d+/);
+  const anioNacimientoCalculado = edadCoincidencia ? new Date().getFullYear() - parseInt(edadCoincidencia[0], 10) : null;
   const set = key => e => setData(d => ({
     ...d,
     [key]: e.target ? e.target.value : e
@@ -1822,7 +1827,9 @@ function PatientForm({
       actualizarFechaNacimiento(val, diaNacimiento, mesNacimiento);
     },
     placeholder: "Ej. 3"
-  })), /*#__PURE__*/React.createElement(Field, {
+  }), anioNacimientoCalculado && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#6B7A72] mt-1.5"
+  }, "📅 Año de nacimiento: ", /*#__PURE__*/React.createElement("b", null, anioNacimientoCalculado))), /*#__PURE__*/React.createElement(Field, {
     label: "Raza"
   }, razasDeEspecie ? /*#__PURE__*/React.createElement(SearchableSelect, {
     options: razasDeEspecie.filter(r => r !== "Otra"),
@@ -3059,9 +3066,15 @@ function PatientCard({
     className: "w-full h-full object-cover"
   }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[9px] uppercase tracking-wider text-[#A6A08F] block",
+    style: styles.mono
+  }, "Nombre del paciente"), /*#__PURE__*/React.createElement("div", {
     className: "font-medium text-[#23342F] truncate"
-  }, p.nombre), /*#__PURE__*/React.createElement("div", {
+  }, p.nombre), /*#__PURE__*/React.createElement("span", {
+    className: "text-[9px] uppercase tracking-wider text-[#A6A08F] block mt-1",
+    style: styles.mono
+  }, "Nombre del propietario"), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72] truncate"
   }, p.propietario || "Sin propietario"))), p.etiquetas && p.etiquetas.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap gap-1 mt-2"
