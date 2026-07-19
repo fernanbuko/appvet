@@ -191,21 +191,52 @@
 
   .capitalize{text-transform:capitalize}
 
-  /* Modo oscuro (aplica sobre las clases mas usadas de la app) */
-  [data-theme="dark"] { background: #14181a; }
-  [data-theme="dark"] body { background: #14181a; }
-  [data-theme="dark"] .bg-\[\#F7F4EC\] { background: #14181a !important; }
-  [data-theme="dark"] .bg-white { background: #1f2623 !important; }
-  [data-theme="dark"] .bg-\[\#EAF0EC\] { background: #26302b !important; }
-  [data-theme="dark"] .border-\[\#DDD5C4\] { border-color: #34403a !important; }
-  [data-theme="dark"] .text-\[\#23342F\] { color: #E8E4D9 !important; }
-  [data-theme="dark"] .text-\[\#6B7A72\] { color: #9AA79F !important; }
-  [data-theme="dark"] .text-\[\#A6A08F\] { color: #7C8983 !important; }
-  [data-theme="dark"] { color: #E8E4D9; }
-  [data-theme="dark"] input, [data-theme="dark"] textarea, [data-theme="dark"] select {
-    background: #1f2623 !important; color: #E8E4D9 !important; border-color: #34403a !important;
+  /* ---------------------------------------------------------
+     Modo oscuro: paleta propia (no es solo invertir colores),
+     con superficies con relieve sutil por sombra, bordes casi
+     invisibles, y acentos más brillantes para que resalten
+     sobre el fondo oscuro. Estilo similar a apps modernas
+     (Notion, Linear, etc.)
+  ----------------------------------------------------------*/
+  [data-theme="dark"] { background: #121417; color-scheme: dark; }
+  [data-theme="dark"] body { background: #121417; }
+  [data-theme="dark"] { color: #ECEDEE; }
+
+  /* Fondo de página */
+  [data-theme="dark"] .bg-\[\#F7F4EC\] { background: #121417 !important; }
+
+  /* Tarjetas y superficies: relieve por sombra, no por borde marcado */
+  [data-theme="dark"] .bg-white {
+    background: #1B1E22 !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.05);
   }
-  [data-theme="dark"] ::placeholder { color: #6B7A72 !important; }
+  [data-theme="dark"] .bg-\[\#EAF0EC\] { background: #23272C !important; }
+
+  /* Bordes: casi invisibles, solo una línea muy sutil */
+  [data-theme="dark"] .border-\[\#DDD5C4\] { border-color: rgba(255,255,255,.08) !important; }
+  [data-theme="dark"] .border-dashed { border-color: rgba(255,255,255,.15) !important; }
+
+  /* Jerarquía de texto */
+  [data-theme="dark"] .text-\[\#23342F\] { color: #ECEDEE !important; }
+  [data-theme="dark"] .text-\[\#6B7A72\] { color: #9BA1A6 !important; }
+  [data-theme="dark"] .text-\[\#A6A08F\] { color: #72787D !important; }
+
+  /* Campos de formulario: un tono "hundido", distinto al de las tarjetas */
+  [data-theme="dark"] input, [data-theme="dark"] textarea, [data-theme="dark"] select {
+    background: #16181B !important;
+    color: #ECEDEE !important;
+    border-color: rgba(255,255,255,.1) !important;
+  }
+  [data-theme="dark"] ::placeholder { color: #5B6166 !important; }
+
+  /* Quita el resplandor de foco en color crema y usa uno acorde al tema oscuro */
+  [data-theme="dark"] input:focus, [data-theme="dark"] textarea:focus, [data-theme="dark"] select:focus {
+    box-shadow: 0 0 0 2px rgba(82,163,127,.5) !important;
+  }
+
+  /* Íconos circulares (avatares, estados vacíos) con un tono ligeramente elevado */
+  [data-theme="dark"] .rounded-full.bg-\[\#EAF0EC\],
+  [data-theme="dark"] .rounded-lg.bg-\[\#EAF0EC\] { background: #23272C !important; }
 
   .grid-cols-7{grid-template-columns:repeat(7,minmax(0,1fr))}
 
@@ -269,10 +300,10 @@
     --accent-green-bg: rgba(61,107,92,.1);
   }
   [data-theme="dark"] {
-    --accent-orange: #E8935C;
-    --accent-green: #7FBFA3;
-    --accent-orange-bg: rgba(224,138,62,.22);
-    --accent-green-bg: rgba(127,191,163,.18);
+    --accent-orange: #F0985E;
+    --accent-green: #52C593;
+    --accent-orange-bg: rgba(240,152,94,.16);
+    --accent-green-bg: rgba(82,197,147,.14);
   }
 
   [data-theme="dark"] .text-\[\#B14E1C\] { color: var(--accent-orange) !important; }
