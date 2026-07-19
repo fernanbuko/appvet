@@ -309,6 +309,11 @@
   [data-theme="dark"] .text-\[\#B14E1C\] { color: var(--accent-orange) !important; }
   [data-theme="dark"] .text-\[\#3D6B5C\] { color: var(--accent-green) !important; }
   [data-theme="dark"] .bg-\[\#E08A3E\]\/10 { background: var(--accent-orange-bg) !important; }
+
+  /* El fondo/color de página se aplica con un estilo en línea (no una clase),
+     así que se necesita apuntar a la clase min-h-screen que sí comparten
+     todas esas pantallas, con !important para poder ganarle al estilo en línea. */
+  [data-theme="dark"] .min-h-screen { background: #121417 !important; color: #ECEDEE !important; }
 </style>
 </head>
 <body>
@@ -695,6 +700,15 @@ const cloudinaryReady = CLOUDINARY_CLOUD_NAME !== "TU_CLOUD_NAME" && CLOUDINARY_
 // Sigue la misma lógica que ya usa teamCollection() para los datos en Firestore:
 // si hay un código de clínica configurado, se usa el espacio de equipo compartido;
 // si no, el espacio personal del usuario.
+// Nombre completo del doctor/a: usa los campos separados de nombres/apellidos
+// si ya se llenaron; si no, usa el campo antiguo de una sola casilla (para
+// cuentas que configuraron sus datos antes de este cambio).
+function nombreCompletoDoctor(config) {
+  if (config?.doctorNombres || config?.doctorApellidos) {
+    return `${config.doctorNombres || ""} ${config.doctorApellidos || ""}`.trim();
+  }
+  return config?.doctorNombre || "";
+}
 function carpetaCloudinariaDeEsteUsuario() {
   const identificador = currentClinicaId ? `clinica_${currentClinicaId}` : currentDoctorCarpeta || currentUid || "sin_cuenta";
   return `vetdata/${identificador}`;
@@ -767,7 +781,8 @@ let currentClinicaId = null;
 // terminen mezclando sus archivos en la misma carpeta.
 let currentDoctorCarpeta = null;
 function actualizarCarpetaDoctor(config) {
-  const nombre = config?.doctorNombre ? sanitizarNombreParaCarpeta(config.doctorNombre) : null;
+  const nombreCompleto = nombreCompletoDoctor(config);
+  const nombre = nombreCompleto ? sanitizarNombreParaCarpeta(nombreCompleto) : null;
   const sufijoUid = (currentUid || "").slice(0, 6);
   currentDoctorCarpeta = nombre ? `${nombre}_${sufijoUid}` : null;
 }
@@ -3226,8 +3241,8 @@ function buildRecetaText(r, patient, config) {
   if (r.recomendaciones) {
     lines.push("", "Recomendaciones:", r.recomendaciones);
   }
-  if (config?.doctorNombre) {
-    lines.push("", `Atendido por: ${config.doctorTitulo || "Dr."} ${config.doctorNombre}`);
+  if (nombreCompletoDoctor(config)) {
+    lines.push("", `Atendido por: ${config.doctorTitulo || "Dr."} ${nombreCompletoDoctor(config)}`);
   }
   const contacto = [config?.telefono ? `Tel: ${config.telefono}` : null, config?.correo ? `Correo: ${config.correo}` : null, config?.redes ? `Redes: ${config.redes}` : null].filter(l => l !== null);
   if (contacto.length) {
@@ -3337,7 +3352,7 @@ function printReceta(r, patient, config) {
       </div>` : ""}
 
       <div class="footer">
-        ${config?.doctorNombre ? `Médico responsable: ${esc(config.doctorTitulo || "Dr.")} ${esc(config.doctorNombre)}<br>` : ""}
+        ${nombreCompletoDoctor(config) ? `Médico responsable: ${esc(config.doctorTitulo || "Dr.")} ${esc(nombreCompletoDoctor(config))}<br>` : ""}
         Próxima consulta: ${patient?.proximaVisita ? esc(formatDate(patient.proximaVisita, config?.dateFormat)) : "No hay próxima consulta programada"}<br>
         ${config?.direccion || config?.telefono ? `${config?.direccion ? "Dirección: " + esc(config.direccion) : ""}${config?.direccion && config?.telefono ? " " : ""}${config?.telefono ? "Teléfono: " + esc(config.telefono) : ""}` : ""}
       </div>
@@ -3792,6 +3807,8 @@ function ExamenesView({
 const emptyConfig = () => ({
   clinica: "",
   doctorNombre: "",
+  doctorNombres: "",
+  doctorApellidos: "",
   doctorTitulo: "Dr.",
   logo: null,
   telefono: "",
@@ -3807,7 +3824,21 @@ function ConfigForm({
   onCancel,
   isSetup
 }) {
-  const [data, setData] = useState(config || emptyConfig());
+  const [data, setData] = useState(() => {
+    const base = config || emptyConfig();
+    // Cuentas configuradas antes de este cambio solo tienen "doctorNombre" en
+    // una sola casilla: se reparte una vez en Nombres/Apellidos para que no
+    // aparezca vacío la primera vez que abren este formulario.
+    if (!base.doctorNombres && !base.doctorApellidos && base.doctorNombre) {
+      const partes = base.doctorNombre.trim().split(" ");
+      return {
+        ...base,
+        doctorNombres: partes[0] || "",
+        doctorApellidos: partes.slice(1).join(" ")
+      };
+    }
+    return base;
+  });
   const [logoError, setLogoError] = useState("");
   const [cropSrc, setCropSrc] = useState(null);
   const fileRef = useRef(null);
@@ -3905,15 +3936,19 @@ function ConfigForm({
     value: data.doctorTitulo,
     onChange: set("doctorTitulo"),
     className: inputClass
-  }, /*#__PURE__*/React.createElement("option", null, "Dr."), /*#__PURE__*/React.createElement("option", null, "Dra."))), /*#__PURE__*/React.createElement("div", {
-    className: "col-span-2"
-  }, /*#__PURE__*/React.createElement(Field, {
-    label: "Nombre del doctor/a"
+  }, /*#__PURE__*/React.createElement("option", null, "Dr."), /*#__PURE__*/React.createElement("option", null, "Dra."))), /*#__PURE__*/React.createElement(Field, {
+    label: "Nombres"
   }, /*#__PURE__*/React.createElement(TextInput, {
-    value: data.doctorNombre,
-    onChange: set("doctorNombre"),
-    placeholder: "Ej. Ana Gómez"
-  })))), /*#__PURE__*/React.createElement(Field, {
+    value: data.doctorNombres,
+    onChange: set("doctorNombres"),
+    placeholder: "Ej. Ana María"
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Apellidos"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    value: data.doctorApellidos,
+    onChange: set("doctorApellidos"),
+    placeholder: "Ej. Gómez Pérez"
+  }))), /*#__PURE__*/React.createElement(Field, {
     label: "Dirección de la clínica"
   }, /*#__PURE__*/React.createElement(TextInput, {
     value: data.direccion,
@@ -4012,7 +4047,7 @@ function ConfigForm({
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: () => onSave(data),
     icon: "✓",
-    disabled: !data.doctorNombre.trim()
+    disabled: !data.doctorNombres.trim()
   }, isSetup ? "Guardar y entrar" : "Guardar cambios"), !isSetup && /*#__PURE__*/React.createElement(GhostButton, {
     onClick: onCancel
   }, "Cancelar")));
@@ -4137,7 +4172,7 @@ function GreetingScreen({
   onSetup,
   onEdit
 }) {
-  const hasConfig = !!(config && config.doctorNombre);
+  const hasConfig = !!(config && nombreCompletoDoctor(config));
   return /*#__PURE__*/React.createElement("div", {
     className: "min-h-screen flex items-center justify-center px-6",
     style: styles.page
@@ -4152,7 +4187,7 @@ function GreetingScreen({
   }, "🐾"), hasConfig ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h1", {
     style: styles.display,
     className: "text-3xl font-semibold text-[#23342F] leading-tight"
-  }, greetingByHour(), ", ", config.doctorTitulo, " ", config.doctorNombre), config.clinica && /*#__PURE__*/React.createElement("p", {
+  }, greetingByHour(), ", ", config.doctorTitulo, " ", nombreCompletoDoctor(config)), config.clinica && /*#__PURE__*/React.createElement("p", {
     className: "text-[#6B7A72] mt-2"
   }, config.clinica), /*#__PURE__*/React.createElement("div", {
     className: "mt-8"
