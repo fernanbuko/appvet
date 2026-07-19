@@ -2113,7 +2113,8 @@ function WeightChart({
 // (ficha, receta, carnet) lo incluya de forma consistente sin depender de
 // ninguna función del navegador (que en iPhone no existe para esto).
 function pieDePaginaHTML(config) {
-  const partes = [config?.direccion, config?.telefono, config?.correo, config?.redes].filter(Boolean);
+  const redes = [config?.instagram ? `Instagram: @${config.instagram}` : null, config?.facebook ? `Facebook: ${config.facebook}` : null, config?.tiktok ? `TikTok: @${config.tiktok}` : null, !config?.instagram && !config?.facebook && !config?.tiktok ? config?.redes : null].filter(Boolean);
+  const partes = [config?.direccion, config?.telefono, config?.correo, ...redes].filter(Boolean);
   if (!config?.clinica && partes.length === 0) return "";
   return `
     <div style="margin-top:32px; padding-top:12px; border-top:1px solid #DDD; font-size:11px; color:#6B7A72; text-align:center;">
@@ -3939,6 +3940,9 @@ const emptyConfig = () => ({
   telefono: "",
   correo: "",
   redes: "",
+  instagram: "",
+  facebook: "",
+  tiktok: "",
   direccion: "",
   dateFormat: "YYYY-MM-DD",
   darkMode: false
@@ -4167,13 +4171,55 @@ function ConfigForm({
     value: data.correo,
     onChange: set("correo"),
     placeholder: "Ej. contacto@clinica.com"
-  }))), /*#__PURE__*/React.createElement(Field, {
-    label: "Redes sociales"
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-3 gap-3"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Instagram (usuario)"
   }, /*#__PURE__*/React.createElement(TextInput, {
-    value: data.redes,
-    onChange: set("redes"),
-    placeholder: "Ej. @clinicasanroque (Instagram/Facebook)"
+    value: data.instagram,
+    onChange: e => setData(d => ({
+      ...d,
+      instagram: e.target.value.replace(/^@/, "")
+    })),
+    placeholder: "sin arroba"
   })), /*#__PURE__*/React.createElement(Field, {
+    label: "Facebook (página)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    value: data.facebook,
+    onChange: e => setData(d => ({
+      ...d,
+      facebook: e.target.value.replace(/^@/, "")
+    })),
+    placeholder: "nombre de la página"
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "TikTok (usuario)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    value: data.tiktok,
+    onChange: e => setData(d => ({
+      ...d,
+      tiktok: e.target.value.replace(/^@/, "")
+    })),
+    placeholder: "sin arroba"
+  }))), (data.instagram || data.facebook || data.tiktok) && /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 mb-4 -mt-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-[#A6A08F]"
+  }, "Vista previa:"), data.instagram && /*#__PURE__*/React.createElement("a", {
+    href: `https://instagram.com/${data.instagram}`,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-[#EAF0EC] hover:bg-[#DDD5C4] transition"
+  }, "📷 Instagram"), data.facebook && /*#__PURE__*/React.createElement("a", {
+    href: `https://facebook.com/${data.facebook}`,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-[#EAF0EC] hover:bg-[#DDD5C4] transition"
+  }, "👍 Facebook"), data.tiktok && /*#__PURE__*/React.createElement("a", {
+    href: `https://www.tiktok.com/@${data.tiktok}`,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-[#EAF0EC] hover:bg-[#DDD5C4] transition"
+  }, "🎵 TikTok")), /*#__PURE__*/React.createElement(Field, {
     label: "Formato de fecha"
   }, /*#__PURE__*/React.createElement("select", {
     value: data.dateFormat || "YYYY-MM-DD",
@@ -4755,7 +4801,24 @@ function HomeScreen({
     className: "text-3xl sm:text-4xl font-semibold text-[#23342F] leading-tight"
   }, config?.clinica || "VetData")), /*#__PURE__*/React.createElement("p", {
     className: "text-[#6B7A72] mt-2 max-w-md"
-  }, "Historia clínica, recetas y exámenes de tus pacientes, todo en un solo lugar y siempre a la mano.")), /*#__PURE__*/React.createElement("div", {
+  }, "Historia clínica, recetas y exámenes de tus pacientes, todo en un solo lugar y siempre a la mano."), (config?.instagram || config?.facebook || config?.tiktok) && /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mt-3"
+  }, config.instagram && /*#__PURE__*/React.createElement("a", {
+    href: `https://instagram.com/${config.instagram}`,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-white border border-[#DDD5C4] hover:border-[#3D6B5C] transition"
+  }, "📷 Instagram"), config.facebook && /*#__PURE__*/React.createElement("a", {
+    href: `https://facebook.com/${config.facebook}`,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-white border border-[#DDD5C4] hover:border-[#3D6B5C] transition"
+  }, "👍 Facebook"), config.tiktok && /*#__PURE__*/React.createElement("a", {
+    href: `https://www.tiktok.com/@${config.tiktok}`,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-white border border-[#DDD5C4] hover:border-[#3D6B5C] transition"
+  }, "🎵 TikTok"))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-3 gap-3 mb-10 max-w-md"
   }, /*#__PURE__*/React.createElement(StatCard, {
     label: "Pacientes",
