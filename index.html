@@ -328,6 +328,8 @@
   .w-\[70px\]{width:70px}.h-\[70px\]{height:70px}
 
   .w-\[80px\]{width:80px}.h-\[80px\]{height:80px}
+
+  .border-white\/20{border-color:rgba(255,255,255,.2)}
 </style>
 </head>
 <body>
@@ -1486,10 +1488,26 @@ function MobileTopBar({
   }, "🐾"), /*#__PURE__*/React.createElement("span", {
     style: styles.display,
     className: "text-base font-semibold text-white"
-  }, config?.clinica || "VetData")), /*#__PURE__*/React.createElement("button", {
+  }, config?.clinica || "VetData")), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setActive("config"),
+    className: "w-9 h-9 rounded-full overflow-hidden flex items-center justify-center border-2 border-white/20",
+    style: {
+      background: "#EAF0EC"
+    }
+  }, config?.doctorFoto ? /*#__PURE__*/React.createElement("img", {
+    src: config.doctorFoto,
+    alt: "",
+    className: "w-full h-full object-cover"
+  }) : /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 16
+    }
+  }, "🙂")), /*#__PURE__*/React.createElement("button", {
     onClick: () => setActive("config"),
     className: "w-9 h-9 rounded-full flex items-center justify-center text-base transition " + (active === "config" ? "bg-white/20" : "bg-white/10")
-  }, "⚙️"));
+  }, "⚙️")));
 }
 
 /* ---------------------------------------------------------
@@ -3916,6 +3934,7 @@ const emptyConfig = () => ({
   doctorNombres: "",
   doctorApellidos: "",
   doctorTitulo: "Dr.",
+  doctorFoto: null,
   logo: null,
   telefono: "",
   correo: "",
@@ -3948,8 +3967,12 @@ function ConfigForm({
   });
   const [logoError, setLogoError] = useState("");
   const [cropSrc, setCropSrc] = useState(null);
+  const [fotoError, setFotoError] = useState("");
+  const [cropSrcFoto, setCropSrcFoto] = useState(null);
   const fileRef = useRef(null);
   const cameraRef = useRef(null);
+  const fotoFileRef = useRef(null);
+  const fotoCameraRef = useRef(null);
   const set = key => e => setData(d => ({
     ...d,
     [key]: e.target.value
@@ -3963,6 +3986,18 @@ function ConfigForm({
       setCropSrc(dataUrl);
     } catch {
       setLogoError("No se pudo cargar el logo.");
+    }
+    e.target.value = "";
+  };
+  const handleDoctorFoto = async e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFotoError("");
+    try {
+      const dataUrl = await readFileAsDataURL(file);
+      setCropSrcFoto(dataUrl);
+    } catch {
+      setFotoError("No se pudo cargar la foto.");
     }
     e.target.value = "";
   };
@@ -3981,6 +4016,20 @@ function ConfigForm({
         logo: dataUrl
       }));
       setCropSrc(null);
+    }
+  }), cropSrcFoto && /*#__PURE__*/React.createElement(PhotoAdjustModal, {
+    src: cropSrcFoto,
+    shape: "circle",
+    size: 260,
+    outputSize: 400,
+    folder: "perfil-doctor",
+    onCancel: () => setCropSrcFoto(null),
+    onConfirm: dataUrl => {
+      setData(d => ({
+        ...d,
+        doctorFoto: dataUrl
+      }));
+      setCropSrcFoto(null);
     }
   }), isSetup && /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-[#6B7A72] mb-5"
@@ -4029,7 +4078,50 @@ function ConfigForm({
     className: "text-xs text-[#B14E1C] font-medium hover:underline block mt-1"
   }, "Quitar logo"), logoError && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#B14E1C] mt-1"
-  }, logoError)))), /*#__PURE__*/React.createElement(Field, {
+  }, logoError)))), /*#__PURE__*/React.createElement("div", {
+    className: "mb-4"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "block text-[11px] uppercase tracking-wider mb-1.5 text-[#6B7A72]",
+    style: styles.mono
+  }, "Tu foto de perfil (aparece en una esquina de la app)"), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: () => fotoFileRef.current?.click(),
+    className: "w-16 h-16 rounded-full bg-[#EAF0EC] border-2 border-dashed border-[#B9C4BD] flex items-center justify-center cursor-pointer overflow-hidden hover:border-[#3D6B5C] transition shrink-0"
+  }, data.doctorFoto ? /*#__PURE__*/React.createElement("img", {
+    src: data.doctorFoto,
+    alt: "",
+    className: "w-full h-full object-cover"
+  }) : /*#__PURE__*/React.createElement("span", {
+    className: "text-xl"
+  }, "🙂")), /*#__PURE__*/React.createElement("input", {
+    ref: fotoFileRef,
+    type: "file",
+    accept: "image/*",
+    className: "hidden",
+    onChange: handleDoctorFoto
+  }), /*#__PURE__*/React.createElement("input", {
+    ref: fotoCameraRef,
+    type: "file",
+    accept: "image/*",
+    capture: "user",
+    className: "hidden",
+    onChange: handleDoctorFoto
+  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("button", {
+    onClick: () => fotoFileRef.current?.click(),
+    className: "text-xs text-[#3D6B5C] font-medium hover:underline block"
+  }, data.doctorFoto ? "Cambiar foto" : "Subir foto"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => fotoCameraRef.current?.click(),
+    className: "text-xs text-[#3D6B5C] font-medium hover:underline block mt-1"
+  }, "📷 Tomar foto"), data.doctorFoto && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setData(d => ({
+      ...d,
+      doctorFoto: null
+    })),
+    className: "text-xs text-[#B14E1C] font-medium hover:underline block mt-1"
+  }, "Quitar foto"), fotoError && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#B14E1C] mt-1"
+  }, fotoError)))), /*#__PURE__*/React.createElement(Field, {
     label: "Nombre de la clínica"
   }, /*#__PURE__*/React.createElement(TextInput, {
     value: data.clinica,
@@ -5446,7 +5538,38 @@ function VetApp() {
   return /*#__PURE__*/React.createElement("div", {
     style: styles.page,
     className: "flex flex-col min-h-screen"
-  }, !isOnline && /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setActive("config");
+      setEditing(null);
+      setSelected(null);
+    },
+    title: nombreCompletoDoctor(config) || "Mi perfil",
+    className: "hidden md:flex",
+    style: {
+      position: "fixed",
+      top: 14,
+      right: 14,
+      zIndex: 40,
+      width: 40,
+      height: 40,
+      borderRadius: "50%",
+      overflow: "hidden",
+      border: "2px solid #fff",
+      boxShadow: "0 2px 6px rgba(0,0,0,.25)",
+      background: "#EAF0EC",
+      alignItems: "center",
+      justifyContent: "center"
+    }
+  }, config?.doctorFoto ? /*#__PURE__*/React.createElement("img", {
+    src: config.doctorFoto,
+    alt: "",
+    className: "w-full h-full object-cover"
+  }) : /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 17
+    }
+  }, "🙂")), !isOnline && /*#__PURE__*/React.createElement("div", {
     style: {
       width: "100%",
       background: "#E08A3E",
