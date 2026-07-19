@@ -648,6 +648,22 @@ function carpetaCloudinariaDeEsteUsuario() {
   const identificador = currentClinicaId ? `clinica_${currentClinicaId}` : (currentUid || "sin_cuenta");
   return `vetdata/${identificador}`;
 }
+// Deja el nombre listo para usarse como parte de un nombre de carpeta: sin acentos,
+// sin símbolos raros, espacios cambiados por guion bajo.
+function sanitizarNombreParaCarpeta(nombre) {
+  return (nombre || "sin_nombre")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9 ]/g, "")
+    .trim()
+    .replace(/\s+/g, "_")
+    .slice(0, 40) || "sin_nombre";
+}
+// Arma la carpeta de un paciente combinando su ID (para que nunca se mezclen dos
+// mascotas, aunque se llamen igual) con su nombre (para identificarla a simple vista
+// en la Media Library de Cloudinary).
+function carpetaDePaciente(id, nombre) {
+  return `pacientes/${id || "sin_asignar"}_${sanitizarNombreParaCarpeta(nombre)}`;
+}
 async function uploadToCloudinary(fileOrBlob, subcarpeta) {
   const formData = new FormData();
   formData.append("file", fileOrBlob);
@@ -1556,7 +1572,7 @@ function PatientForm({
     shape: "circle",
     size: 260,
     outputSize: 500,
-    folder: `pacientes/${data.id}`,
+    folder: carpetaDePaciente(data.id, data.nombre),
     onCancel: () => setCropSrc(null),
     onConfirm: dataUrl => {
       setData(d => ({
@@ -2082,7 +2098,7 @@ function PatientDetail({
     try {
       let url;
       if (cloudinaryReady) {
-        const result = await uploadToCloudinary(file, `pacientes/${patient.id}/galeria`);
+        const result = await uploadToCloudinary(file, `${carpetaDePaciente(patient.id, patient.nombre)}/galeria`);
         url = result.url;
       } else {
         url = await resizeImage(file, 900);
@@ -3537,7 +3553,7 @@ function ExamenesView({
         try {
           const {
             url
-          } = await uploadToCloudinary(file, `pacientes/${patientId || "sin_asignar"}/examenes`);
+          } = await uploadToCloudinary(file, `${carpetaDePaciente(patientId, patients.find(p => p.id === patientId)?.nombre)}/examenes`);
           nuevos.push({
             name: file.name,
             type: file.type,
