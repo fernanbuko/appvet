@@ -4010,12 +4010,27 @@ function ConfigForm({
   onToggleDarkMode
 }) {
   const [data, setData] = useState(() => migrarConfig(config));
+  // Recuerda cómo se veía la configuración la última vez que este formulario
+  // se sincronizó (ya sea al abrirse, o por un cambio remoto ya reflejado).
+  const ultimaConfigSincronizadaRef = useRef(JSON.stringify(migrarConfig(config)));
   // Si otro dispositivo con la misma cuenta cambia la configuración (por
   // ejemplo, agrega o borra una red social desde el celular), este efecto
-  // hace que este formulario se actualice solo para reflejarlo, en vez de
-  // quedarse con los datos de cuando se abrió por primera vez.
+  // hace que este formulario se actualice solo para reflejarlo — PERO solo
+  // si en este dispositivo no hay cambios propios todavía sin guardar (para
+  // no borrar por accidente algo que acabas de escribir aquí mismo).
   useEffect(() => {
-    setData(migrarConfig(config));
+    const entrante = migrarConfig(config);
+    const entranteJSON = JSON.stringify(entrante);
+    if (entranteJSON === ultimaConfigSincronizadaRef.current) return; // no hay nada nuevo de verdad
+    setData(actual => {
+      const actualJSON = JSON.stringify(actual);
+      if (actualJSON !== ultimaConfigSincronizadaRef.current) {
+        // Hay ediciones locales sin guardar todavía: no se pisan.
+        return actual;
+      }
+      ultimaConfigSincronizadaRef.current = entranteJSON;
+      return entrante;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config]);
   const [logoError, setLogoError] = useState("");
@@ -4477,7 +4492,10 @@ function ConfigForm({
   }, "⚠️ Cualquiera con este código puede ver y editar los datos del equipo — compártelo solo con tu equipo de confianza."))), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2 mt-5"
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
-    onClick: () => onSave(data),
+    onClick: () => {
+      ultimaConfigSincronizadaRef.current = JSON.stringify(data);
+      onSave(data);
+    },
     icon: "✓",
     disabled: !data.doctorNombres.trim()
   }, isSetup ? "Guardar y entrar" : "Guardar cambios"), !isSetup && /*#__PURE__*/React.createElement(GhostButton, {
