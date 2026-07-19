@@ -638,6 +638,7 @@ const firebaseReady = firebaseConfig.apiKey && firebaseConfig.apiKey !== "TU_API
 const CLOUDINARY_CLOUD_NAME = "zcuh5bjn";
 const CLOUDINARY_UPLOAD_PRESET = "vetdata_uploads";
 const cloudinaryReady = CLOUDINARY_CLOUD_NAME !== "TU_CLOUD_NAME" && CLOUDINARY_UPLOAD_PRESET !== "TU_UPLOAD_PRESET";
+
 // Carpeta de esta app + de este usuario/clínica dentro de Cloudinary — así, aunque la
 // cuenta de Cloudinary se comparta con otras apps, nunca se mezclan los archivos, y
 // dentro de VetData, cada doctor/a (o cada equipo de clínica) tiene los suyos aparte.
@@ -645,18 +646,13 @@ const cloudinaryReady = CLOUDINARY_CLOUD_NAME !== "TU_CLOUD_NAME" && CLOUDINARY_
 // si hay un código de clínica configurado, se usa el espacio de equipo compartido;
 // si no, el espacio personal del usuario.
 function carpetaCloudinariaDeEsteUsuario() {
-  const identificador = currentClinicaId ? `clinica_${currentClinicaId}` : (currentUid || "sin_cuenta");
+  const identificador = currentClinicaId ? `clinica_${currentClinicaId}` : currentUid || "sin_cuenta";
   return `vetdata/${identificador}`;
 }
 // Deja el nombre listo para usarse como parte de un nombre de carpeta: sin acentos,
 // sin símbolos raros, espacios cambiados por guion bajo.
 function sanitizarNombreParaCarpeta(nombre) {
-  return (nombre || "sin_nombre")
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9 ]/g, "")
-    .trim()
-    .replace(/\s+/g, "_")
-    .slice(0, 40) || "sin_nombre";
+  return (nombre || "sin_nombre").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9 ]/g, "").trim().replace(/\s+/g, "_").slice(0, 40) || "sin_nombre";
 }
 // Arma la carpeta de un paciente combinando su ID (para que nunca se mezclen dos
 // mascotas, aunque se llamen igual) con su nombre (para identificarla a simple vista
@@ -4906,17 +4902,22 @@ function VetApp() {
   const savePatient = data => {
     let next;
     let record;
-    const prevPatient = data.id ? patients.find(p => p.id === data.id) : null;
-    if (data.id) {
+    const yaExiste = data.id && patients.some(p => p.id === data.id);
+    const prevPatient = yaExiste ? patients.find(p => p.id === data.id) : null;
+    if (yaExiste) {
       record = {
         ...data,
         updatedAt: Date.now()
       };
       next = patients.map(p => p.id === data.id ? record : p);
     } else {
+      // Aunque emptyPatient() ya trae un id generado desde el inicio (para que
+      // las fotos sepan en qué carpeta guardarse mientras se llena el
+      // formulario), este paciente todavía no existe en la lista: se agrega
+      // como nuevo, conservando ese mismo id (no se genera uno distinto).
       record = {
         ...data,
-        id: uid(),
+        id: data.id || uid(),
         updatedAt: Date.now()
       };
       next = [...patients, record];
