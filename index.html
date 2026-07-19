@@ -314,6 +314,13 @@
      así que se necesita apuntar a la clase min-h-screen que sí comparten
      todas esas pantallas, con !important para poder ganarle al estilo en línea. */
   [data-theme="dark"] .min-h-screen { background: #121417 !important; color: #ECEDEE !important; }
+
+  /* El boton GhostButton se pone fondo blanco al pasar el cursor (para modo
+     claro); en modo oscuro eso deja el texto claro casi invisible, asi que
+     ahi se usa un tono oscuro elevado en su lugar. */
+  [data-theme="dark"] .hover\:bg-white:hover { background: #23272C !important; }
+
+  .w-40{width:10rem}.h-40{height:10rem}
 </style>
 </head>
 <body>
@@ -4206,7 +4213,7 @@ function GreetingScreen({
   }, config?.logo ? /*#__PURE__*/React.createElement("img", {
     src: config.logo,
     alt: "",
-    className: "w-28 h-28 rounded-full object-cover mx-auto mb-4"
+    className: "w-40 h-40 rounded-full object-cover mx-auto mb-4"
   }) : /*#__PURE__*/React.createElement("div", {
     className: "text-4xl mb-4"
   }, "🐾"), hasConfig ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h1", {
