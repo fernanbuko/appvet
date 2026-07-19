@@ -2115,7 +2115,8 @@ function WeightChart({
 // (ficha, receta, carnet) lo incluya de forma consistente sin depender de
 // ninguna función del navegador (que en iPhone no existe para esto).
 function pieDePaginaHTML(config) {
-  const redes = [config?.instagram ? `Instagram: @${config.instagram}` : null, config?.facebook ? `Facebook: ${config.facebook}` : null, config?.tiktok ? `TikTok: @${config.tiktok}` : null, !config?.instagram && !config?.facebook && !config?.tiktok ? config?.redes : null].filter(Boolean);
+  const hayListas = config?.instagramList?.length || config?.facebookList?.length || config?.tiktokList?.length;
+  const redes = hayListas ? [...(config.instagramList || []).map(c => `Instagram: @${c}`), ...(config.facebookList || []).map(c => `Facebook: ${c}`), ...(config.tiktokList || []).map(c => `TikTok: @${c}`)] : [config?.redes].filter(Boolean);
   const partes = [config?.direccion, config?.telefono, config?.correo, ...redes].filter(Boolean);
   if (!config?.clinica && partes.length === 0) return "";
   return `
@@ -3942,9 +3943,9 @@ const emptyConfig = () => ({
   telefono: "",
   correo: "",
   redes: "",
-  instagram: "",
-  facebook: "",
-  tiktok: "",
+  instagramList: [],
+  facebookList: [],
+  tiktokList: [],
   direccion: "",
   dateFormat: "YYYY-MM-DD",
   darkMode: false
@@ -3958,29 +3959,56 @@ function ConfigForm({
 }) {
   const [data, setData] = useState(() => {
     const base = config || emptyConfig();
+    let migrado = base;
     // Cuentas configuradas antes de este cambio solo tienen "doctorNombre" en
     // una sola casilla: se reparte una vez en Nombres/Apellidos para que no
     // aparezca vacío la primera vez que abren este formulario.
-    if (!base.doctorNombres && !base.doctorApellidos && base.doctorNombre) {
-      const partes = base.doctorNombre.trim().split(" ");
-      return {
-        ...base,
+    if (!migrado.doctorNombres && !migrado.doctorApellidos && migrado.doctorNombre) {
+      const partes = migrado.doctorNombre.trim().split(" ");
+      migrado = {
+        ...migrado,
         doctorNombres: partes[0] || "",
         doctorApellidos: partes.slice(1).join(" ")
       };
     }
-    return base;
+    // Migrar de "una sola cuenta por red" (versión anterior) a listas, para
+    // no perder lo que ya habían guardado.
+    if (!migrado.instagramList && migrado.instagram) migrado = {
+      ...migrado,
+      instagramList: [migrado.instagram]
+    };
+    if (!migrado.facebookList && migrado.facebook) migrado = {
+      ...migrado,
+      facebookList: [migrado.facebook]
+    };
+    if (!migrado.tiktokList && migrado.tiktok) migrado = {
+      ...migrado,
+      tiktokList: [migrado.tiktok]
+    };
+    if (!migrado.instagramList) migrado = {
+      ...migrado,
+      instagramList: []
+    };
+    if (!migrado.facebookList) migrado = {
+      ...migrado,
+      facebookList: []
+    };
+    if (!migrado.tiktokList) migrado = {
+      ...migrado,
+      tiktokList: []
+    };
+    return migrado;
   });
   const [logoError, setLogoError] = useState("");
   const [cropSrc, setCropSrc] = useState(null);
   const [fotoError, setFotoError] = useState("");
   const [cropSrcFoto, setCropSrcFoto] = useState(null);
-  // Los campos de redes sociales se escriben aparte (borrador) del valor ya
-  // guardado: así puedes borrar el texto para corregirlo sin que el botón
-  // guardado desaparezca solo — solo se quita tocando la X del botón.
-  const [draftInstagram, setDraftInstagram] = useState(config?.instagram || "");
-  const [draftFacebook, setDraftFacebook] = useState(config?.facebook || "");
-  const [draftTiktok, setDraftTiktok] = useState(config?.tiktok || "");
+  // El campo de escritura de redes sociales siempre empieza vacío: al
+  // presionar Enter se agrega una cuenta nueva a la lista de esa red (sin
+  // límite), y el campo queda listo para escribir otra.
+  const [draftInstagram, setDraftInstagram] = useState("");
+  const [draftFacebook, setDraftFacebook] = useState("");
+  const [draftTiktok, setDraftTiktok] = useState("");
   const fileRef = useRef(null);
   const cameraRef = useRef(null);
   const fotoFileRef = useRef(null);
@@ -4187,78 +4215,63 @@ function ConfigForm({
     value: draftInstagram,
     onChange: e => setDraftInstagram(e.target.value.replace(/^@/, "")),
     onKeyDown: e => {
-      if (e.key === "Enter") {
+      if (e.key === "Enter" && draftInstagram.trim()) {
         e.preventDefault();
         setData(d => ({
           ...d,
-          instagram: draftInstagram
+          instagramList: [...new Set([...(d.instagramList || []), draftInstagram.trim()])]
         }));
+        setDraftInstagram("");
       }
     },
-    onBlur: () => {
-      if (draftInstagram) setData(d => ({
-        ...d,
-        instagram: draftInstagram
-      }));
-    },
-    placeholder: "sin arroba"
+    placeholder: "sin arroba, Enter para agregar"
   })), /*#__PURE__*/React.createElement(Field, {
     label: "Facebook (página)"
   }, /*#__PURE__*/React.createElement(TextInput, {
     value: draftFacebook,
     onChange: e => setDraftFacebook(e.target.value.replace(/^@/, "")),
     onKeyDown: e => {
-      if (e.key === "Enter") {
+      if (e.key === "Enter" && draftFacebook.trim()) {
         e.preventDefault();
         setData(d => ({
           ...d,
-          facebook: draftFacebook
+          facebookList: [...new Set([...(d.facebookList || []), draftFacebook.trim()])]
         }));
+        setDraftFacebook("");
       }
     },
-    onBlur: () => {
-      if (draftFacebook) setData(d => ({
-        ...d,
-        facebook: draftFacebook
-      }));
-    },
-    placeholder: "nombre de la página"
+    placeholder: "nombre, Enter para agregar"
   })), /*#__PURE__*/React.createElement(Field, {
     label: "TikTok (usuario)"
   }, /*#__PURE__*/React.createElement(TextInput, {
     value: draftTiktok,
     onChange: e => setDraftTiktok(e.target.value.replace(/^@/, "")),
     onKeyDown: e => {
-      if (e.key === "Enter") {
+      if (e.key === "Enter" && draftTiktok.trim()) {
         e.preventDefault();
         setData(d => ({
           ...d,
-          tiktok: draftTiktok
+          tiktokList: [...new Set([...(d.tiktokList || []), draftTiktok.trim()])]
         }));
+        setDraftTiktok("");
       }
     },
-    onBlur: () => {
-      if (draftTiktok) setData(d => ({
-        ...d,
-        tiktok: draftTiktok
-      }));
-    },
-    placeholder: "sin arroba"
-  }))), (data.instagram || data.facebook || data.tiktok) && /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-4 mb-4 -mt-2 flex-wrap"
-  }, data.instagram && /*#__PURE__*/React.createElement("div", {
+    placeholder: "sin arroba, Enter para agregar"
+  }))), ((data.instagramList || []).length > 0 || (data.facebookList || []).length > 0 || (data.tiktokList || []).length > 0) && /*#__PURE__*/React.createElement("div", {
+    className: "flex items-start gap-6 mb-4 -mt-2 flex-wrap"
+  }, (data.instagramList || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-col gap-2"
+  }, data.instagramList.map((cuenta, i) => /*#__PURE__*/React.createElement("div", {
+    key: cuenta,
     className: "relative inline-block"
   }, /*#__PURE__*/React.createElement(GhostButton, {
     icon: "📷",
-    onClick: () => window.open(`https://instagram.com/${data.instagram}`, "_blank")
-  }, data.instagram), /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      setData(d => ({
-        ...d,
-        instagram: ""
-      }));
-      setDraftInstagram("");
-    },
+    onClick: () => window.open(`https://instagram.com/${cuenta}`, "_blank")
+  }, cuenta), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setData(d => ({
+      ...d,
+      instagramList: d.instagramList.filter((_, idx) => idx !== i)
+    })),
     className: "absolute flex items-center justify-center rounded-full bg-[#B14E1C] text-white",
     style: {
       top: -8,
@@ -4268,19 +4281,19 @@ function ConfigForm({
       fontSize: 11,
       lineHeight: 1
     }
-  }, "✕")), data.facebook && /*#__PURE__*/React.createElement("div", {
+  }, "✕")))), (data.facebookList || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-col gap-2"
+  }, data.facebookList.map((cuenta, i) => /*#__PURE__*/React.createElement("div", {
+    key: cuenta,
     className: "relative inline-block"
   }, /*#__PURE__*/React.createElement(GhostButton, {
     icon: "👍",
-    onClick: () => window.open(`https://facebook.com/${data.facebook}`, "_blank")
-  }, data.facebook), /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      setData(d => ({
-        ...d,
-        facebook: ""
-      }));
-      setDraftFacebook("");
-    },
+    onClick: () => window.open(`https://facebook.com/${cuenta}`, "_blank")
+  }, cuenta), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setData(d => ({
+      ...d,
+      facebookList: d.facebookList.filter((_, idx) => idx !== i)
+    })),
     className: "absolute flex items-center justify-center rounded-full bg-[#B14E1C] text-white",
     style: {
       top: -8,
@@ -4290,19 +4303,19 @@ function ConfigForm({
       fontSize: 11,
       lineHeight: 1
     }
-  }, "✕")), data.tiktok && /*#__PURE__*/React.createElement("div", {
+  }, "✕")))), (data.tiktokList || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-col gap-2"
+  }, data.tiktokList.map((cuenta, i) => /*#__PURE__*/React.createElement("div", {
+    key: cuenta,
     className: "relative inline-block"
   }, /*#__PURE__*/React.createElement(GhostButton, {
     icon: "🎵",
-    onClick: () => window.open(`https://www.tiktok.com/@${data.tiktok}`, "_blank")
-  }, data.tiktok), /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      setData(d => ({
-        ...d,
-        tiktok: ""
-      }));
-      setDraftTiktok("");
-    },
+    onClick: () => window.open(`https://www.tiktok.com/@${cuenta}`, "_blank")
+  }, cuenta), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setData(d => ({
+      ...d,
+      tiktokList: d.tiktokList.filter((_, idx) => idx !== i)
+    })),
     className: "absolute flex items-center justify-center rounded-full bg-[#B14E1C] text-white",
     style: {
       top: -8,
@@ -4312,7 +4325,7 @@ function ConfigForm({
       fontSize: 11,
       lineHeight: 1
     }
-  }, "✕"))), /*#__PURE__*/React.createElement(Field, {
+  }, "✕"))))), /*#__PURE__*/React.createElement(Field, {
     label: "Formato de fecha"
   }, /*#__PURE__*/React.createElement("select", {
     value: data.dateFormat || "YYYY-MM-DD",
@@ -4894,18 +4907,21 @@ function HomeScreen({
     className: "text-3xl sm:text-4xl font-semibold text-[#23342F] leading-tight"
   }, config?.clinica || "VetData")), /*#__PURE__*/React.createElement("p", {
     className: "text-[#6B7A72] mt-2 max-w-md"
-  }, "Historia clínica, recetas y exámenes de tus pacientes, todo en un solo lugar y siempre a la mano."), (config?.instagram || config?.facebook || config?.tiktok) && /*#__PURE__*/React.createElement("div", {
+  }, "Historia clínica, recetas y exámenes de tus pacientes, todo en un solo lugar y siempre a la mano."), (config?.instagramList?.length || config?.facebookList?.length || config?.tiktokList?.length) && /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 mt-3 flex-wrap"
-  }, config.instagram && /*#__PURE__*/React.createElement(GhostButton, {
+  }, (config.instagramList || []).map(cuenta => /*#__PURE__*/React.createElement(GhostButton, {
+    key: "ig-" + cuenta,
     icon: "📷",
-    onClick: () => window.open(`https://instagram.com/${config.instagram}`, "_blank")
-  }, config.instagram), config.facebook && /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => window.open(`https://instagram.com/${cuenta}`, "_blank")
+  }, cuenta)), (config.facebookList || []).map(cuenta => /*#__PURE__*/React.createElement(GhostButton, {
+    key: "fb-" + cuenta,
     icon: "👍",
-    onClick: () => window.open(`https://facebook.com/${config.facebook}`, "_blank")
-  }, config.facebook), config.tiktok && /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => window.open(`https://facebook.com/${cuenta}`, "_blank")
+  }, cuenta)), (config.tiktokList || []).map(cuenta => /*#__PURE__*/React.createElement(GhostButton, {
+    key: "tk-" + cuenta,
     icon: "🎵",
-    onClick: () => window.open(`https://www.tiktok.com/@${config.tiktok}`, "_blank")
-  }, config.tiktok))), /*#__PURE__*/React.createElement("div", {
+    onClick: () => window.open(`https://www.tiktok.com/@${cuenta}`, "_blank")
+  }, cuenta)))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-3 gap-3 mb-10 max-w-md"
   }, /*#__PURE__*/React.createElement(StatCard, {
     label: "Pacientes",
