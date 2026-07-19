@@ -330,6 +330,8 @@
   .w-\[80px\]{width:80px}.h-\[80px\]{height:80px}
 
   .border-white\/20{border-color:rgba(255,255,255,.2)}
+
+  .no-underline{text-decoration:none}
 </style>
 </head>
 <body>
@@ -4201,24 +4203,24 @@ function ConfigForm({
     })),
     placeholder: "sin arroba"
   }))), (data.instagram || data.facebook || data.tiktok) && /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3 mb-4 -mt-2"
+    className: "flex items-center gap-2 mb-4 -mt-2 flex-wrap"
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-xs text-[#A6A08F]"
   }, "Vista previa:"), data.instagram && /*#__PURE__*/React.createElement("a", {
     href: `https://instagram.com/${data.instagram}`,
     target: "_blank",
     rel: "noopener noreferrer",
-    className: "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-[#EAF0EC] hover:bg-[#DDD5C4] transition"
+    className: "no-underline flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-white border border-[#DDD5C4] text-[#23342F] hover:border-[#3D6B5C] transition"
   }, "📷 Instagram"), data.facebook && /*#__PURE__*/React.createElement("a", {
     href: `https://facebook.com/${data.facebook}`,
     target: "_blank",
     rel: "noopener noreferrer",
-    className: "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-[#EAF0EC] hover:bg-[#DDD5C4] transition"
+    className: "no-underline flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-white border border-[#DDD5C4] text-[#23342F] hover:border-[#3D6B5C] transition"
   }, "👍 Facebook"), data.tiktok && /*#__PURE__*/React.createElement("a", {
     href: `https://www.tiktok.com/@${data.tiktok}`,
     target: "_blank",
     rel: "noopener noreferrer",
-    className: "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-[#EAF0EC] hover:bg-[#DDD5C4] transition"
+    className: "no-underline flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-white border border-[#DDD5C4] text-[#23342F] hover:border-[#3D6B5C] transition"
   }, "🎵 TikTok")), /*#__PURE__*/React.createElement(Field, {
     label: "Formato de fecha"
   }, /*#__PURE__*/React.createElement("select", {
@@ -4802,22 +4804,22 @@ function HomeScreen({
   }, config?.clinica || "VetData")), /*#__PURE__*/React.createElement("p", {
     className: "text-[#6B7A72] mt-2 max-w-md"
   }, "Historia clínica, recetas y exámenes de tus pacientes, todo en un solo lugar y siempre a la mano."), (config?.instagram || config?.facebook || config?.tiktok) && /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 mt-3"
+    className: "flex items-center gap-2 mt-3 flex-wrap"
   }, config.instagram && /*#__PURE__*/React.createElement("a", {
     href: `https://instagram.com/${config.instagram}`,
     target: "_blank",
     rel: "noopener noreferrer",
-    className: "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-white border border-[#DDD5C4] hover:border-[#3D6B5C] transition"
+    className: "no-underline flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-white border border-[#DDD5C4] text-[#23342F] hover:border-[#3D6B5C] transition"
   }, "📷 Instagram"), config.facebook && /*#__PURE__*/React.createElement("a", {
     href: `https://facebook.com/${config.facebook}`,
     target: "_blank",
     rel: "noopener noreferrer",
-    className: "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-white border border-[#DDD5C4] hover:border-[#3D6B5C] transition"
+    className: "no-underline flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-white border border-[#DDD5C4] text-[#23342F] hover:border-[#3D6B5C] transition"
   }, "👍 Facebook"), config.tiktok && /*#__PURE__*/React.createElement("a", {
     href: `https://www.tiktok.com/@${config.tiktok}`,
     target: "_blank",
     rel: "noopener noreferrer",
-    className: "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-white border border-[#DDD5C4] hover:border-[#3D6B5C] transition"
+    className: "no-underline flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-white border border-[#DDD5C4] text-[#23342F] hover:border-[#3D6B5C] transition"
   }, "🎵 TikTok"))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-3 gap-3 mb-10 max-w-md"
   }, /*#__PURE__*/React.createElement(StatCard, {
