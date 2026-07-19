@@ -3975,6 +3975,12 @@ function ConfigForm({
   const [cropSrc, setCropSrc] = useState(null);
   const [fotoError, setFotoError] = useState("");
   const [cropSrcFoto, setCropSrcFoto] = useState(null);
+  // Los campos de redes sociales se escriben aparte (borrador) del valor ya
+  // guardado: así puedes borrar el texto para corregirlo sin que el botón
+  // guardado desaparezca solo — solo se quita tocando la X del botón.
+  const [draftInstagram, setDraftInstagram] = useState(config?.instagram || "");
+  const [draftFacebook, setDraftFacebook] = useState(config?.facebook || "");
+  const [draftTiktok, setDraftTiktok] = useState(config?.tiktok || "");
   const fileRef = useRef(null);
   const cameraRef = useRef(null);
   const fotoFileRef = useRef(null);
@@ -4178,42 +4184,129 @@ function ConfigForm({
   }, /*#__PURE__*/React.createElement(Field, {
     label: "Instagram (usuario)"
   }, /*#__PURE__*/React.createElement(TextInput, {
-    value: data.instagram,
-    onChange: e => setData(d => ({
+    value: draftInstagram,
+    onChange: e => setDraftInstagram(e.target.value.replace(/^@/, "")),
+    onKeyDown: e => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        setData(d => ({
+          ...d,
+          instagram: draftInstagram
+        }));
+      }
+    },
+    onBlur: () => setData(d => ({
       ...d,
-      instagram: e.target.value.replace(/^@/, "")
+      instagram: draftInstagram
     })),
     placeholder: "sin arroba"
   })), /*#__PURE__*/React.createElement(Field, {
     label: "Facebook (página)"
   }, /*#__PURE__*/React.createElement(TextInput, {
-    value: data.facebook,
-    onChange: e => setData(d => ({
+    value: draftFacebook,
+    onChange: e => setDraftFacebook(e.target.value.replace(/^@/, "")),
+    onKeyDown: e => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        setData(d => ({
+          ...d,
+          facebook: draftFacebook
+        }));
+      }
+    },
+    onBlur: () => setData(d => ({
       ...d,
-      facebook: e.target.value.replace(/^@/, "")
+      facebook: draftFacebook
     })),
     placeholder: "nombre de la página"
   })), /*#__PURE__*/React.createElement(Field, {
     label: "TikTok (usuario)"
   }, /*#__PURE__*/React.createElement(TextInput, {
-    value: data.tiktok,
-    onChange: e => setData(d => ({
+    value: draftTiktok,
+    onChange: e => setDraftTiktok(e.target.value.replace(/^@/, "")),
+    onKeyDown: e => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        setData(d => ({
+          ...d,
+          tiktok: draftTiktok
+        }));
+      }
+    },
+    onBlur: () => setData(d => ({
       ...d,
-      tiktok: e.target.value.replace(/^@/, "")
+      tiktok: draftTiktok
     })),
     placeholder: "sin arroba"
   }))), (data.instagram || data.facebook || data.tiktok) && /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 mb-4 -mt-2 flex-wrap"
-  }, data.instagram && /*#__PURE__*/React.createElement(GhostButton, {
+    className: "flex items-center gap-4 mb-4 -mt-2 flex-wrap"
+  }, data.instagram && /*#__PURE__*/React.createElement("div", {
+    className: "relative inline-block"
+  }, /*#__PURE__*/React.createElement(GhostButton, {
     icon: "📷",
     onClick: () => window.open(`https://instagram.com/${data.instagram}`, "_blank")
-  }, data.instagram), data.facebook && /*#__PURE__*/React.createElement(GhostButton, {
+  }, data.instagram), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setData(d => ({
+        ...d,
+        instagram: ""
+      }));
+      setDraftInstagram("");
+    },
+    className: "absolute flex items-center justify-center rounded-full bg-[#B14E1C] text-white",
+    style: {
+      top: -8,
+      right: -8,
+      width: 20,
+      height: 20,
+      fontSize: 11,
+      lineHeight: 1
+    }
+  }, "✕")), data.facebook && /*#__PURE__*/React.createElement("div", {
+    className: "relative inline-block"
+  }, /*#__PURE__*/React.createElement(GhostButton, {
     icon: "👍",
     onClick: () => window.open(`https://facebook.com/${data.facebook}`, "_blank")
-  }, data.facebook), data.tiktok && /*#__PURE__*/React.createElement(GhostButton, {
+  }, data.facebook), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setData(d => ({
+        ...d,
+        facebook: ""
+      }));
+      setDraftFacebook("");
+    },
+    className: "absolute flex items-center justify-center rounded-full bg-[#B14E1C] text-white",
+    style: {
+      top: -8,
+      right: -8,
+      width: 20,
+      height: 20,
+      fontSize: 11,
+      lineHeight: 1
+    }
+  }, "✕")), data.tiktok && /*#__PURE__*/React.createElement("div", {
+    className: "relative inline-block"
+  }, /*#__PURE__*/React.createElement(GhostButton, {
     icon: "🎵",
     onClick: () => window.open(`https://www.tiktok.com/@${data.tiktok}`, "_blank")
-  }, data.tiktok)), /*#__PURE__*/React.createElement(Field, {
+  }, data.tiktok), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setData(d => ({
+        ...d,
+        tiktok: ""
+      }));
+      setDraftTiktok("");
+    },
+    className: "absolute flex items-center justify-center rounded-full bg-[#B14E1C] text-white",
+    style: {
+      top: -8,
+      right: -8,
+      width: 20,
+      height: 20,
+      fontSize: 11,
+      lineHeight: 1
+    }
+  }, "✕"))), /*#__PURE__*/React.createElement(Field, {
     label: "Formato de fecha"
   }, /*#__PURE__*/React.createElement("select", {
     value: data.dateFormat || "YYYY-MM-DD",
