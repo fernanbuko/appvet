@@ -646,7 +646,7 @@ const cloudinaryReady = CLOUDINARY_CLOUD_NAME !== "TU_CLOUD_NAME" && CLOUDINARY_
 // si hay un código de clínica configurado, se usa el espacio de equipo compartido;
 // si no, el espacio personal del usuario.
 function carpetaCloudinariaDeEsteUsuario() {
-  const identificador = currentClinicaId ? `clinica_${currentClinicaId}` : currentUid || "sin_cuenta";
+  const identificador = currentClinicaId ? `clinica_${currentClinicaId}` : currentDoctorCarpeta || currentUid || "sin_cuenta";
   return `vetdata/${identificador}`;
 }
 // Deja el nombre listo para usarse como parte de un nombre de carpeta: sin acentos,
@@ -710,6 +710,17 @@ let currentUid = null;
 // (clinics/{clinicaId}/...) en vez del espacio personal (users/{uid}/...),
 // para que todo el equipo vea los mismos datos.
 let currentClinicaId = null;
+
+// Nombre legible del doctor/a (tomado de Configuración) combinado con parte de
+// su UID, para usarlo en las carpetas de Cloudinary en vez de solo el UID.
+// Se combina con el UID para evitar que dos cuentas con el mismo nombre
+// terminen mezclando sus archivos en la misma carpeta.
+let currentDoctorCarpeta = null;
+function actualizarCarpetaDoctor(config) {
+  const nombre = config?.doctorNombre ? sanitizarNombreParaCarpeta(config.doctorNombre) : null;
+  const sufijoUid = (currentUid || "").slice(0, 6);
+  currentDoctorCarpeta = nombre ? `${nombre}_${sufijoUid}` : null;
+}
 function teamCollection(name) {
   if (currentClinicaId) {
     return db.collection("clinics").doc(currentClinicaId).collection(name);
@@ -4647,6 +4658,7 @@ function VetApp() {
       const c = await store.get("config");
       if (cancelled) return;
       currentClinicaId = c?.clinicaId || null;
+      actualizarCarpetaDoctor(c);
       const [p, r, e, h, v, cb] = await Promise.all([collectionStore.getAll("patients"), collectionStore.getAll("recetas"), collectionStore.getAll("examenes"), collectionStore.getAll("historial"), collectionStore.getAll("vacunas"), collectionStore.getAll("cobros")]);
       if (cancelled) return;
       const firestoreVacio = !(p && p.length) && !(r && r.length) && !(e && e.length) && !c;
@@ -4706,7 +4718,11 @@ function VetApp() {
     let unsubConfig = () => {};
     if (db && currentUid) {
       try {
-        unsubConfig = db.collection("users").doc(currentUid).collection("data").doc("config").onSnapshot(doc => setConfig(doc.exists ? doc.data().value : null), e => console.error("Error escuchando config:", e));
+        unsubConfig = db.collection("users").doc(currentUid).collection("data").doc("config").onSnapshot(doc => {
+          const val = doc.exists ? doc.data().value : null;
+          setConfig(val);
+          actualizarCarpetaDoctor(val);
+        }, e => console.error("Error escuchando config:", e));
       } catch (e) {
         console.error("Error suscribiéndose a config:", e);
       }
