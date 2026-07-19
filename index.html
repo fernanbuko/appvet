@@ -4195,10 +4195,12 @@ function ConfigForm({
         }));
       }
     },
-    onBlur: () => setData(d => ({
-      ...d,
-      instagram: draftInstagram
-    })),
+    onBlur: () => {
+      if (draftInstagram) setData(d => ({
+        ...d,
+        instagram: draftInstagram
+      }));
+    },
     placeholder: "sin arroba"
   })), /*#__PURE__*/React.createElement(Field, {
     label: "Facebook (página)"
@@ -4214,10 +4216,12 @@ function ConfigForm({
         }));
       }
     },
-    onBlur: () => setData(d => ({
-      ...d,
-      facebook: draftFacebook
-    })),
+    onBlur: () => {
+      if (draftFacebook) setData(d => ({
+        ...d,
+        facebook: draftFacebook
+      }));
+    },
     placeholder: "nombre de la página"
   })), /*#__PURE__*/React.createElement(Field, {
     label: "TikTok (usuario)"
@@ -4233,10 +4237,12 @@ function ConfigForm({
         }));
       }
     },
-    onBlur: () => setData(d => ({
-      ...d,
-      tiktok: draftTiktok
-    })),
+    onBlur: () => {
+      if (draftTiktok) setData(d => ({
+        ...d,
+        tiktok: draftTiktok
+      }));
+    },
     placeholder: "sin arroba"
   }))), (data.instagram || data.facebook || data.tiktok) && /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-4 mb-4 -mt-2 flex-wrap"
