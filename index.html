@@ -4663,7 +4663,18 @@ function ConfigForm({
       boxShadow: "0 1px 3px rgba(0,0,0,.3)",
       transition: "left .2s"
     }
-  })))), !isSetup && /*#__PURE__*/React.createElement("div", {
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 mt-5 mb-4"
+  }, /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: () => {
+      ultimaConfigSincronizadaRef.current = JSON.stringify(data);
+      onSave(data);
+    },
+    icon: "✓",
+    disabled: !data.doctorNombres.trim()
+  }, isSetup ? "Guardar y entrar" : "Guardar cambios"), !isSetup && /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: onCancel
+  }, "Cancelar")), !isSetup && /*#__PURE__*/React.createElement("div", {
     className: "bg-white border border-[#DDD5C4] rounded-lg p-6 mt-4"
   }, /*#__PURE__*/React.createElement("span", {
     className: "block text-[11px] uppercase tracking-wider mb-2 text-[#6B7A72]",
@@ -4705,18 +4716,7 @@ function ConfigForm({
     }))
   })), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#A6A08F]"
-  }, "⚠️ Cualquiera con este código puede ver y editar los datos del equipo — compártelo solo con tu equipo de confianza."))), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2 mt-5"
-  }, /*#__PURE__*/React.createElement(PrimaryButton, {
-    onClick: () => {
-      ultimaConfigSincronizadaRef.current = JSON.stringify(data);
-      onSave(data);
-    },
-    icon: "✓",
-    disabled: !data.doctorNombres.trim()
-  }, isSetup ? "Guardar y entrar" : "Guardar cambios"), !isSetup && /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: onCancel
-  }, "Cancelar")));
+  }, "⚠️ Cualquiera con este código puede ver y editar los datos del equipo — compártelo solo con tu equipo de confianza."))));
 }
 
 /* ---------------------------------------------------------
@@ -5726,18 +5726,23 @@ function VetApp() {
     });
   };
 
-  // Aplica el modo oscuro de inmediato de forma VISUAL (sin esperar a
-  // "Guardar cambios"). Ya no se guarda aparte en Firestore en este mismo
-  // momento: si lo hacía mientras había otros cambios sin guardar en el
-  // formulario (por ejemplo, una red social recién agregada), esa copia
-  // vieja podía sobrescribir por accidente lo que se guardaba después con
-  // "Guardar cambios". El guardado real ahora siempre pasa junto con el
-  // resto del formulario, al tocar ese botón.
+  // Aplica el modo oscuro al instante, tanto visualmente como guardado de
+  // verdad en la nube — sin esperar a "Guardar cambios". Usa
+  // actualizarConfigInmediato (actualización funcional) en vez de guardar
+  // directamente el "config" capturado en este cierre, que es lo que antes
+  // causaba que se pisaran cambios sin guardar hechos casi al mismo tiempo
+  // en otro campo del formulario (por ejemplo, una red social recién
+  // agregada). Con la actualización funcional, siempre se parte del config
+  // más reciente en ese momento, así que ambos cambios conviven bien.
   const handleToggleDarkMode = nuevoValor => {
     document.documentElement.setAttribute("data-theme", nuevoValor ? "dark" : "light");
     try {
       localStorage.setItem("vetapp:darkMode", nuevoValor ? "1" : "0");
     } catch {}
+    actualizarConfigInmediato(actual => ({
+      ...actual,
+      darkMode: nuevoValor
+    }));
   };
   const showToast = msg => {
     setToast(msg);
