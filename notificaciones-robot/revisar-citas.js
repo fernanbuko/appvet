@@ -6,6 +6,13 @@
 //
 // No modifica nada más de la app: solo LEE pacientes y config, y ESCRIBE
 // una marca en el paciente para no avisar dos veces por la misma cita.
+//
+// A propósito, este script NO usa consultas de "grupo de colección"
+// (collectionGroup): esas requieren crear un índice especial en Firestore
+// que puede ser confuso de configurar a mano. En su lugar, revisa clínica
+// por clínica y usuario por usuario, consultando cada colección de
+// pacientes por separado — más lento con MUCHOS usuarios, pero no necesita
+// ninguna configuración extra en Firestore.
 
 const admin = require("firebase-admin");
 
@@ -16,8 +23,6 @@ let serviceAccount;
 try {
   serviceAccount = JSON.parse(crudo);
 } catch (e) {
-  // No se imprime el contenido del secreto (GitHub lo oculta de todas formas),
-  // pero sí datos que ayudan a diagnosticar SIN revelar nada sensible.
   console.error("❌ El secreto FIREBASE_SERVICE_ACCOUNT_JSON no se pudo leer como JSON válido.");
   console.error("Longitud recibida (caracteres):", crudo.length);
   console.error("¿Empieza con '{'?:", crudo.trimStart().startsWith("{"));
@@ -44,7 +49,6 @@ const messaging = admin.messaging();
 const MINUTOS_VENTANA = 30;
 
 function hoyComoTexto() {
-  // Fecha de hoy en formato YYYY-MM-DD (igual que se guarda en la app)
   const ahora = new Date();
   const y = ahora.getFullYear();
   const m = String(ahora.getMonth() + 1).padStart(2, "0");
@@ -53,7 +57,6 @@ function hoyComoTexto() {
 }
 
 function minutosHastaLaCita(fechaTexto, horaTexto) {
-  // fechaTexto: "YYYY-MM-DD", horaTexto: "HH:MM"
   const [anio, mes, dia] = fechaTexto.split("-").map(Number);
   const [hora, minuto] = horaTexto.split(":").map(Number);
   const momentoCita = new Date(anio, mes - 1, dia, hora, minuto, 0);
@@ -61,98 +64,103 @@ function minutosHastaLaCita(fechaTexto, horaTexto) {
   return Math.round((momentoCita - ahora) / 60000);
 }
 
-async function tokensDeUsuario(uid) {
-  try {
-    const doc = await db.collection("users").doc(uid).collection("data").doc("config").get();
-    if (!doc.exists) return [];
-    return doc.data()?.value?.fcmTokens || [];
-  } catch (e) {
-    console.error(`Error leyendo config de users/${uid}:`, e.message);
-    return [];
+async function enviarSiCorresponde(patientDoc, hoy, tokens, etiqueta) {
+  const paciente = patientDoc.data();
+
+  if (!paciente.proximaVisitaHora) return false;
+  if (paciente.eliminadoEn) return false;
+  if (paciente.recordatorioEnviadoPara === hoy) return false;
+
+  const minutosRestantes = minutosHastaLaCita(paciente.proximaVisita, paciente.proximaVisitaHora);
+  if (minutosRestantes < 0 || minutosRestantes > MINUTOS_VENTANA) return false;
+
+  if (!tokens || tokens.length === 0) {
+    console.log(`[${etiqueta}] Paciente ${paciente.nombre}: sin dispositivos con notificaciones activadas, se omite.`);
+    return false;
   }
+
+  const mensaje = {
+    notification: {
+      title: `Cita en ${minutosRestantes <= 1 ? "un momento" : minutosRestantes + " min"}: ${paciente.nombre}`,
+      body: paciente.propietario ? `Propietario: ${paciente.propietario}` : "Revisa la ficha del paciente.",
+    },
+    data: { patientId: paciente.id || patientDoc.id },
+    tokens,
+  };
+
+  try {
+    const resultado = await messaging.sendEachForMulticast(mensaje);
+    console.log(`[${etiqueta}] Notificación enviada para ${paciente.nombre}: ${resultado.successCount} éxito(s), ${resultado.failureCount} fallo(s).`);
+  } catch (e) {
+    console.error(`[${etiqueta}] Error enviando notificación para ${paciente.nombre}:`, e.message);
+  }
+
+  await patientDoc.ref.update({ recordatorioEnviadoPara: hoy });
+  return true;
 }
 
-async function tokensDeClinica(clinicaId) {
-  // Todos los doctores cuyo config.clinicaId apunta a esta clínica
-  // comparten los mismos pacientes, así que se avisa a todo el equipo.
-  try {
-    const snap = await db
-      .collectionGroup("data")
-      .where("value.clinicaId", "==", clinicaId)
+async function revisarPacientesPersonales(hoy) {
+  let avisos = 0;
+  const usuarios = await db.collection("users").listDocuments();
+  console.log(`Revisando ${usuarios.length} cuenta(s) personal(es)...`);
+
+  for (const usuarioRef of usuarios) {
+    const configDoc = await usuarioRef.collection("data").doc("config").get();
+    const tokens = configDoc.exists ? configDoc.data()?.value?.fcmTokens || [] : [];
+
+    const pacientesSnap = await usuarioRef
+      .collection("patients")
+      .where("proximaVisita", "==", hoy)
       .get();
-    const tokens = [];
-    snap.forEach((doc) => {
-      const lista = doc.data()?.value?.fcmTokens || [];
-      tokens.push(...lista);
-    });
-    return [...new Set(tokens)];
-  } catch (e) {
-    console.error(`Error buscando equipo de clinics/${clinicaId}:`, e.message);
-    return [];
+
+    for (const patientDoc of pacientesSnap.docs) {
+      const seEnvio = await enviarSiCorresponde(patientDoc, hoy, tokens, `users/${usuarioRef.id}`);
+      if (seEnvio) avisos++;
+    }
   }
+  return avisos;
+}
+
+async function revisarPacientesDeClinicas(hoy) {
+  let avisos = 0;
+  const clinicas = await db.collection("clinics").listDocuments();
+  console.log(`Revisando ${clinicas.length} clínica(s) compartida(s)...`);
+
+  for (const clinicaRef of clinicas) {
+    // Se junta el token de TODOS los doctores cuyo config.clinicaId apunte a
+    // esta clínica, para avisarle a todo el equipo.
+    const usuarios = await db.collection("users").listDocuments();
+    const tokens = [];
+    for (const usuarioRef of usuarios) {
+      const configDoc = await usuarioRef.collection("data").doc("config").get();
+      const valor = configDoc.exists ? configDoc.data()?.value : null;
+      if (valor?.clinicaId === clinicaRef.id && Array.isArray(valor.fcmTokens)) {
+        tokens.push(...valor.fcmTokens);
+      }
+    }
+    const tokensUnicos = [...new Set(tokens)];
+
+    const pacientesSnap = await clinicaRef
+      .collection("patients")
+      .where("proximaVisita", "==", hoy)
+      .get();
+
+    for (const patientDoc of pacientesSnap.docs) {
+      const seEnvio = await enviarSiCorresponde(patientDoc, hoy, tokensUnicos, `clinics/${clinicaRef.id}`);
+      if (seEnvio) avisos++;
+    }
+  }
+  return avisos;
 }
 
 async function main() {
   const hoy = hoyComoTexto();
   console.log(`Revisando citas para el día ${hoy}...`);
 
-  // collectionGroup: revisa TODOS los "patients" del sistema, sin importar
-  // si están bajo users/{uid}/patients o clinics/{clinicaId}/patients.
-  const snap = await db
-    .collectionGroup("patients")
-    .where("proximaVisita", "==", hoy)
-    .get();
+  const avisosPersonales = await revisarPacientesPersonales(hoy);
+  const avisosClinicas = await revisarPacientesDeClinicas(hoy);
 
-  console.log(`Pacientes con cita hoy: ${snap.size}`);
-
-  let avisosMandados = 0;
-
-  for (const doc of snap.docs) {
-    const paciente = doc.data();
-
-    if (!paciente.proximaVisitaHora) continue; // sin hora, no se puede calcular "está por comenzar"
-    if (paciente.eliminadoEn) continue; // en la papelera, ignorar
-
-    const yaAvisadoHoy = paciente.recordatorioEnviadoPara === hoy;
-    if (yaAvisadoHoy) continue;
-
-    const minutosRestantes = minutosHastaLaCita(paciente.proximaVisita, paciente.proximaVisitaHora);
-    if (minutosRestantes < 0 || minutosRestantes > MINUTOS_VENTANA) continue;
-
-    // ¿Este paciente vive bajo users/{uid}/patients o clinics/{clinicaId}/patients?
-    const coleccionPadre = doc.ref.parent.parent; // referencia al doc "users/{uid}" o "clinics/{clinicaId}"
-    const tipoPadre = doc.ref.parent.parent.parent.id; // "users" o "clinics"
-    const idPadre = coleccionPadre.id;
-
-    const tokens = tipoPadre === "clinics" ? await tokensDeClinica(idPadre) : await tokensDeUsuario(idPadre);
-
-    if (tokens.length === 0) {
-      console.log(`Paciente ${paciente.nombre}: sin dispositivos con notificaciones activadas, se omite.`);
-      continue;
-    }
-
-    const mensaje = {
-      notification: {
-        title: `Cita en ${minutosRestantes <= 1 ? "un momento" : minutosRestantes + " min"}: ${paciente.nombre}`,
-        body: paciente.propietario ? `Propietario: ${paciente.propietario}` : "Revisa la ficha del paciente.",
-      },
-      data: { patientId: paciente.id || doc.id },
-      tokens,
-    };
-
-    try {
-      const resultado = await messaging.sendEachForMulticast(mensaje);
-      console.log(`Notificación enviada para ${paciente.nombre}: ${resultado.successCount} éxito(s), ${resultado.failureCount} fallo(s).`);
-      avisosMandados++;
-    } catch (e) {
-      console.error(`Error enviando notificación para ${paciente.nombre}:`, e.message);
-    }
-
-    // Marca para no volver a avisar por esta misma cita en la próxima corrida.
-    await doc.ref.update({ recordatorioEnviadoPara: hoy });
-  }
-
-  console.log(`Listo. Avisos mandados en esta corrida: ${avisosMandados}.`);
+  console.log(`Listo. Avisos mandados en esta corrida: ${avisosPersonales + avisosClinicas}.`);
 }
 
 main()
