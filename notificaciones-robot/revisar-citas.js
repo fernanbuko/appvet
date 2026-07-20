@@ -11,7 +11,26 @@ const admin = require("firebase-admin");
 
 // La llave de servicio viene de un "secreto" de GitHub (nunca se sube al
 // repositorio en texto plano). Ver las instrucciones para configurarlo.
-const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+const crudo = process.env.FIREBASE_SERVICE_ACCOUNT_JSON || "";
+let serviceAccount;
+try {
+  serviceAccount = JSON.parse(crudo);
+} catch (e) {
+  // No se imprime el contenido del secreto (GitHub lo oculta de todas formas),
+  // pero sí datos que ayudan a diagnosticar SIN revelar nada sensible.
+  console.error("❌ El secreto FIREBASE_SERVICE_ACCOUNT_JSON no se pudo leer como JSON válido.");
+  console.error("Longitud recibida (caracteres):", crudo.length);
+  console.error("¿Empieza con '{'?:", crudo.trimStart().startsWith("{"));
+  console.error("¿Termina con '}'?:", crudo.trimEnd().endsWith("}"));
+  console.error("Mensaje del error de parseo:", e.message);
+  process.exit(1);
+}
+if (!serviceAccount.private_key || !serviceAccount.client_email || !serviceAccount.project_id) {
+  console.error("❌ El JSON se leyó, pero le faltan campos esperados (private_key, client_email o project_id).");
+  console.error("Campos presentes:", Object.keys(serviceAccount).join(", "));
+  process.exit(1);
+}
+console.log("✅ Llave de servicio leída correctamente para el proyecto:", serviceAccount.project_id);
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
@@ -25,6 +44,7 @@ const messaging = admin.messaging();
 const MINUTOS_VENTANA = 30;
 
 function hoyComoTexto() {
+  // Fecha de hoy en formato YYYY-MM-DD (igual que se guarda en la app)
   const ahora = new Date();
   const y = ahora.getFullYear();
   const m = String(ahora.getMonth() + 1).padStart(2, "0");
@@ -33,6 +53,7 @@ function hoyComoTexto() {
 }
 
 function minutosHastaLaCita(fechaTexto, horaTexto) {
+  // fechaTexto: "YYYY-MM-DD", horaTexto: "HH:MM"
   const [anio, mes, dia] = fechaTexto.split("-").map(Number);
   const [hora, minuto] = horaTexto.split(":").map(Number);
   const momentoCita = new Date(anio, mes - 1, dia, hora, minuto, 0);
@@ -52,6 +73,8 @@ async function tokensDeUsuario(uid) {
 }
 
 async function tokensDeClinica(clinicaId) {
+  // Todos los doctores cuyo config.clinicaId apunta a esta clínica
+  // comparten los mismos pacientes, así que se avisa a todo el equipo.
   try {
     const snap = await db
       .collectionGroup("data")
@@ -73,6 +96,8 @@ async function main() {
   const hoy = hoyComoTexto();
   console.log(`Revisando citas para el día ${hoy}...`);
 
+  // collectionGroup: revisa TODOS los "patients" del sistema, sin importar
+  // si están bajo users/{uid}/patients o clinics/{clinicaId}/patients.
   const snap = await db
     .collectionGroup("patients")
     .where("proximaVisita", "==", hoy)
@@ -85,8 +110,8 @@ async function main() {
   for (const doc of snap.docs) {
     const paciente = doc.data();
 
-    if (!paciente.proximaVisitaHora) continue;
-    if (paciente.eliminadoEn) continue;
+    if (!paciente.proximaVisitaHora) continue; // sin hora, no se puede calcular "está por comenzar"
+    if (paciente.eliminadoEn) continue; // en la papelera, ignorar
 
     const yaAvisadoHoy = paciente.recordatorioEnviadoPara === hoy;
     if (yaAvisadoHoy) continue;
@@ -94,8 +119,9 @@ async function main() {
     const minutosRestantes = minutosHastaLaCita(paciente.proximaVisita, paciente.proximaVisitaHora);
     if (minutosRestantes < 0 || minutosRestantes > MINUTOS_VENTANA) continue;
 
-    const coleccionPadre = doc.ref.parent.parent;
-    const tipoPadre = doc.ref.parent.parent.parent.id;
+    // ¿Este paciente vive bajo users/{uid}/patients o clinics/{clinicaId}/patients?
+    const coleccionPadre = doc.ref.parent.parent; // referencia al doc "users/{uid}" o "clinics/{clinicaId}"
+    const tipoPadre = doc.ref.parent.parent.parent.id; // "users" o "clinics"
     const idPadre = coleccionPadre.id;
 
     const tokens = tipoPadre === "clinics" ? await tokensDeClinica(idPadre) : await tokensDeUsuario(idPadre);
@@ -122,6 +148,7 @@ async function main() {
       console.error(`Error enviando notificación para ${paciente.nombre}:`, e.message);
     }
 
+    // Marca para no volver a avisar por esta misma cita en la próxima corrida.
     await doc.ref.update({ recordatorioEnviadoPara: hoy });
   }
 
