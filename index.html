@@ -4386,6 +4386,45 @@ function ConfigForm({
       setNotifError(`No se pudo activar: ${e.message || e.code || "error desconocido"}`);
     }
   };
+
+  // Apaga las notificaciones en ESTE dispositivo: quita su token de la
+  // lista guardada (para que el robot ya no le mande avisos a este
+  // celular) e invalida el token del lado del navegador también.
+  const desactivarNotificaciones = async () => {
+    setNotifError("");
+    setNotifEstado("activando");
+    try {
+      const messaging = firebase.messaging();
+      const registration = await navigator.serviceWorker.getRegistration();
+      const tokenActual = await messaging.getToken({
+        vapidKey: VAPID_KEY,
+        serviceWorkerRegistration: registration
+      }).catch(() => null);
+      if (tokenActual) {
+        const listaNueva = (data.fcmTokens || []).filter(t => t !== tokenActual);
+        setData(d => ({
+          ...d,
+          fcmTokens: listaNueva
+        }));
+        if (onUpdateInmediato) {
+          onUpdateInmediato(prevConfig => {
+            const nuevo = {
+              ...migrarConfig(prevConfig),
+              fcmTokens: listaNueva
+            };
+            ultimaConfigSincronizadaRef.current = JSON.stringify(nuevo);
+            return nuevo;
+          });
+        }
+        await messaging.deleteToken().catch(() => {});
+      }
+      setNotifEstado("inactivo");
+    } catch (e) {
+      console.error("Error desactivando notificaciones:", e);
+      setNotifEstado("error");
+      setNotifError(`No se pudo desactivar: ${e.message || "error desconocido"}`);
+    }
+  };
   const handleLogo = async e => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -4762,9 +4801,9 @@ function ConfigForm({
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-sm flex items-center gap-2"
   }, "🔔 Notificaciones de citas próximas"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: activarNotificaciones,
+    onClick: notifEstado === "activo" ? desactivarNotificaciones : activarNotificaciones,
     icon: notifEstado === "activo" ? "✅" : "🔔"
-  }, notifEstado === "activando" ? "Activando..." : notifEstado === "activo" ? "Activadas" : "Activar")), notifEstado === "error" && /*#__PURE__*/React.createElement("p", {
+  }, notifEstado === "activando" ? "Un momento..." : notifEstado === "activo" ? "Activadas (tocar para apagar)" : "Activar")), notifEstado === "error" && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#B14E1C] mt-1.5"
   }, notifError), notifEstado === "activo" && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#6B7A72] mt-1.5"
