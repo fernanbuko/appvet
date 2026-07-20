@@ -862,10 +862,17 @@ if (firebaseReady) {
         const titulo = payload.data?.title || "VetData";
         const cuerpo = payload.data?.body || "";
         if (Notification.permission === "granted") {
-          new Notification(titulo, {
+          const opciones = {
             body: cuerpo,
             icon: "icon-192.png"
-          });
+          };
+          // Nota: la imagen grande del paciente solo la admiten de forma
+          // confiable las notificaciones mostradas vía Service Worker (el
+          // caso normal, con la app cerrada o en segundo plano). Aquí, con
+          // la app abierta, algunos navegadores simplemente la ignoran —
+          // el aviso se sigue viendo igual, solo sin la foto en ese caso.
+          if (payload.data?.foto) opciones.image = payload.data.foto;
+          new Notification(titulo, opciones);
         }
       });
     }

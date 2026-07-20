@@ -76,6 +76,13 @@ messaging.onBackgroundMessage((payload) => {
     badge: "icon-192.png",
     data: payload.data || {},
   };
+  // Si el paciente tiene foto, se muestra como imagen grande dentro de la
+  // notificación (compatible en Android/Chrome; en algunos navegadores
+  // simplemente no se ve la imagen extra, pero el resto del aviso sigue
+  // funcionando igual).
+  if (payload.data?.foto) {
+    options.image = payload.data.foto;
+  }
   self.registration.showNotification(title, options);
 });
 
