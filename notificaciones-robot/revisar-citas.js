@@ -92,12 +92,16 @@ async function enviarSiCorresponde(patientDoc, hoy, tokens, etiqueta) {
     return false;
   }
 
+  // Se manda solo como "data" (no como "notification"): si se manda como
+  // "notification", el navegador la muestra solo automáticamente, y como
+  // nuestro propio código TAMBIÉN la muestra a mano, salían dos veces. Con
+  // solo "data", el control es 100% de nuestro código, sin duplicar.
   const mensaje = {
-    notification: {
+    data: {
       title: `Cita en ${minutosRestantes <= 1 ? "un momento" : minutosRestantes + " min"}: ${paciente.nombre}`,
       body: paciente.propietario ? `Propietario: ${paciente.propietario}` : "Revisa la ficha del paciente.",
+      patientId: String(paciente.id || patientDoc.id),
     },
-    data: { patientId: paciente.id || patientDoc.id },
     tokens,
   };
 
