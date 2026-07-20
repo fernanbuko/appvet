@@ -844,6 +844,23 @@ if (firebaseReady) {
     }).catch(e => {
       console.error("No se pudo activar el modo sin conexión:", e);
     });
+    // Cuando la app está ABIERTA y a la vista (primer plano), el navegador
+    // NO muestra la notificación como una alerta del sistema por su cuenta
+    // (eso solo pasa automáticamente si la app está cerrada o en segundo
+    // plano) — así que aquí se muestra a mano, para que también se vea en
+    // ese caso.
+    if ("Notification" in window) {
+      firebase.messaging().onMessage(payload => {
+        const titulo = payload.notification?.title || "VetData";
+        const cuerpo = payload.notification?.body || "";
+        if (Notification.permission === "granted") {
+          new Notification(titulo, {
+            body: cuerpo,
+            icon: "icon-192.png"
+          });
+        }
+      });
+    }
   } catch (e) {
     console.error("Error inicializando Firebase", e);
   }
