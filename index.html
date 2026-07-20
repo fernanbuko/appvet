@@ -4348,7 +4348,11 @@ function ConfigForm({
         setNotifError("No se concedió el permiso de notificaciones. Revisa los permisos del sitio en el navegador.");
         return;
       }
-      const registration = await navigator.serviceWorker.register("firebase-messaging-sw.js");
+      // Se usa el MISMO service worker que ya controla el sitio (sw.js),
+      // en vez de registrar uno aparte — si hubiera dos service workers
+      // distintos controlando la misma página, podrían chocar y las
+      // notificaciones no llegar de forma confiable.
+      const registration = await navigator.serviceWorker.register("sw.js");
       const messaging = firebase.messaging();
       const token = await messaging.getToken({
         vapidKey: VAPID_KEY,

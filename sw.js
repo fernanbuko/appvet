@@ -42,3 +42,49 @@ self.addEventListener("fetch", (event) => {
       .catch(() => caches.match(event.request))
   );
 });
+
+/* ---------------------------------------------------------
+   Notificaciones push (Firebase Cloud Messaging)
+   Se agrega AQUÍ, en el mismo service worker que ya controla el sitio (en
+   vez de un archivo separado), para evitar que dos service workers
+   distintos compitan por controlar la misma página — eso puede hacer que
+   las notificaciones no lleguen de forma confiable.
+----------------------------------------------------------*/
+importScripts("https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js");
+
+firebase.initializeApp({
+  apiKey: "AIzaSyBvkkovcmGKGgm-X7inBcl54N9AnxoVU7w",
+  authDomain: "vetdata-1557e.firebaseapp.com",
+  projectId: "vetdata-1557e",
+  storageBucket: "vetdata-1557e.firebasestorage.app",
+  messagingSenderId: "420928741564",
+  appId: "1:420928741564:web:f15d24133b8dbf3f1fb0b9",
+});
+
+const messaging = firebase.messaging();
+
+// Cuando llega una notificación con la app cerrada o en segundo plano.
+messaging.onBackgroundMessage((payload) => {
+  const title = payload.notification?.title || "VetData";
+  const options = {
+    body: payload.notification?.body || "",
+    icon: "icon-192.png",
+    badge: "icon-192.png",
+    data: payload.data || {},
+  };
+  self.registration.showNotification(title, options);
+});
+
+// Si tocan la notificación, abre (o enfoca) la app.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ("focus" in client) return client.focus();
+      }
+      if (clients.openWindow) return clients.openWindow("./");
+    })
+  );
+});
