@@ -1,0 +1,8 @@
+{
+  "name": "vetdata-revisar-citas",
+  "private": true,
+  "description": "Robot de GitHub Actions que revisa citas próximas y manda notificaciones push (VetData)",
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}
