@@ -101,6 +101,10 @@ async function enviarSiCorresponde(patientDoc, hoy, tokens, etiqueta) {
       title: `Cita en ${minutosRestantes <= 1 ? "un momento" : minutosRestantes + " min"}: ${paciente.nombre}`,
       body: paciente.propietario ? `Propietario: ${paciente.propietario}` : "Revisa la ficha del paciente.",
       patientId: String(paciente.id || patientDoc.id),
+      // Foto de perfil del paciente (si tiene). Se manda como texto vacío
+      // si no hay foto, ya que los mensajes "data" de FCM solo aceptan
+      // valores de texto, nunca "undefined" o "null".
+      foto: paciente.foto || "",
     },
     tokens,
   };
