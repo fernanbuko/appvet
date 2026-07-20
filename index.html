@@ -754,6 +754,14 @@ const firebaseConfig = {
 // "PENDIENTE_DE_CONFIGURAR", el botón de activar notificaciones explica que
 // falta este paso en vez de fallar en silencio.
 const VAPID_KEY = "BL5x--Ta7fwVMKdzwOZbeJ3WJZ8f0uZJN7u-q6oJO17gXbTwhP7FFqjVzP7udDuPEAQOoVUq12p9HlY6766ghtE";
+
+// Recuerda, en este mismo celular/navegador (no en la nube), si esta
+// persona ELIGIÓ tener las notificaciones activadas o desactivadas. Sirve
+// para: al cerrar sesión se apagan solas (para no seguir avisando de una
+// cuenta de la que ya se salió), pero al volver a iniciar sesión se
+// reactivan solas — a menos que la última vez las hayas apagado tú mismo/a
+// a propósito desde Configuración.
+const CLAVE_PREFERENCIA_NOTIF = "vetapp:notifPreference";
 const firebaseReady = firebaseConfig.apiKey && firebaseConfig.apiKey !== "TU_API_KEY";
 
 /* ---------------------------------------------------------
@@ -2064,15 +2072,13 @@ function PatientForm({
     type: "date",
     value: data.proximaVisita,
     onChange: set("proximaVisita")
-  })), data.proximaVisita && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Field, {
+  })), data.proximaVisita && /*#__PURE__*/React.createElement(Field, {
     label: "Hora (opcional)"
   }, /*#__PURE__*/React.createElement(TextInput, {
     type: "time",
     value: data.proximaVisitaHora,
     onChange: set("proximaVisitaHora")
-  })), /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-[#6B7A72] mt-2 flex items-center gap-1.5"
-  }, "📅 Al guardar, esta fecha se descarga automáticamente para agregarla al calendario de tu celular.")))), /*#__PURE__*/React.createElement("div", {
+  })))), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mt-5"
   }, /*#__PURE__*/React.createElement("div", null, step > 0 && /*#__PURE__*/React.createElement(GhostButton, {
     onClick: () => setStep(s => s - 1),
@@ -2383,16 +2389,6 @@ function PatientDetail({
     const nuevas = (patient.fotos || []).filter((_, i) => i !== idx);
     onUpdateFotos(patient, nuevas);
   };
-  const handleICS = () => {
-    const ics = makeICS({
-      title: `Próx. visita — ${patient.nombre}`,
-      description: `Paciente: ${patient.nombre}\nPropietario: ${patient.propietario || "-"}`,
-      date: patient.proximaVisita,
-      hora: patient.proximaVisitaHora,
-      uid: patient.id
-    });
-    if (ics) openICS(ics, `visita-${patient.nombre}.ics`);
-  };
   return /*#__PURE__*/React.createElement("div", {
     className: "max-w-2xl bg-white border border-[#DDD5C4] rounded-lg p-6"
   }, lightboxSrc && /*#__PURE__*/React.createElement(ImageLightbox, {
@@ -2574,10 +2570,7 @@ function PatientDetail({
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: () => onEdit(patient),
     icon: "✏️"
-  }, "Editar ficha"), patient.proximaVisita && /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: handleICS,
-    icon: "⬇"
-  }, "Añadir cita al calendario"), /*#__PURE__*/React.createElement(GhostButton, {
+  }, "Editar ficha"), /*#__PURE__*/React.createElement(GhostButton, {
     onClick: () => setShowQR(true),
     icon: "🔳"
   }, "Código QR"), /*#__PURE__*/React.createElement(GhostButton, {
@@ -4379,6 +4372,9 @@ function ConfigForm({
           return nuevo;
         });
       }
+      try {
+        localStorage.setItem(CLAVE_PREFERENCIA_NOTIF, "on");
+      } catch {}
       setNotifEstado("activo");
     } catch (e) {
       console.error("Error activando notificaciones:", e);
@@ -4418,6 +4414,9 @@ function ConfigForm({
         }
         await messaging.deleteToken().catch(() => {});
       }
+      try {
+        localStorage.setItem(CLAVE_PREFERENCIA_NOTIF, "off");
+      } catch {}
       setNotifEstado("inactivo");
     } catch (e) {
       console.error("Error desactivando notificaciones:", e);
@@ -5747,7 +5746,35 @@ function VetApp() {
     });
     firebase.auth().signInWithPopup(provider).catch(err => setAuthError("No se pudo iniciar sesión: " + (err.message || "intenta de nuevo."))).finally(() => setAuthLoading(false));
   };
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    // Apaga la suscripción de notificaciones de ESTE dispositivo antes de
+    // cerrar sesión, para no seguir recibiendo avisos de una cuenta de la
+    // que ya se salió. A propósito NO se toca la preferencia guardada
+    // (CLAVE_PREFERENCIA_NOTIF): si la próxima cuenta que inicie sesión en
+    // este mismo celular también tiene notificaciones activadas, se
+    // reactivan solas sin que nadie tenga que volver a tocar "Activar".
+    try {
+      if (firebaseReady && "Notification" in window && Notification.permission === "granted") {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration) {
+          const messaging = firebase.messaging();
+          const tokenActual = await messaging.getToken({
+            vapidKey: VAPID_KEY,
+            serviceWorkerRegistration: registration
+          }).catch(() => null);
+          if (tokenActual && config) {
+            const listaNueva = (config.fcmTokens || []).filter(t => t !== tokenActual);
+            await store.set("config", {
+              ...config,
+              fcmTokens: listaNueva
+            });
+          }
+          await messaging.deleteToken().catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.error("Error apagando notificaciones al cerrar sesión:", e);
+    }
     try {
       firebase.auth().signOut();
     } catch (e) {
@@ -5872,6 +5899,45 @@ function VetApp() {
     });
   };
 
+  // Si en este mismo celular/navegador ya se había elegido tener las
+  // notificaciones activadas (y no se apagaron a propósito desde
+  // Configuración), se reactivan solas apenas se inicia sesión — sin pedir
+  // el permiso de nuevo si ya estaba concedido de antes, y sin necesitar
+  // que la persona vuelva a tocar "Activar" cada vez que entra.
+  const intentoReactivarNotifRef = useRef(false);
+  useEffect(() => {
+    if (!dataLoaded || !config || intentoReactivarNotifRef.current) return;
+    intentoReactivarNotifRef.current = true;
+    let preferencia;
+    try {
+      preferencia = localStorage.getItem(CLAVE_PREFERENCIA_NOTIF);
+    } catch {
+      preferencia = null;
+    }
+    if (preferencia !== "on") return;
+    if (VAPID_KEY === "PENDIENTE_DE_CONFIGURAR") return;
+    if (!firebaseReady || !("Notification" in window) || Notification.permission !== "granted") return;
+    (async () => {
+      try {
+        const registration = await navigator.serviceWorker.register("sw.js");
+        const messaging = firebase.messaging();
+        const token = await messaging.getToken({
+          vapidKey: VAPID_KEY,
+          serviceWorkerRegistration: registration
+        });
+        if (token && !(config.fcmTokens || []).includes(token)) {
+          actualizarConfigInmediato(actual => ({
+            ...actual,
+            fcmTokens: [...new Set([...(actual.fcmTokens || []), token])]
+          }));
+        }
+      } catch (e) {
+        console.error("No se pudo reactivar las notificaciones automáticamente:", e);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataLoaded, config]);
+
   // Aplica el modo oscuro al instante, tanto visualmente como guardado de
   // verdad en la nube — sin esperar a "Guardar cambios". Usa
   // actualizarConfigInmediato (actualización funcional) en vez de guardar
@@ -5907,7 +5973,6 @@ function VetApp() {
     let next;
     let record;
     const yaExiste = data.id && patients.some(p => p.id === data.id);
-    const prevPatient = yaExiste ? patients.find(p => p.id === data.id) : null;
     if (yaExiste) {
       record = {
         ...data,
@@ -5932,32 +5997,6 @@ function VetApp() {
     setActive("pacientes");
     setSelected(next.find(p => p.id === record.id) || null);
     showToast("Ficha guardada");
-
-    // La próxima visita se abre para agregarla al calendario del celular,
-    // pero SOLO cuando esa fecha es nueva o cambió — si solo editaste otro
-    // dato del paciente (peso, raza, etc.) y la fecha sigue igual, no se
-    // vuelve a abrir nada.
-    const prevVisita = prevPatient ? prevPatient.proximaVisita : null;
-    const seQuitoOCambioLaFecha = prevVisita && prevVisita !== record.proximaVisita;
-    const hayFechaNuevaODistinta = record.proximaVisita && record.proximaVisita !== prevVisita;
-    if (seQuitoOCambioLaFecha) {
-      const cancelIcs = makeICS({
-        title: `Próx. visita — ${record.nombre}`,
-        uid: record.id,
-        cancel: true
-      });
-      if (cancelIcs) openICS(cancelIcs, `cancelar-visita-${record.nombre}.ics`);
-    }
-    if (hayFechaNuevaODistinta) {
-      const ics = makeICS({
-        title: `Próx. visita — ${record.nombre}`,
-        description: `Paciente: ${record.nombre}\nPropietario: ${record.propietario || "-"}`,
-        date: record.proximaVisita,
-        hora: record.proximaVisitaHora,
-        uid: record.id
-      });
-      if (ics) openICS(ics, `visita-${record.nombre}.ics`);
-    }
   };
   const deletePatient = patient => {
     const record = {
@@ -5969,17 +6008,6 @@ function VetApp() {
     collectionStore.setOne("patients", patient.id, record);
     setSelected(null);
     showToast("Paciente movido a la papelera");
-
-    // Si tenía una próxima visita programada, se abre la cancelación para
-    // poder quitarla también del calendario del celular.
-    if (patient.proximaVisita) {
-      const cancelIcs = makeICS({
-        title: `Próx. visita — ${patient.nombre}`,
-        uid: patient.id,
-        cancel: true
-      });
-      if (cancelIcs) openICS(cancelIcs, `cancelar-visita-${patient.nombre}.ics`);
-    }
   };
   const restorePatient = patient => {
     const record = {
