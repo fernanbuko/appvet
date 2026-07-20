@@ -1926,7 +1926,8 @@ function PatientForm({
   }, /*#__PURE__*/React.createElement(TextInput, {
     value: data.telefonoPropietario,
     onChange: set("telefonoPropietario"),
-    placeholder: "Ej. 0991234567"
+    placeholder: "Ej. 0991234567",
+    inputMode: "tel"
   })), /*#__PURE__*/React.createElement(Field, {
     label: "Ubicación (cantón, Guayas)"
   }, /*#__PURE__*/React.createElement(SearchableSelect, {
@@ -1944,7 +1945,8 @@ function PatientForm({
   }, /*#__PURE__*/React.createElement(TextInput, {
     value: data.peso,
     onChange: set("peso"),
-    placeholder: "Ej. 8.5"
+    placeholder: "Ej. 8.5",
+    inputMode: "decimal"
   })), /*#__PURE__*/React.createElement(Field, {
     label: "Edad (años)"
   }, /*#__PURE__*/React.createElement(TextInput, {
@@ -1957,7 +1959,8 @@ function PatientForm({
       }));
       actualizarFechaNacimiento(val, diaNacimiento, mesNacimiento);
     },
-    placeholder: "Ej. 3"
+    placeholder: "Ej. 3",
+    inputMode: "numeric"
   }), anioNacimientoCalculado && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#6B7A72] mt-1.5"
   }, "📅 Año de nacimiento: ", /*#__PURE__*/React.createElement("b", null, anioNacimientoCalculado))), /*#__PURE__*/React.createElement(Field, {
@@ -2712,7 +2715,8 @@ function HistorialMedico({
   }, /*#__PURE__*/React.createElement(TextInput, {
     value: peso,
     onChange: e => setPeso(e.target.value),
-    placeholder: "Ej. 8.7"
+    placeholder: "Ej. 8.7",
+    inputMode: "decimal"
   })), /*#__PURE__*/React.createElement(Field, {
     label: "Signos / síntomas"
   }, /*#__PURE__*/React.createElement(TextArea, {
@@ -3272,7 +3276,8 @@ function CobrosSection({
   }, /*#__PURE__*/React.createElement(TextInput, {
     value: monto,
     onChange: e => setMonto(e.target.value),
-    placeholder: "Ej. 25.00"
+    placeholder: "Ej. 25.00",
+    inputMode: "decimal"
   })), /*#__PURE__*/React.createElement("label", {
     className: "flex items-center gap-2.5 mt-1 mb-2 cursor-pointer select-none"
   }, /*#__PURE__*/React.createElement("input", {
@@ -4607,7 +4612,8 @@ function ConfigForm({
   }, /*#__PURE__*/React.createElement(TextInput, {
     value: data.telefono,
     onChange: set("telefono"),
-    placeholder: "Ej. 099 123 4567"
+    placeholder: "Ej. 099 123 4567",
+    inputMode: "tel"
   })), /*#__PURE__*/React.createElement(Field, {
     label: "Correo electrónico"
   }, /*#__PURE__*/React.createElement(TextInput, {
