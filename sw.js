@@ -82,12 +82,21 @@ messaging.onBackgroundMessage((payload) => {
 // Si tocan la notificación, abre (o enfoca) la app.
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  // Si la notificación trae el ID del paciente, se abre/enfoca la app
+  // directo en su ficha (la propia app se encarga de saltar la pantalla
+  // de bienvenida cuando detecta este parámetro en la URL).
+  const patientId = event.notification.data?.patientId;
+  const destino = patientId ? "./?patient=" + encodeURIComponent(patientId) : "./";
+
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
-        if ("focus" in client) return client.focus();
+        if ("focus" in client) {
+          if ("navigate" in client) client.navigate(destino);
+          return client.focus();
+        }
       }
-      if (clients.openWindow) return clients.openWindow("./");
+      if (clients.openWindow) return clients.openWindow(destino);
     })
   );
 });

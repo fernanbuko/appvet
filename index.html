@@ -5637,8 +5637,9 @@ function VetApp() {
     };
   }, [user]);
 
-  // Si se entró desde un código QR (enlace con ?patient=ID), abre esa ficha
-  // directo en cuanto los pacientes ya estén cargados.
+  // Si se entró desde un código QR o desde tocar una notificación (enlace
+  // con ?patient=ID), abre esa ficha directo en cuanto los pacientes ya
+  // estén cargados — sin pasar primero por la pantalla de bienvenida.
   useEffect(() => {
     if (!dataLoaded || patients.length === 0) return;
     const params = new URLSearchParams(window.location.search);
@@ -5646,6 +5647,7 @@ function VetApp() {
     if (idParam) {
       const encontrado = patients.find(p => p.id === idParam && !p.eliminadoEn);
       if (encontrado) {
+        setShowGreeting(false);
         setActive("pacientes");
         setSelected(encontrado);
       }
