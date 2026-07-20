@@ -77,7 +77,12 @@ async function enviarSiCorresponde(patientDoc, hoy, tokens, etiqueta) {
 
   if (!paciente.proximaVisitaHora) return false;
   if (paciente.eliminadoEn) return false;
-  if (paciente.recordatorioEnviadoPara === hoy) return false;
+
+  // La marca de "ya avisado" incluye la fecha Y la hora exactas de la cita
+  // (no solo el día): si el paciente reprograma la cita a otra hora, o
+  // incluso a otro día, esto cambia y el aviso se puede volver a mandar.
+  const marcaDeEstaCita = `${paciente.proximaVisita} ${paciente.proximaVisitaHora}`;
+  if (paciente.recordatorioEnviadoPara === marcaDeEstaCita) return false;
 
   const minutosRestantes = minutosHastaLaCita(paciente.proximaVisita, paciente.proximaVisitaHora);
   if (minutosRestantes < 0 || minutosRestantes > MINUTOS_VENTANA) return false;
@@ -103,7 +108,7 @@ async function enviarSiCorresponde(patientDoc, hoy, tokens, etiqueta) {
     console.error(`[${etiqueta}] Error enviando notificación para ${paciente.nombre}:`, e.message);
   }
 
-  await patientDoc.ref.update({ recordatorioEnviadoPara: hoy });
+  await patientDoc.ref.update({ recordatorioEnviadoPara: marcaDeEstaCita });
   return true;
 }
 
