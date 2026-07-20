@@ -2,8 +2,17 @@ name: Revisar citas próximas y enviar notificaciones
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
-  workflow_dispatch: {}
+    # Cada 5 minutos (el intervalo más corto que permite GitHub para
+    # tareas programadas). GitHub Actions usa hora UTC, pero esto no afecta
+    # el resultado: el script calcula "cuánto falta para la cita"
+    # comparando fechas completas, no solo la hora del reloj del robot.
+    #
+    # Aviso honesto: GitHub NO garantiza que se ejecute exactamente cada 5
+    # minutos al segundo — en momentos de mucha carga en sus servidores
+    # (poco común, pero puede pasar) a veces se retrasa unos minutos más.
+    # Para el uso normal de una clínica esto no debería notarse.
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {} # permite ejecutarlo a mano desde la pestaña Actions, para probar
 
 jobs:
   revisar:
