@@ -66,9 +66,12 @@ const messaging = firebase.messaging();
 
 // Cuando llega una notificación con la app cerrada o en segundo plano.
 messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title || "VetData";
+  // Se lee desde "data" (no "notification"): el robot manda el mensaje
+  // solo como data para que el propio navegador nunca la muestre por su
+  // cuenta, evitando que salga duplicada.
+  const title = payload.data?.title || "VetData";
   const options = {
-    body: payload.notification?.body || "",
+    body: payload.data?.body || "",
     icon: "icon-192.png",
     badge: "icon-192.png",
     data: payload.data || {},

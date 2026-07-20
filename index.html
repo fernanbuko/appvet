@@ -851,8 +851,8 @@ if (firebaseReady) {
     // ese caso.
     if ("Notification" in window) {
       firebase.messaging().onMessage(payload => {
-        const titulo = payload.notification?.title || "VetData";
-        const cuerpo = payload.notification?.body || "";
+        const titulo = payload.data?.title || "VetData";
+        const cuerpo = payload.data?.body || "";
         if (Notification.permission === "granted") {
           new Notification(titulo, {
             body: cuerpo,
