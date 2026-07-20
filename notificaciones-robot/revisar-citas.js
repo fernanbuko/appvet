@@ -49,19 +49,27 @@ const messaging = admin.messaging();
 const MINUTOS_VENTANA = 30;
 
 function hoyComoTexto() {
-  const ahora = new Date();
-  const y = ahora.getFullYear();
-  const m = String(ahora.getMonth() + 1).padStart(2, "0");
-  const d = String(ahora.getDate()).padStart(2, "0");
+  // Igual que con la hora de la cita: se calcula "qué día es hoy" según la
+  // hora de Ecuador (UTC-5), no la del servidor donde corre el robot — para
+  // no confundirse cerca de la medianoche.
+  const ahoraEcuador = new Date(Date.now() - 5 * 60 * 60 * 1000);
+  const y = ahoraEcuador.getUTCFullYear();
+  const m = String(ahoraEcuador.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(ahoraEcuador.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
 
 function minutosHastaLaCita(fechaTexto, horaTexto) {
   const [anio, mes, dia] = fechaTexto.split("-").map(Number);
   const [hora, minuto] = horaTexto.split(":").map(Number);
-  const momentoCita = new Date(anio, mes - 1, dia, hora, minuto, 0);
-  const ahora = new Date();
-  return Math.round((momentoCita - ahora) / 60000);
+  // La app está pensada para clínicas en Ecuador (UTC-5, sin horario de
+  // verano). El robot corre en un servidor que usa hora UTC, así que se
+  // arma el momento de la cita directamente en UTC sumándole 5 horas a la
+  // hora de Ecuador que se guardó — así el resultado es correcto sin
+  // importar en qué zona horaria esté físicamente el servidor del robot.
+  const momentoCitaUTC = Date.UTC(anio, mes - 1, dia, hora + 5, minuto, 0);
+  const ahoraUTC = Date.now();
+  return Math.round((momentoCitaUTC - ahoraUTC) / 60000);
 }
 
 async function enviarSiCorresponde(patientDoc, hoy, tokens, etiqueta) {
