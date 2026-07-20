@@ -418,6 +418,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js"></script>
 <script>
 /**
  * @license React
@@ -746,6 +747,13 @@ const firebaseConfig = {
   messagingSenderId: "420928741564",
   appId: "1:420928741564:web:f15d24133b8dbf3f1fb0b9"
 };
+
+// Clave pública (VAPID) para las notificaciones push. Se genera en:
+// Firebase Console → Configuración del proyecto → Cloud Messaging →
+// "Configuración web" → "Generar par de claves". Mientras diga
+// "PENDIENTE_DE_CONFIGURAR", el botón de activar notificaciones explica que
+// falta este paso en vez de fallar en silencio.
+const VAPID_KEY = "BL5x--Ta7fwVMKdzwOZbeJ3WJZ8fOuZJN7u-q6oJO17gXbTwhP7FFqjVzP7udDuPEAQOoVUq12p9HlY6766ghtE";
 const firebaseReady = firebaseConfig.apiKey && firebaseConfig.apiKey !== "TU_API_KEY";
 
 /* ---------------------------------------------------------
@@ -4178,6 +4186,7 @@ const emptyConfig = () => ({
   instagramList: [],
   facebookList: [],
   tiktokList: [],
+  fcmTokens: [],
   direccion: "",
   dateFormat: "YYYY-MM-DD",
   darkMode: false
@@ -4220,6 +4229,10 @@ function migrarConfig(base) {
   if (!migrado.tiktokList) migrado = {
     ...migrado,
     tiktokList: []
+  };
+  if (!migrado.fcmTokens) migrado = {
+    ...migrado,
+    fcmTokens: []
   };
   return migrado;
 }
@@ -4292,6 +4305,64 @@ function ConfigForm({
         ultimaConfigSincronizadaRef.current = JSON.stringify(nuevo);
         return nuevo;
       });
+    }
+  };
+
+  // "inactivo" | "activando" | "activo" | "error"
+  const [notifEstado, setNotifEstado] = useState(data.fcmTokens && data.fcmTokens.length > 0 ? "activo" : "inactivo");
+  const [notifError, setNotifError] = useState("");
+  const activarNotificaciones = async () => {
+    setNotifError("");
+    if (VAPID_KEY === "PENDIENTE_DE_CONFIGURAR") {
+      setNotifEstado("error");
+      setNotifError("Falta terminar de configurar esto del lado de Firebase (clave VAPID). Pídele a quien programó la app que complete ese paso.");
+      return;
+    }
+    if (!("Notification" in window) || !navigator.serviceWorker || !firebaseReady) {
+      setNotifEstado("error");
+      setNotifError("Este navegador no admite notificaciones push, o Firebase no está disponible.");
+      return;
+    }
+    setNotifEstado("activando");
+    try {
+      const permiso = await Notification.requestPermission();
+      if (permiso !== "granted") {
+        setNotifEstado("error");
+        setNotifError("No se concedió el permiso de notificaciones. Revisa los permisos del sitio en el navegador.");
+        return;
+      }
+      const registration = await navigator.serviceWorker.register("firebase-messaging-sw.js");
+      const messaging = firebase.messaging();
+      const token = await messaging.getToken({
+        vapidKey: VAPID_KEY,
+        serviceWorkerRegistration: registration
+      });
+      if (!token) {
+        setNotifEstado("error");
+        setNotifError("No se pudo generar el token de notificaciones. Intenta de nuevo.");
+        return;
+      }
+      const listaActual = data.fcmTokens || [];
+      const listaNueva = [...new Set([...listaActual, token])];
+      setData(d => ({
+        ...d,
+        fcmTokens: listaNueva
+      }));
+      if (onUpdateInmediato) {
+        onUpdateInmediato(prevConfig => {
+          const nuevo = {
+            ...migrarConfig(prevConfig),
+            fcmTokens: listaNueva
+          };
+          ultimaConfigSincronizadaRef.current = JSON.stringify(nuevo);
+          return nuevo;
+        });
+      }
+      setNotifEstado("activo");
+    } catch (e) {
+      console.error("Error activando notificaciones:", e);
+      setNotifEstado("error");
+      setNotifError("Ocurrió un problema activando las notificaciones. Intenta de nuevo.");
     }
   };
   const handleLogo = async e => {
@@ -4663,7 +4734,20 @@ function ConfigForm({
       boxShadow: "0 1px 3px rgba(0,0,0,.3)",
       transition: "left .2s"
     }
-  })))), /*#__PURE__*/React.createElement("div", {
+  })))), !isSetup && /*#__PURE__*/React.createElement("div", {
+    className: "mb-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between flex-wrap gap-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-sm flex items-center gap-2"
+  }, "🔔 Notificaciones de citas próximas"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: activarNotificaciones,
+    icon: notifEstado === "activo" ? "✅" : "🔔"
+  }, notifEstado === "activando" ? "Activando..." : notifEstado === "activo" ? "Activadas" : "Activar")), notifEstado === "error" && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#B14E1C] mt-1.5"
+  }, notifError), notifEstado === "activo" && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#6B7A72] mt-1.5"
+  }, "Recibirás un aviso en este dispositivo cuando esté por comenzar la próxima cita de un paciente.")), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2 mt-5 mb-4"
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: () => {
