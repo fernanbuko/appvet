@@ -5,6 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>VetData</title>
 
+<!-- Aplica el modo oscuro/claro guardado en este celular ANTES de que
+     cargue cualquier otra cosa (incluida la propia pantalla de carga),
+     para que no se vea un destello del tema equivocado mientras llegan
+     los datos reales desde la nube. -->
+<script>
+  (function () {
+    try {
+      if (localStorage.getItem("vetapp:darkMode") === "1") {
+        document.documentElement.setAttribute("data-theme", "dark");
+      }
+    } catch (e) {}
+  })();
+</script>
+
 <!-- PWA: manifest e íconos -->
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" href="icon-192.png" />
@@ -363,6 +377,8 @@
     0%, 100% { transform: scale(1); opacity: 1; }
     50% { transform: scale(1.1); opacity: .8; }
   }
+
+  [data-theme="dark"] #boot-msg { color: #ECEDEE; }
 </style>
 </head>
 <body>
@@ -5398,8 +5414,19 @@ function VetApp() {
     };
   }, []);
   useEffect(() => {
+    // Mientras "config" todavía no llega (sigue en null porque los datos
+    // siguen cargando), no se toca el tema: se deja el que ya se aplicó al
+    // instante desde la copia guardada en este celular. Solo se actualiza
+    // una vez que ya se sabe de verdad qué prefiere esta cuenta.
+    if (config === null) return;
     document.documentElement.setAttribute("data-theme", config?.darkMode ? "dark" : "light");
-  }, [config?.darkMode]);
+    // Se guarda una copia rápida en este mismo celular/navegador (no en la
+    // nube) para que, la próxima vez que se abra la app, la pantalla de
+    // carga ya sepa qué tema usar ANTES de que lleguen los datos reales.
+    try {
+      localStorage.setItem("vetapp:darkMode", config?.darkMode ? "1" : "0");
+    } catch {}
+  }, [config]);
 
   // Sesión (Firebase Auth con Google) y estado de carga de datos
   const [user, setUser] = useState(undefined); // undefined = comprobando sesión, null = sin sesión
@@ -5708,6 +5735,9 @@ function VetApp() {
   // resto del formulario, al tocar ese botón.
   const handleToggleDarkMode = nuevoValor => {
     document.documentElement.setAttribute("data-theme", nuevoValor ? "dark" : "light");
+    try {
+      localStorage.setItem("vetapp:darkMode", nuevoValor ? "1" : "0");
+    } catch {}
   };
   const showToast = msg => {
     setToast(msg);
