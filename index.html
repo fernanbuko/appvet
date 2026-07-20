@@ -332,6 +332,37 @@
   .border-white\/20{border-color:rgba(255,255,255,.2)}
 
   .no-underline{text-decoration:none}
+
+  /* Spinner de carga moderno (anillo girando + patita que pulsa) */
+  .loading-spinner-wrap {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .loading-spinner-ring {
+    position: absolute;
+    inset: 0;
+    border: 3px solid rgba(61,107,92,.15);
+    border-top-color: #3D6B5C;
+    border-radius: 50%;
+    animation: vd-spin .9s linear infinite;
+  }
+  [data-theme="dark"] .loading-spinner-ring {
+    border-color: rgba(82,197,147,.18);
+    border-top-color: var(--accent-green);
+  }
+  .loading-spinner-paw {
+    font-size: 26px;
+    animation: vd-pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes vd-spin { to { transform: rotate(360deg); } }
+  @keyframes vd-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: .8; }
+  }
 </style>
 </head>
 <body>
@@ -4679,10 +4710,16 @@ function LoadingScreen({
   text
 }) {
   return /*#__PURE__*/React.createElement("div", {
-    className: "min-h-screen flex items-center justify-center",
+    className: "min-h-screen flex flex-col items-center justify-center",
     style: styles.page
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-sm text-[#6B7A72]",
+    className: "loading-spinner-wrap"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "loading-spinner-ring"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "loading-spinner-paw"
+  }, "🐾")), /*#__PURE__*/React.createElement("div", {
+    className: "text-sm text-[#6B7A72] mt-5",
     style: styles.mono
   }, text || "Cargando..."));
 }
