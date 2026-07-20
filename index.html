@@ -4362,7 +4362,7 @@ function ConfigForm({
     } catch (e) {
       console.error("Error activando notificaciones:", e);
       setNotifEstado("error");
-      setNotifError("Ocurrió un problema activando las notificaciones. Intenta de nuevo.");
+      setNotifError(`No se pudo activar: ${e.message || e.code || "error desconocido"}`);
     }
   };
   const handleLogo = async e => {
