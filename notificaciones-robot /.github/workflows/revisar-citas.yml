@@ -1,0 +1,28 @@
+name: Revisar citas próximas y enviar notificaciones
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  revisar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Instalar dependencias
+        run: npm install firebase-admin
+        working-directory: notificaciones-robot
+
+      - name: Ejecutar la revisión de citas
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: node revisar-citas.js
+        working-directory: notificaciones-robot
