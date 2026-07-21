@@ -146,6 +146,19 @@ async function tokensDeClinicaConSeccion(clinicaId, usuarios, seccion) {
   return [...tokens];
 }
 
+// Tokens de TODOS los colaboradores de acceso limitado de una cuenta, sin
+// importar qué sección tengan permitida — se usa para el aviso de "cliente
+// nuevo", que no es específico de ninguna sección en particular.
+async function tokensDeTodosLosColaboradores(config) {
+  const tokens = new Set();
+  const colaboradores = config?.colaboradoresPermitidos || {};
+  for (const uidColaborador of Object.keys(colaboradores)) {
+    const configColaborador = await configDeUid(uidColaborador);
+    (configColaborador?.fcmTokens || []).forEach((t) => tokens.add(t));
+  }
+  return [...tokens];
+}
+
 async function mandarNotificacion(tokens, dataPayload, etiqueta, nombrePaciente) {
   if (!tokens || tokens.length === 0) {
     console.log(`[${etiqueta}] ${nombrePaciente}: sin dispositivos con notificaciones activadas, se omite.`);
@@ -298,6 +311,68 @@ async function revisarRecordatoriosPorFecha(tipoRecordatorio, hoy) {
   return avisos;
 }
 
+/* ---------------------------------------------------------
+   Aviso de "cliente nuevo": cuando la clínica agrega un
+   paciente nuevo, se les avisa a sus colaboradores de acceso
+   limitado (ej. un peluquero externo) — así se enteran sin
+   tener que estar revisando la app. Se usa una ventana de
+   tiempo corta (en vez de "solo hoy") porque esto no es una
+   cita programada: el aviso debe salir una sola vez, poco
+   después de creado el paciente, sin importar la hora exacta
+   en que corrió el robot.
+----------------------------------------------------------*/
+const MINUTOS_VENTANA_CLIENTE_NUEVO = 15;
+
+async function revisarClientesNuevos() {
+  let avisos = 0;
+  const desde = Date.now() - MINUTOS_VENTANA_CLIENTE_NUEVO * 60 * 1000;
+  const usuarios = await db.collection("users").listDocuments();
+  const clinicas = await db.collection("clinics").listDocuments();
+  console.log(`Revisando clientes nuevos (últimos ${MINUTOS_VENTANA_CLIENTE_NUEVO} min) en ${usuarios.length} cuenta(s) y ${clinicas.length} clínica(s)...`);
+
+  const procesarNuevos = async (parentRef, tokens, etiqueta) => {
+    if (!tokens || tokens.length === 0) return 0;
+    let contador = 0;
+    const snap = await parentRef.collection("patients").where("creadoEn", ">", desde).get();
+    for (const doc of snap.docs) {
+      const paciente = doc.data();
+      if (paciente.eliminadoEn) continue;
+      if (paciente.avisoClienteNuevoEnviado) continue;
+
+      const dataPayload = {
+        title: `Cliente nuevo: ${paciente.nombre}`,
+        body: paciente.propietario ? `Propietario: ${paciente.propietario}` : "Se agregó un nuevo paciente.",
+        patientId: String(paciente.id || doc.id),
+        foto: paciente.foto || "",
+      };
+      const seEnvio = await mandarNotificacion(tokens, dataPayload, etiqueta, paciente.nombre);
+      await doc.ref.update({ avisoClienteNuevoEnviado: true });
+      if (seEnvio) contador++;
+    }
+    return contador;
+  };
+
+  for (const usuarioRef of usuarios) {
+    const config = await configDeUid(usuarioRef.id);
+    const tokens = await tokensDeTodosLosColaboradores(config);
+    avisos += await procesarNuevos(usuarioRef, tokens, `users/${usuarioRef.id}`);
+  }
+  for (const clinicaRef of clinicas) {
+    // Para una clínica en equipo compartido, se avisa a los colaboradores
+    // que CUALQUIER miembro del equipo haya agregado.
+    const tokens = new Set();
+    for (const usuarioRef of usuarios) {
+      const config = await configDeUid(usuarioRef.id);
+      if (config?.clinicaId === clinicaRef.id) {
+        (await tokensDeTodosLosColaboradores(config)).forEach((t) => tokens.add(t));
+      }
+    }
+    avisos += await procesarNuevos(clinicaRef, [...tokens], `clinics/${clinicaRef.id}`);
+  }
+
+  return avisos;
+}
+
 async function main() {
   const hoy = hoyComoTexto();
   console.log(`Revisando recordatorios para el día ${hoy}...`);
@@ -309,6 +384,8 @@ async function main() {
   for (const tipoRecordatorio of TIPOS_DE_RECORDATORIO_POR_FECHA) {
     totalAvisos += await revisarRecordatoriosPorFecha(tipoRecordatorio, hoy);
   }
+
+  totalAvisos += await revisarClientesNuevos();
 
   console.log(`Listo. Avisos mandados en esta corrida: ${totalAvisos}.`);
 }
