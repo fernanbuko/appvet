@@ -74,21 +74,76 @@ function minutosHastaLaCita(fechaTexto, horaTexto) {
   return Math.round((momentoCitaUTC - ahoraUTC) / 60000);
 }
 
+// Caché de configuraciones ya leídas en esta misma corrida del robot (se
+// vacía sola en cada ejecución, ya que el script termina y vuelve a
+// arrancar de cero la próxima vez). Evita leer el mismo documento de
+// Firestore una y otra vez: antes se releía la config de cada usuario una
+// vez por cada tipo de recordatorio (vacunas, baños, etc.), y ahora además
+// hay que leer la config de cada colaborador — sin caché, eso multiplica
+// mucho las lecturas.
+const configCachePorUid = new Map();
+async function configDeUid(uid) {
+  if (configCachePorUid.has(uid)) return configCachePorUid.get(uid);
+  const doc = await db.collection("users").doc(uid).collection("data").doc("config").get();
+  const config = doc.exists ? doc.data()?.value || null : null;
+  configCachePorUid.set(uid, config);
+  return config;
+}
+
 async function tokensDeUsuario(usuarioRef) {
-  const configDoc = await usuarioRef.collection("data").doc("config").get();
-  return configDoc.exists ? configDoc.data()?.value?.fcmTokens || [] : [];
+  const config = await configDeUid(usuarioRef.id);
+  return config?.fcmTokens || [];
 }
 
 async function tokensDeClinica(clinicaId, usuarios) {
   const tokens = [];
   for (const usuarioRef of usuarios) {
-    const configDoc = await usuarioRef.collection("data").doc("config").get();
-    const valor = configDoc.exists ? configDoc.data()?.value : null;
+    const valor = await configDeUid(usuarioRef.id);
     if (valor?.clinicaId === clinicaId && Array.isArray(valor.fcmTokens)) {
       tokens.push(...valor.fcmTokens);
     }
   }
   return [...new Set(tokens)];
+}
+
+// Agrega, al set de tokens que ya se tiene, los de cualquier colaborador de
+// acceso limitado (por ejemplo, un peluquero externo) al que el dueño de
+// "config" le haya compartido la sección indicada (ej. "banos"). Sin esto,
+// las notificaciones de una sección compartida solo le llegaban al dueño de
+// la cuenta y nunca al colaborador — aunque en la app sí pueda ver y
+// registrar esa sección.
+async function agregarTokensDeColaboradoresConSeccion(config, seccion, tokensSet) {
+  const colaboradores = config?.colaboradoresPermitidos || {};
+  for (const [uidColaborador, info] of Object.entries(colaboradores)) {
+    if (!info?.secciones?.includes(seccion)) continue;
+    const configColaborador = await configDeUid(uidColaborador);
+    (configColaborador?.fcmTokens || []).forEach((t) => tokensSet.add(t));
+  }
+}
+
+// Igual que tokensDeUsuario, pero incluyendo también a los colaboradores con
+// acceso a "seccion" (se usa para los recordatorios por fecha: vacunas,
+// desparasitación, cirugías, baños).
+async function tokensDeUsuarioConSeccion(usuarioRef, seccion) {
+  const config = await configDeUid(usuarioRef.id);
+  const tokens = new Set(config?.fcmTokens || []);
+  await agregarTokensDeColaboradoresConSeccion(config, seccion, tokens);
+  return [...tokens];
+}
+
+// Igual que tokensDeClinica, pero incluyendo también a los colaboradores de
+// acceso limitado que cualquier miembro del equipo le haya compartido esta
+// sección.
+async function tokensDeClinicaConSeccion(clinicaId, usuarios, seccion) {
+  const tokens = new Set();
+  for (const usuarioRef of usuarios) {
+    const config = await configDeUid(usuarioRef.id);
+    if (config?.clinicaId === clinicaId) {
+      (config.fcmTokens || []).forEach((t) => tokens.add(t));
+      await agregarTokensDeColaboradoresConSeccion(config, seccion, tokens);
+    }
+  }
+  return [...tokens];
 }
 
 async function mandarNotificacion(tokens, dataPayload, etiqueta, nombrePaciente) {
@@ -169,7 +224,11 @@ async function revisarVisitasDeClinicas(hoy) {
 /* ---------------------------------------------------------
    Recordatorios por SOLO FECHA (sin hora): vacunas,
    desparasitación, cirugías (próxima revisión) y baños. Se
-   avisa una vez el día exacto que corresponde.
+   avisa una vez el día exacto que corresponde. El nombre de
+   "coleccion" es también la clave de sección usada en
+   colaboradoresPermitidos (ej. "banos"), así que sirve tanto
+   para consultar los documentos como para saber a qué
+   colaboradores también avisarles.
 ----------------------------------------------------------*/
 const TIPOS_DE_RECORDATORIO_POR_FECHA = [
   {
@@ -226,11 +285,13 @@ async function revisarRecordatoriosPorFecha(tipoRecordatorio, hoy) {
   };
 
   for (const usuarioRef of usuarios) {
-    const tokens = await tokensDeUsuario(usuarioRef);
+    // Tokens del dueño + de cualquier colaborador (ej. un peluquero externo)
+    // al que se le haya compartido esta sección específica.
+    const tokens = await tokensDeUsuarioConSeccion(usuarioRef, coleccion);
     avisos += await procesarColeccion(usuarioRef, tokens, `users/${usuarioRef.id}`);
   }
   for (const clinicaRef of clinicas) {
-    const tokens = await tokensDeClinica(clinicaRef.id, usuarios);
+    const tokens = await tokensDeClinicaConSeccion(clinicaRef.id, usuarios, coleccion);
     avisos += await procesarColeccion(clinicaRef, tokens, `clinics/${clinicaRef.id}`);
   }
 
