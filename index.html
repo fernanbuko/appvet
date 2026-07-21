@@ -828,6 +828,56 @@ function placeholderNombreNegocio(rol) {
   return "Ej. Nombre de tu negocio";
 }
 
+// Secciones del menú principal que tiene sentido mostrar según el rol de la
+// cuenta: un peluquero o un vendedor de productos no usan Recetas, Exámenes
+// ni Reportes (son cosas veterinarias), así que se ocultan del menú. "otro"
+// se deja con el menú completo hasta tener más claridad de qué necesita.
+const NAV_POR_ROL = {
+  peluquero: ["inicio", "nuevo", "pacientes", "agenda", "config"],
+  vendedor: ["inicio", "nuevo", "pacientes", "agenda", "config"]
+};
+function itemsNavPermitidos(rol) {
+  return NAV_POR_ROL[rol] || null; // null = todas (veterinario/a u "otro")
+}
+// Misma idea, para la barra inferior de móvil (siempre 4 ítems: los 2
+// primeros antes del botón "+" central, y 2 después).
+const BOTTOM_NAV_POR_ROL = {
+  peluquero: [{
+    key: "inicio",
+    label: "Inicio",
+    icon: "🏠"
+  }, {
+    key: "pacientes",
+    label: "Pacientes",
+    icon: "👥"
+  }, {
+    key: "agenda",
+    label: "Agenda",
+    icon: "📅"
+  }, {
+    key: "config",
+    label: "Configuración",
+    icon: "⚙️"
+  }],
+  vendedor: [{
+    key: "inicio",
+    label: "Inicio",
+    icon: "🏠"
+  }, {
+    key: "pacientes",
+    label: "Pacientes",
+    icon: "👥"
+  }, {
+    key: "agenda",
+    label: "Agenda",
+    icon: "📅"
+  }, {
+    key: "config",
+    label: "Configuración",
+    icon: "⚙️"
+  }]
+};
+
 // Devuelve la lista de cuentas de una red social. Si la cuenta se guardó con
 // la versión anterior (un solo campo de texto, antes de permitir varias
 // cuentas) y todavía no se volvió a guardar el formulario con la lista
@@ -1585,8 +1635,10 @@ function Sidebar({
   // En modo colaborador (por ejemplo, un peluquero externo) solo se
   // muestran los ítems básicos — el resto de secciones (recetas, exámenes,
   // agenda, reportes) ni siquiera tiene sentido mostrarlas, ya que no tiene
-  // permiso de verlas.
-  const itemsMenu = modoColaborador ? NAV.filter(item => ["inicio", "nuevo", "pacientes", "config"].includes(item.key)) : NAV;
+  // permiso de verlas. Si no es colaborador, el rol de la propia cuenta
+  // decide qué secciones aplican (ej. un peluquero no usa Recetas).
+  const keysPermitidosPorRol = itemsNavPermitidos(config?.rol);
+  const itemsMenu = modoColaborador ? NAV.filter(item => ["inicio", "nuevo", "pacientes", "config"].includes(item.key)) : keysPermitidosPorRol ? NAV.filter(item => keysPermitidosPorRol.includes(item.key)) : NAV;
   return /*#__PURE__*/React.createElement("div", {
     className: "hidden md:flex md:w-60 md:min-h-screen bg-[#23342F] text-white md:flex-col"
   }, /*#__PURE__*/React.createElement("button", {
@@ -1687,7 +1739,8 @@ const BOTTOM_NAV_ITEMS = [{
 function MobileBottomNav({
   active,
   setActive,
-  modoColaborador
+  modoColaborador,
+  config
 }) {
   const items = modoColaborador ? [{
     key: "inicio",
@@ -1697,7 +1750,7 @@ function MobileBottomNav({
     key: "pacientes",
     label: "Pacientes",
     icon: "👥"
-  }] : BOTTOM_NAV_ITEMS;
+  }] : BOTTOM_NAV_POR_ROL[config?.rol] || BOTTOM_NAV_ITEMS;
   return /*#__PURE__*/React.createElement("div", {
     className: "md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white flex items-stretch",
     style: {
@@ -2420,10 +2473,18 @@ function PatientSecciones(props) {
     label: "Cobros",
     icon: "💰"
   }];
+  // Si el rol de la cuenta no es veterinario/a, algunas pestañas no aplican
+  // a ese tipo de negocio (un peluquero no maneja vacunas ni cirugías, un
+  // vendedor de productos no maneja ninguna sección clínica ni de baños).
+  const TABS_POR_ROL = {
+    peluquero: ["banos"],
+    vendedor: ["cobros"]
+  };
+  const tabsPermitidasPorRol = TABS_POR_ROL[props.config?.rol] || null; // null = todas (veterinario/a u "otro")
   // En modo colaborador (por ejemplo, un peluquero externo), solo se
   // muestran las pestañas de las secciones que le compartieron —
   // "seccionesColaborador" trae las claves permitidas (ej. ["banos"]).
-  const TABS = props.modoColaborador ? TODAS_LAS_TABS.filter(t => (props.seccionesColaborador || []).includes(t.key)) : TODAS_LAS_TABS;
+  const TABS = props.modoColaborador ? TODAS_LAS_TABS.filter(t => (props.seccionesColaborador || []).includes(t.key)) : tabsPermitidasPorRol ? TODAS_LAS_TABS.filter(t => tabsPermitidasPorRol.includes(t.key)) : TODAS_LAS_TABS;
   const [tab, setTab] = useState(TABS[0]?.key || "historial");
   return /*#__PURE__*/React.createElement("div", {
     className: "max-w-2xl mt-6"
@@ -6519,8 +6580,16 @@ function VetApp() {
   useEffect(() => {
     if (modoColaborador && ["recetas", "examenes", "agenda", "reportes"].includes(active)) {
       setActive("inicio");
+      return;
     }
-  }, [modoColaborador, active]);
+    // Misma idea, pero para el rol de la propia cuenta (ej. un peluquero
+    // que llega a "recetas" por un enlace viejo, sección que ya no está en
+    // su menú).
+    const keysPermitidosPorRol = itemsNavPermitidos(config?.rol);
+    if (!modoColaborador && keysPermitidosPorRol && !keysPermitidosPorRol.includes(active)) {
+      setActive("inicio");
+    }
+  }, [modoColaborador, active, config?.rol]);
   const [showGreeting, setShowGreeting] = useState(true);
   const [editing, setEditing] = useState(null);
   const [selected, setSelected] = useState(null);
@@ -6674,12 +6743,21 @@ function VetApp() {
   // misma cuenta) se refleja al instante, sin necesidad de recargar la app.
   useEffect(() => {
     if (!user || !dataLoaded) return;
+    // Igual que en la carga inicial: si esta cuenta es colaboradora con
+    // acceso limitado, solo nos suscribimos a las secciones permitidas (más
+    // "patients", que siempre es visible) para no generar lecturas
+    // rechazadas por las reglas de Firestore.
+    const puedeEscuchar = nombreSeccion => !modoColaborador || (seccionesColaborador || []).includes(nombreSeccion);
     const unsubPatients = collectionStore.listen("patients", setPatients);
-    const unsubRecetas = collectionStore.listen("recetas", setRecetas);
-    const unsubExamenes = collectionStore.listen("examenes", setExamenes);
-    const unsubHistorial = collectionStore.listen("historial", setHistorial);
-    const unsubVacunas = collectionStore.listen("vacunas", setVacunas);
-    const unsubCobros = collectionStore.listen("cobros", setCobros);
+    const unsubRecetas = puedeEscuchar("recetas") ? collectionStore.listen("recetas", setRecetas) : () => {};
+    const unsubExamenes = puedeEscuchar("examenes") ? collectionStore.listen("examenes", setExamenes) : () => {};
+    const unsubHistorial = puedeEscuchar("historial") ? collectionStore.listen("historial", setHistorial) : () => {};
+    const unsubVacunas = puedeEscuchar("vacunas") ? collectionStore.listen("vacunas", setVacunas) : () => {};
+    const unsubCobros = puedeEscuchar("cobros") ? collectionStore.listen("cobros", setCobros) : () => {};
+    const unsubDesparasitaciones = puedeEscuchar("desparasitaciones") ? collectionStore.listen("desparasitaciones", setDesparasitaciones) : () => {};
+    const unsubHospitalizaciones = puedeEscuchar("hospitalizaciones") ? collectionStore.listen("hospitalizaciones", setHospitalizaciones) : () => {};
+    const unsubBanos = puedeEscuchar("banos") ? collectionStore.listen("banos", setBanos) : () => {};
+    const unsubCirugias = puedeEscuchar("cirugias") ? collectionStore.listen("cirugias", setCirugias) : () => {};
     let unsubConfig = () => {};
     if (db && currentUid) {
       try {
@@ -6699,9 +6777,13 @@ function VetApp() {
       unsubHistorial();
       unsubVacunas();
       unsubCobros();
+      unsubDesparasitaciones();
+      unsubHospitalizaciones();
+      unsubBanos();
+      unsubCirugias();
       unsubConfig();
     };
-  }, [user, dataLoaded]);
+  }, [user, dataLoaded, modoColaborador, seccionesColaborador]);
   const linkLegacyData = async () => {
     setLinkingLoading(true);
     try {
@@ -7638,7 +7720,8 @@ function VetApp() {
       setEditing(null);
       setSelected(null);
     },
-    modoColaborador: modoColaborador
+    modoColaborador: modoColaborador,
+    config: config
   }));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(VetApp, null));
