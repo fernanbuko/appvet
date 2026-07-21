@@ -3184,6 +3184,444 @@ function DesparasitacionSection({
 }
 
 /* ---------------------------------------------------------
+   Hospitalización: registra cada internamiento del paciente,
+   con fecha de ingreso y de alta (vacía mientras sigue internado).
+----------------------------------------------------------*/
+function HospitalizacionSection({
+  patient,
+  hospitalizaciones,
+  onAdd,
+  onUpdate,
+  onDelete,
+  config
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [motivo, setMotivo] = useState("");
+  const [fechaIngreso, setFechaIngreso] = useState(new Date().toISOString().slice(0, 10));
+  const [fechaAlta, setFechaAlta] = useState("");
+  const [diagnostico, setDiagnostico] = useState("");
+  const [tratamiento, setTratamiento] = useState("");
+  const [notas, setNotas] = useState("");
+  const entries = hospitalizaciones.filter(h => h.patientId === patient.id).sort((a, b) => a.fechaIngreso < b.fechaIngreso ? 1 : -1);
+  const reset = () => {
+    setMotivo("");
+    setFechaIngreso(new Date().toISOString().slice(0, 10));
+    setFechaAlta("");
+    setDiagnostico("");
+    setTratamiento("");
+    setNotas("");
+    setShowForm(false);
+    setEditingId(null);
+  };
+  const startEdit = h => {
+    setEditingId(h.id);
+    setMotivo(h.motivo || "");
+    setFechaIngreso(h.fechaIngreso);
+    setFechaAlta(h.fechaAlta || "");
+    setDiagnostico(h.diagnostico || "");
+    setTratamiento(h.tratamiento || "");
+    setNotas(h.notas || "");
+    setShowForm(true);
+  };
+  const save = () => {
+    if (!motivo.trim()) return;
+    const data = {
+      id: editingId || uid(),
+      patientId: patient.id,
+      patientName: patient.nombre,
+      motivo,
+      fechaIngreso,
+      fechaAlta,
+      diagnostico,
+      tratamiento,
+      notas
+    };
+    if (editingId) onUpdate(data);else onAdd(data);
+    reset();
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "max-w-2xl mt-6"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-3 flex-wrap gap-2"
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: styles.display,
+    className: "text-lg font-semibold"
+  }, "Hospitalización"), !showForm && /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => setShowForm(true),
+    icon: "🏥"
+  }, "Registrar internamiento")), showForm && /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-6 mb-4"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Motivo del internamiento"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    value: motivo,
+    onChange: e => setMotivo(e.target.value),
+    placeholder: "Ej. Cirugía de emergencia, observación..."
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-4"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Fecha de ingreso"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: fechaIngreso,
+    onChange: e => setFechaIngreso(e.target.value)
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Fecha de alta (déjalo vacío si sigue internado)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: fechaAlta,
+    onChange: e => setFechaAlta(e.target.value)
+  }))), /*#__PURE__*/React.createElement(Field, {
+    label: "Diagnóstico"
+  }, /*#__PURE__*/React.createElement(TextArea, {
+    rows: 2,
+    value: diagnostico,
+    onChange: e => setDiagnostico(e.target.value),
+    placeholder: "Diagnóstico durante el internamiento..."
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Tratamiento / evolución"
+  }, /*#__PURE__*/React.createElement(TextArea, {
+    rows: 2,
+    value: tratamiento,
+    onChange: e => setTratamiento(e.target.value),
+    placeholder: "Tratamiento aplicado, evolución diaria..."
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Notas"
+  }, /*#__PURE__*/React.createElement(TextArea, {
+    rows: 2,
+    value: notas,
+    onChange: e => setNotas(e.target.value),
+    placeholder: "Observaciones adicionales..."
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 mt-2"
+  }, /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: save,
+    disabled: !motivo.trim(),
+    icon: "✓"
+  }, editingId ? "Guardar cambios" : "Registrar internamiento"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: reset
+  }, "Cancelar"))), entries.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    title: "Sin internamientos registrados",
+    subtitle: "Si este paciente necesita quedarse hospitalizado, regístralo aquí."
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-3"
+  }, entries.map(h => {
+    const sigueInternado = !h.fechaAlta;
+    return /*#__PURE__*/React.createElement("div", {
+      key: h.id,
+      className: "bg-white border border-[#DDD5C4] rounded-lg p-4"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-start justify-between"
+    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      className: "font-medium"
+    }, h.motivo), /*#__PURE__*/React.createElement("div", {
+      className: "text-xs text-[#6B7A72]",
+      style: styles.mono
+    }, "Ingreso: ", formatDate(h.fechaIngreso, config?.dateFormat))), /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-3"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => startEdit(h),
+      className: "text-[#A6A08F] hover:text-[#3D6B5C]"
+    }, "✏️"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => onDelete(h.id),
+      className: "text-[#A6A08F] hover:text-[#B14E1C]"
+    }, "🗑️"))), /*#__PURE__*/React.createElement("div", {
+      className: "mt-2 inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded",
+      style: {
+        ...styles.mono,
+        color: sigueInternado ? "var(--accent-orange)" : "var(--accent-green)",
+        background: sigueInternado ? "var(--accent-orange-bg)" : "var(--accent-green-bg)"
+      }
+    }, sigueInternado ? "🏥 Actualmente hospitalizado" : `✅ Dado de alta: ${formatDate(h.fechaAlta, config?.dateFormat)}`), h.diagnostico && /*#__PURE__*/React.createElement("p", {
+      className: "text-sm mt-2 text-[#6B7A72] whitespace-pre-wrap"
+    }, /*#__PURE__*/React.createElement("b", null, "Diagnóstico:"), " ", h.diagnostico), h.tratamiento && /*#__PURE__*/React.createElement("p", {
+      className: "text-sm mt-1 text-[#6B7A72] whitespace-pre-wrap"
+    }, /*#__PURE__*/React.createElement("b", null, "Tratamiento:"), " ", h.tratamiento), h.notas && /*#__PURE__*/React.createElement("p", {
+      className: "text-sm mt-1 text-[#6B7A72] whitespace-pre-wrap"
+    }, h.notas));
+  })));
+}
+
+/* ---------------------------------------------------------
+   Baños / estética: registra cada sesión de baño, corte, etc.
+----------------------------------------------------------*/
+function BanosSection({
+  patient,
+  banos,
+  onAdd,
+  onUpdate,
+  onDelete,
+  config
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [tipo, setTipo] = useState("Baño");
+  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
+  const [producto, setProducto] = useState("");
+  const [notas, setNotas] = useState("");
+  const entries = banos.filter(b => b.patientId === patient.id).sort((a, b) => a.fecha < b.fecha ? 1 : -1);
+  const reset = () => {
+    setTipo("Baño");
+    setFecha(new Date().toISOString().slice(0, 10));
+    setProducto("");
+    setNotas("");
+    setShowForm(false);
+    setEditingId(null);
+  };
+  const startEdit = b => {
+    setEditingId(b.id);
+    setTipo(b.tipo || "Baño");
+    setFecha(b.fecha);
+    setProducto(b.producto || "");
+    setNotas(b.notas || "");
+    setShowForm(true);
+  };
+  const save = () => {
+    const data = {
+      id: editingId || uid(),
+      patientId: patient.id,
+      patientName: patient.nombre,
+      tipo,
+      fecha,
+      producto,
+      notas
+    };
+    if (editingId) onUpdate(data);else onAdd(data);
+    reset();
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "max-w-2xl mt-6"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-3 flex-wrap gap-2"
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: styles.display,
+    className: "text-lg font-semibold"
+  }, "Baños y estética"), !showForm && /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => setShowForm(true),
+    icon: "🛁"
+  }, "Registrar servicio")), showForm && /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-6 mb-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-4"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Tipo de servicio"
+  }, /*#__PURE__*/React.createElement("select", {
+    value: tipo,
+    onChange: e => setTipo(e.target.value),
+    className: inputClass
+  }, /*#__PURE__*/React.createElement("option", null, "Baño"), /*#__PURE__*/React.createElement("option", null, "Corte de pelo"), /*#__PURE__*/React.createElement("option", null, "Baño y corte"), /*#__PURE__*/React.createElement("option", null, "Desenredado"), /*#__PURE__*/React.createElement("option", null, "Limpieza de oídos"), /*#__PURE__*/React.createElement("option", null, "Corte de uñas"), /*#__PURE__*/React.createElement("option", null, "Otro"))), /*#__PURE__*/React.createElement(Field, {
+    label: "Fecha"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: fecha,
+    onChange: e => setFecha(e.target.value)
+  }))), /*#__PURE__*/React.createElement(Field, {
+    label: "Producto usado (opcional)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    value: producto,
+    onChange: e => setProducto(e.target.value),
+    placeholder: "Ej. Shampoo antipulgas, avena..."
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Notas"
+  }, /*#__PURE__*/React.createElement(TextArea, {
+    rows: 2,
+    value: notas,
+    onChange: e => setNotas(e.target.value),
+    placeholder: "Piel sensible, reacciones, observaciones..."
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 mt-2"
+  }, /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: save,
+    icon: "✓"
+  }, editingId ? "Guardar cambios" : "Registrar servicio"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: reset
+  }, "Cancelar"))), entries.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    title: "Sin servicios de baño registrados",
+    subtitle: "Los baños, cortes y otros servicios de estética que le hagas a este paciente aparecerán aquí."
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-3"
+  }, entries.map(b => /*#__PURE__*/React.createElement("div", {
+    key: b.id,
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-start justify-between"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium"
+  }, b.tipo), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72]",
+    style: styles.mono
+  }, formatDate(b.fecha, config?.dateFormat))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => startEdit(b),
+    className: "text-[#A6A08F] hover:text-[#3D6B5C]"
+  }, "✏️"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onDelete(b.id),
+    className: "text-[#A6A08F] hover:text-[#B14E1C]"
+  }, "🗑️"))), b.producto && /*#__PURE__*/React.createElement("p", {
+    className: "text-sm mt-2 text-[#6B7A72]"
+  }, /*#__PURE__*/React.createElement("b", null, "Producto:"), " ", b.producto), b.notas && /*#__PURE__*/React.createElement("p", {
+    className: "text-sm mt-1 text-[#6B7A72] whitespace-pre-wrap"
+  }, b.notas)))));
+}
+
+/* ---------------------------------------------------------
+   Cirugías: registra cada procedimiento quirúrgico, con
+   opción de próxima revisión post-operatoria.
+----------------------------------------------------------*/
+function CirugiasSection({
+  patient,
+  cirugias,
+  onAdd,
+  onUpdate,
+  onDelete,
+  config
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [tipoCirugia, setTipoCirugia] = useState("");
+  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
+  const [veterinario, setVeterinario] = useState("");
+  const [anestesia, setAnestesia] = useState("");
+  const [notas, setNotas] = useState("");
+  const [proximaRevision, setProximaRevision] = useState("");
+  const entries = cirugias.filter(c => c.patientId === patient.id).sort((a, b) => a.fecha < b.fecha ? 1 : -1);
+  const reset = () => {
+    setTipoCirugia("");
+    setFecha(new Date().toISOString().slice(0, 10));
+    setVeterinario("");
+    setAnestesia("");
+    setNotas("");
+    setProximaRevision("");
+    setShowForm(false);
+    setEditingId(null);
+  };
+  const startEdit = c => {
+    setEditingId(c.id);
+    setTipoCirugia(c.tipoCirugia || "");
+    setFecha(c.fecha);
+    setVeterinario(c.veterinario || "");
+    setAnestesia(c.anestesia || "");
+    setNotas(c.notas || "");
+    setProximaRevision(c.proximaRevision || "");
+    setShowForm(true);
+  };
+  const save = () => {
+    if (!tipoCirugia.trim()) return;
+    const data = {
+      id: editingId || uid(),
+      patientId: patient.id,
+      patientName: patient.nombre,
+      tipoCirugia,
+      fecha,
+      veterinario,
+      anestesia,
+      notas,
+      proximaRevision
+    };
+    if (editingId) onUpdate(data);else onAdd(data);
+    reset();
+  };
+  const hoy = new Date().toISOString().slice(0, 10);
+  const revisionVencida = c => c.proximaRevision && c.proximaRevision < hoy;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "max-w-2xl mt-6"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-3 flex-wrap gap-2"
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: styles.display,
+    className: "text-lg font-semibold"
+  }, "Cirugías"), !showForm && /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => setShowForm(true),
+    icon: "🔪"
+  }, "Registrar cirugía")), showForm && /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-6 mb-4"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Tipo de cirugía"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    value: tipoCirugia,
+    onChange: e => setTipoCirugia(e.target.value),
+    placeholder: "Ej. Esterilización, extracción de tumor..."
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-4"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Fecha"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: fecha,
+    onChange: e => setFecha(e.target.value)
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Veterinario/a responsable"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    value: veterinario,
+    onChange: e => setVeterinario(e.target.value),
+    placeholder: "Ej. Dra. Ana Molina"
+  }))), /*#__PURE__*/React.createElement(Field, {
+    label: "Anestesia usada"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    value: anestesia,
+    onChange: e => setAnestesia(e.target.value),
+    placeholder: "Ej. Anestesia general inhalatoria..."
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Notas / evolución post-operatoria"
+  }, /*#__PURE__*/React.createElement(TextArea, {
+    rows: 2,
+    value: notas,
+    onChange: e => setNotas(e.target.value),
+    placeholder: "Complicaciones, cuidados post-quirúrgicos..."
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Próxima revisión (opcional)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: proximaRevision,
+    onChange: e => setProximaRevision(e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 mt-2"
+  }, /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: save,
+    disabled: !tipoCirugia.trim(),
+    icon: "✓"
+  }, editingId ? "Guardar cambios" : "Registrar cirugía"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: reset
+  }, "Cancelar"))), entries.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    title: "Sin cirugías registradas",
+    subtitle: "Los procedimientos quirúrgicos que le realices a este paciente aparecerán aquí."
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-3"
+  }, entries.map(c => /*#__PURE__*/React.createElement("div", {
+    key: c.id,
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-start justify-between"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium"
+  }, c.tipoCirugia), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72]",
+    style: styles.mono
+  }, formatDate(c.fecha, config?.dateFormat), c.veterinario ? ` · ${c.veterinario}` : "")), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => startEdit(c),
+    className: "text-[#A6A08F] hover:text-[#3D6B5C]"
+  }, "✏️"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onDelete(c.id),
+    className: "text-[#A6A08F] hover:text-[#B14E1C]"
+  }, "🗑️"))), c.anestesia && /*#__PURE__*/React.createElement("p", {
+    className: "text-sm mt-2 text-[#6B7A72]"
+  }, /*#__PURE__*/React.createElement("b", null, "Anestesia:"), " ", c.anestesia), c.notas && /*#__PURE__*/React.createElement("p", {
+    className: "text-sm mt-1 text-[#6B7A72] whitespace-pre-wrap"
+  }, c.notas), c.proximaRevision && /*#__PURE__*/React.createElement("div", {
+    className: "mt-2 inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded",
+    style: {
+      ...styles.mono,
+      color: revisionVencida(c) ? "var(--accent-orange)" : "var(--accent-green)",
+      background: revisionVencida(c) ? "var(--accent-orange-bg)" : "var(--accent-green-bg)"
+    }
+  }, revisionVencida(c) ? "⚠ Revisión vencida: " : "📅 Próxima revisión: ", formatDate(c.proximaRevision, config?.dateFormat))))));
+}
+
+/* ---------------------------------------------------------
    Cobros / facturación básica
 ----------------------------------------------------------*/
 function CobrosSection({
@@ -5327,6 +5765,7 @@ function HomeScreen({
   examenes,
   vacunas,
   desparasitaciones,
+  hospitalizaciones,
   setActive,
   setSelected,
   config
@@ -5336,6 +5775,7 @@ function HomeScreen({
   const en30dias = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const vacunasProximas = (vacunas || []).filter(v => v.proximaDosis && v.proximaDosis <= en30dias).sort((a, b) => a.proximaDosis < b.proximaDosis ? -1 : 1).slice(0, 3);
   const desparasitacionesProximas = (desparasitaciones || []).filter(d => d.proximaDosis && d.proximaDosis <= en30dias).sort((a, b) => a.proximaDosis < b.proximaDosis ? -1 : 1).slice(0, 3);
+  const actualmenteHospitalizados = (hospitalizaciones || []).filter(h => !h.fechaAlta).sort((a, b) => a.fechaIngreso < b.fechaIngreso ? 1 : -1);
   const cumpleanosProximos = patients.filter(p => p.fechaNacimiento).map(p => {
     const [, mesStr, diaStr] = p.fechaNacimiento.split("-");
     const ahora = new Date();
@@ -5442,7 +5882,37 @@ function HomeScreen({
   }, p.propietario || "Sin propietario"))), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#B14E1C] bg-[#E08A3E]/10 px-2 py-1 rounded text-right shrink-0",
     style: styles.mono
-  }, "📅 ", formatDate(p.proximaVisita, config?.dateFormat), p.proximaVisitaHora && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("br", null), p.proximaVisitaHora)))))), vacunasProximas.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "📅 ", formatDate(p.proximaVisita, config?.dateFormat), p.proximaVisitaHora && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("br", null), p.proximaVisitaHora)))))), actualmenteHospitalizados.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "mb-8"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
+    style: styles.mono
+  }, "🏥 Actualmente hospitalizados"), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2 max-w-md"
+  }, actualmenteHospitalizados.map(h => {
+    const paciente = patients.find(p => p.id === h.patientId);
+    return /*#__PURE__*/React.createElement("button", {
+      key: h.id,
+      onClick: () => {
+        if (paciente) {
+          setActive("pacientes");
+          setSelected(paciente);
+        }
+      },
+      className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between hover:border-[#3D6B5C] transition"
+    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      className: "font-medium text-sm"
+    }, h.patientName), /*#__PURE__*/React.createElement("div", {
+      className: "text-xs text-[#6B7A72]"
+    }, h.motivo)), /*#__PURE__*/React.createElement("div", {
+      className: "text-xs px-2 py-1 rounded",
+      style: {
+        ...styles.mono,
+        color: "var(--accent-orange)",
+        background: "var(--accent-orange-bg)"
+      }
+    }, "Desde ", formatDate(h.fechaIngreso, config?.dateFormat)));
+  }))), vacunasProximas.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "mb-8"
   }, /*#__PURE__*/React.createElement("h2", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
@@ -5549,6 +6019,9 @@ function VetApp() {
   const [historial, setHistorial] = useState([]);
   const [vacunas, setVacunas] = useState([]);
   const [desparasitaciones, setDesparasitaciones] = useState([]);
+  const [hospitalizaciones, setHospitalizaciones] = useState([]);
+  const [banos, setBanos] = useState([]);
+  const [cirugias, setCirugias] = useState([]);
   const [cobros, setCobros] = useState([]);
   const [config, setConfig] = useState(null);
   const [showGreeting, setShowGreeting] = useState(true);
@@ -5623,7 +6096,7 @@ function VetApp() {
       if (cancelled) return;
       currentClinicaId = c?.clinicaId || null;
       actualizarCarpetaDoctor(c);
-      const [p, r, e, h, v, cb, dw] = await Promise.all([collectionStore.getAll("patients"), collectionStore.getAll("recetas"), collectionStore.getAll("examenes"), collectionStore.getAll("historial"), collectionStore.getAll("vacunas"), collectionStore.getAll("cobros"), collectionStore.getAll("desparasitaciones")]);
+      const [p, r, e, h, v, cb, dw, hp, bn, cg] = await Promise.all([collectionStore.getAll("patients"), collectionStore.getAll("recetas"), collectionStore.getAll("examenes"), collectionStore.getAll("historial"), collectionStore.getAll("vacunas"), collectionStore.getAll("cobros"), collectionStore.getAll("desparasitaciones"), collectionStore.getAll("hospitalizaciones"), collectionStore.getAll("banos"), collectionStore.getAll("cirugias")]);
       if (cancelled) return;
       const firestoreVacio = !(p && p.length) && !(r && r.length) && !(e && e.length) && !c;
       const legacyDismissed = localStorage.getItem("vetapp:legacyDismissed") === "1";
@@ -5641,6 +6114,9 @@ function VetApp() {
       setVacunas(v || []);
       setCobros(cb || []);
       setDesparasitaciones(dw || []);
+      setHospitalizaciones(hp || []);
+      setBanos(bn || []);
+      setCirugias(cg || []);
       setConfig(c || null);
       setDataLoaded(true);
     })();
@@ -6060,6 +6536,18 @@ function VetApp() {
       collectionStore.deleteOne("desparasitaciones", d.id);
     });
     setDesparasitaciones(cur => cur.filter(d => d.patientId !== patient.id));
+    hospitalizaciones.filter(h => h.patientId === patient.id).forEach(h => {
+      collectionStore.deleteOne("hospitalizaciones", h.id);
+    });
+    setHospitalizaciones(cur => cur.filter(h => h.patientId !== patient.id));
+    banos.filter(b => b.patientId === patient.id).forEach(b => {
+      collectionStore.deleteOne("banos", b.id);
+    });
+    setBanos(cur => cur.filter(b => b.patientId !== patient.id));
+    cirugias.filter(c => c.patientId === patient.id).forEach(c => {
+      collectionStore.deleteOne("cirugias", c.id);
+    });
+    setCirugias(cur => cur.filter(c => c.patientId !== patient.id));
     cobros.filter(c => c.patientId === patient.id).forEach(c => {
       collectionStore.deleteOne("cobros", c.id);
     });
@@ -6150,6 +6638,57 @@ function VetApp() {
     const next = desparasitaciones.filter(d => d.id !== id);
     setDesparasitaciones(next);
     collectionStore.deleteOne("desparasitaciones", id);
+  };
+  const addHospitalizacion = h => {
+    const next = [...hospitalizaciones, h];
+    setHospitalizaciones(next);
+    collectionStore.setOne("hospitalizaciones", h.id, h);
+    showToast("Internamiento registrado");
+  };
+  const updateHospitalizacion = h => {
+    const next = hospitalizaciones.map(x => x.id === h.id ? h : x);
+    setHospitalizaciones(next);
+    collectionStore.setOne("hospitalizaciones", h.id, h);
+    showToast("Internamiento actualizado");
+  };
+  const deleteHospitalizacion = id => {
+    const next = hospitalizaciones.filter(h => h.id !== id);
+    setHospitalizaciones(next);
+    collectionStore.deleteOne("hospitalizaciones", id);
+  };
+  const addBano = b => {
+    const next = [...banos, b];
+    setBanos(next);
+    collectionStore.setOne("banos", b.id, b);
+    showToast("Servicio registrado");
+  };
+  const updateBano = b => {
+    const next = banos.map(x => x.id === b.id ? b : x);
+    setBanos(next);
+    collectionStore.setOne("banos", b.id, b);
+    showToast("Servicio actualizado");
+  };
+  const deleteBano = id => {
+    const next = banos.filter(b => b.id !== id);
+    setBanos(next);
+    collectionStore.deleteOne("banos", id);
+  };
+  const addCirugia = c => {
+    const next = [...cirugias, c];
+    setCirugias(next);
+    collectionStore.setOne("cirugias", c.id, c);
+    showToast("Cirugía registrada");
+  };
+  const updateCirugia = c => {
+    const next = cirugias.map(x => x.id === c.id ? c : x);
+    setCirugias(next);
+    collectionStore.setOne("cirugias", c.id, c);
+    showToast("Cirugía actualizada");
+  };
+  const deleteCirugia = id => {
+    const next = cirugias.filter(c => c.id !== id);
+    setCirugias(next);
+    collectionStore.deleteOne("cirugias", id);
   };
   const addCobro = c => {
     const next = [...cobros, c];
@@ -6358,6 +6897,7 @@ function VetApp() {
     examenes: examenes,
     vacunas: vacunas,
     desparasitaciones: desparasitaciones,
+    hospitalizaciones: hospitalizaciones,
     setActive: setActive,
     setSelected: setSelected,
     config: config
@@ -6410,6 +6950,27 @@ function VetApp() {
     onAdd: addDesparasitacion,
     onUpdate: updateDesparasitacion,
     onDelete: deleteDesparasitacion,
+    config: config
+  }), /*#__PURE__*/React.createElement(HospitalizacionSection, {
+    patient: selected,
+    hospitalizaciones: hospitalizaciones,
+    onAdd: addHospitalizacion,
+    onUpdate: updateHospitalizacion,
+    onDelete: deleteHospitalizacion,
+    config: config
+  }), /*#__PURE__*/React.createElement(CirugiasSection, {
+    patient: selected,
+    cirugias: cirugias,
+    onAdd: addCirugia,
+    onUpdate: updateCirugia,
+    onDelete: deleteCirugia,
+    config: config
+  }), /*#__PURE__*/React.createElement(BanosSection, {
+    patient: selected,
+    banos: banos,
+    onAdd: addBano,
+    onUpdate: updateBano,
+    onDelete: deleteBano,
     config: config
   }), /*#__PURE__*/React.createElement(HistorialMedico, {
     patient: selected,
