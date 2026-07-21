@@ -2329,6 +2329,7 @@ function PatientDetail({
   onDelete,
   onClose,
   onUpdateFotos,
+  onUpdateVisita,
   config,
   recetas,
   examenes,
@@ -2337,8 +2338,51 @@ function PatientDetail({
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [uploadingFoto, setUploadingFoto] = useState(false);
   const [showQR, setShowQR] = useState(false);
+  const [resolviendoCita, setResolviendoCita] = useState(false);
+  const [nuevaFechaVisita, setNuevaFechaVisita] = useState("");
+  const [nuevaHoraVisita, setNuevaHoraVisita] = useState("");
   const galeriaFileRef = useRef(null);
   const galeriaCameraRef = useRef(null);
+
+  // ¿Ya pasó la hora de la próxima visita? Si solo hay fecha (sin hora), se
+  // considera vencida recién al día siguiente (para no molestar el mismo
+  // día antes de que en realidad haya pasado la cita).
+  const citaVencida = (() => {
+    if (!patient.proximaVisita) return false;
+    const ahora = new Date();
+    if (patient.proximaVisitaHora) {
+      const [anio, mes, dia] = patient.proximaVisita.split("-").map(Number);
+      const [hora, minuto] = patient.proximaVisitaHora.split(":").map(Number);
+      const momentoCita = new Date(anio, mes - 1, dia, hora, minuto, 0);
+      return ahora > momentoCita;
+    }
+    const hoyTexto = ahora.toISOString().slice(0, 10);
+    return patient.proximaVisita < hoyTexto;
+  })();
+  const marcarComoAtendida = () => {
+    onUpdateVisita(patient, {
+      proximaVisita: "",
+      proximaVisitaHora: ""
+    });
+    setResolviendoCita(false);
+  };
+  const cancelarVisita = () => {
+    onUpdateVisita(patient, {
+      proximaVisita: "",
+      proximaVisitaHora: ""
+    });
+    setResolviendoCita(false);
+  };
+  const guardarReprogramacion = () => {
+    if (!nuevaFechaVisita) return;
+    onUpdateVisita(patient, {
+      proximaVisita: nuevaFechaVisita,
+      proximaVisitaHora: nuevaHoraVisita
+    });
+    setResolviendoCita(false);
+    setNuevaFechaVisita("");
+    setNuevaHoraVisita("");
+  };
   const qrUrl = window.location.origin + window.location.pathname + "?patient=" + patient.id;
   const qrImgSrc = "https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=" + encodeURIComponent(qrUrl);
   const recordarVisitaWhatsApp = () => {
@@ -2457,7 +2501,55 @@ function PatientDetail({
   }, t))))), /*#__PURE__*/React.createElement("button", {
     onClick: onClose,
     className: "text-[#6B7A72] hover:text-[#23342F] text-xl leading-none"
-  }, "✕")), /*#__PURE__*/React.createElement("div", {
+  }, "✕")), citaVencida && !resolviendoCita && /*#__PURE__*/React.createElement("div", {
+    className: "mb-5 p-4 rounded-lg",
+    style: {
+      background: "var(--accent-orange-bg)"
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm font-medium mb-3",
+    style: {
+      color: "var(--accent-orange)"
+    }
+  }, "⏰ La cita del ", formatDate(patient.proximaVisita, config?.dateFormat), patient.proximaVisitaHora ? ` a las ${patient.proximaVisitaHora}` : "", " ya pasó. ¿Qué pasó con esta visita?"), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 flex-wrap"
+  }, /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: marcarComoAtendida,
+    icon: "✅"
+  }, "Fue atendida"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => setResolviendoCita(true),
+    icon: "📅"
+  }, "Reprogramar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: cancelarVisita,
+    icon: "✕",
+    danger: true
+  }, "Cancelar visita"))), citaVencida && resolviendoCita && /*#__PURE__*/React.createElement("div", {
+    className: "mb-5 p-4 rounded-lg bg-white border border-[#DDD5C4]"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm font-medium mb-3"
+  }, "Reprogramar la próxima visita"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-3 mb-3"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Nueva fecha"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: nuevaFechaVisita,
+    onChange: e => setNuevaFechaVisita(e.target.value)
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Hora (opcional)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "time",
+    value: nuevaHoraVisita,
+    onChange: e => setNuevaHoraVisita(e.target.value)
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: guardarReprogramacion,
+    disabled: !nuevaFechaVisita,
+    icon: "✓"
+  }, "Guardar nueva fecha"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => setResolviendoCita(false)
+  }, "Cancelar"))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-x-6 mb-2"
   }, /*#__PURE__*/React.createElement(DetailRow, {
     label: "Especie",
@@ -6458,6 +6550,19 @@ function VetApp() {
     collectionStore.setOne("patients", patient.id, record);
     if (selected && selected.id === patient.id) setSelected(record);
   };
+
+  // Se usa para resolver una cita ya pasada: marcarla como atendida
+  // (se borra la próxima visita), reprogramarla a otra fecha/hora, o
+  // cancelarla sin reprogramar.
+  const updatePatientVisita = (patient, cambios) => {
+    const record = {
+      ...patient,
+      ...cambios
+    };
+    setPatients(cur => cur.map(p => p.id === patient.id ? record : p));
+    collectionStore.setOne("patients", patient.id, record);
+    if (selected && selected.id === patient.id) setSelected(record);
+  };
   const savePatient = data => {
     let next;
     let record;
@@ -6930,6 +7035,7 @@ function VetApp() {
     onDelete: deletePatient,
     onClose: () => setSelected(null),
     onUpdateFotos: updatePatientFotos,
+    onUpdateVisita: updatePatientVisita,
     config: config,
     recetas: recetas,
     examenes: examenes,
