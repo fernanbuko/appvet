@@ -3775,6 +3775,7 @@ function BanosSection({
   const [notas, setNotas] = useState("");
   const [proximoBano, setProximoBano] = useState("");
   const [proximoBanoHora, setProximoBanoHora] = useState("");
+  const [fechaAtendido, setFechaAtendido] = useState("");
   // Para reagendar el "próximo baño" directamente desde su aviso, sin tener
   // que abrir el formulario completo de edición.
   const [reprogramandoId, setReprogramandoId] = useState(null);
@@ -3788,6 +3789,7 @@ function BanosSection({
     setNotas("");
     setProximoBano("");
     setProximoBanoHora("");
+    setFechaAtendido("");
     setShowForm(false);
     setEditingId(null);
   };
@@ -3799,6 +3801,7 @@ function BanosSection({
     setNotas(b.notas || "");
     setProximoBano(b.proximoBano || "");
     setProximoBanoHora(b.proximoBanoHora || "");
+    setFechaAtendido(b.fechaAtendido || "");
     setShowForm(true);
   };
   const save = () => {
@@ -3811,7 +3814,8 @@ function BanosSection({
       producto,
       notas,
       proximoBano,
-      proximoBanoHora: proximoBano ? proximoBanoHora : ""
+      proximoBanoHora: proximoBano ? proximoBanoHora : "",
+      fechaAtendido
     };
     if (editingId) onUpdate(data);else onAdd(data);
     reset();
@@ -3819,13 +3823,13 @@ function BanosSection({
   const hoy = new Date().toISOString().slice(0, 10);
   const proximoBanoVencido = b => b.proximoBano && b.proximoBano < hoy;
 
-  // "Ya se atendió": el baño programado sí se hizo. Se actualiza ESTE MISMO
-  // registro (poniendo su fecha de ingreso en hoy y quitando el aviso
-  // pendiente) en vez de crear uno nuevo — así no queda duplicado.
+  // "Ya se atendió": el baño programado sí se hizo. Se guarda la fecha en
+  // que se atendió (aparte de "Fecha de ingreso", que no se toca) y se
+  // quita el aviso pendiente — todo en ESTE MISMO registro, sin duplicar.
   const marcarBanoAtendido = b => {
     onUpdate({
       ...b,
-      fecha: hoy,
+      fechaAtendido: hoy,
       proximoBano: "",
       proximoBanoHora: ""
     });
@@ -3876,6 +3880,12 @@ function BanosSection({
     type: "date",
     value: fecha,
     onChange: e => setFecha(e.target.value)
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Fecha atendido (opcional)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: fechaAtendido,
+    onChange: e => setFechaAtendido(e.target.value)
   }))), /*#__PURE__*/React.createElement(Field, {
     label: "Producto usado (opcional)"
   }, /*#__PURE__*/React.createElement(TextInput, {
@@ -3926,7 +3936,10 @@ function BanosSection({
   }, b.tipo), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72]",
     style: styles.mono
-  }, "Ingreso: ", formatDate(b.fecha, config?.dateFormat))), /*#__PURE__*/React.createElement("div", {
+  }, "Ingreso: ", formatDate(b.fecha, config?.dateFormat)), b.fechaAtendido && /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#3D6B5C]",
+    style: styles.mono
+  }, "✅ Atendido: ", formatDate(b.fechaAtendido, config?.dateFormat))), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-3"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => startEdit(b),
