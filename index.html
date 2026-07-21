@@ -853,7 +853,7 @@ const BOTTOM_NAV_POR_ROL = {
     icon: "🏠"
   }, {
     key: "pacientes",
-    label: "Pacientes",
+    label: "Clientes",
     icon: "👥"
   }, {
     key: "agenda",
@@ -1693,7 +1693,10 @@ function Sidebar({
   // permiso de verlas. Si no es colaborador, el rol de la propia cuenta
   // decide qué secciones aplican (ej. un peluquero no usa Recetas).
   const keysPermitidosPorRol = itemsNavPermitidos(config?.rol);
-  const itemsMenu = modoColaborador ? NAV.filter(item => ["inicio", "nuevo", "pacientes", "agenda", "config"].includes(item.key)) : keysPermitidosPorRol ? NAV.filter(item => keysPermitidosPorRol.includes(item.key)) : NAV;
+  const itemsMenu = (modoColaborador ? NAV.filter(item => ["inicio", "nuevo", "pacientes", "agenda", "config"].includes(item.key)) : keysPermitidosPorRol ? NAV.filter(item => keysPermitidosPorRol.includes(item.key)) : NAV).map(item => config?.rol === "peluquero" ? {
+    ...item,
+    label: item.key === "pacientes" ? "Clientes" : item.key === "nuevo" ? "Nuevo cliente" : item.label
+  } : item);
   return /*#__PURE__*/React.createElement("div", {
     className: "hidden md:flex md:w-60 md:min-h-screen bg-[#23342F] text-white md:flex-col"
   }, /*#__PURE__*/React.createElement("button", {
@@ -1803,7 +1806,7 @@ function MobileBottomNav({
     icon: "🏠"
   }, {
     key: "pacientes",
-    label: "Pacientes",
+    label: config?.rol === "peluquero" ? "Clientes" : "Pacientes",
     icon: "👥"
   }, {
     key: "agenda",
@@ -2993,10 +2996,10 @@ function PatientDetail({
   }, !esPacienteAjeno && /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: () => onEdit(patient),
     icon: "✏️"
-  }, "Editar ficha"), /*#__PURE__*/React.createElement(GhostButton, {
+  }, "Editar ficha"), config?.rol !== "peluquero" && /*#__PURE__*/React.createElement(GhostButton, {
     onClick: () => setShowQR(true),
     icon: "🔳"
-  }, "Código QR"), /*#__PURE__*/React.createElement(GhostButton, {
+  }, "Código QR"), config?.rol !== "peluquero" && /*#__PURE__*/React.createElement(GhostButton, {
     onClick: () => exportPatientPDF(patient, config, recetas || [], examenes || [], historial || []),
     icon: "🖨️"
   }, "Exportar ficha en PDF"), !esPacienteAjeno && /*#__PURE__*/React.createElement(GhostButton, {
@@ -4412,7 +4415,7 @@ function PatientsList({
   })), /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: onNew,
     icon: "➕"
-  }, "Nuevo paciente")), /*#__PURE__*/React.createElement("div", {
+  }, config?.rol === "peluquero" ? "Nuevo cliente" : "Nuevo paciente")), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 mb-5 flex-wrap"
   }, /*#__PURE__*/React.createElement("select", {
     value: especieFiltro,
@@ -6655,7 +6658,7 @@ function HomeScreen({
   })()), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-3 gap-3 mb-10 max-w-md"
   }, /*#__PURE__*/React.createElement(StatCard, {
-    label: "Pacientes",
+    label: esPeluquero ? "Clientes" : "Pacientes",
     value: patientsVisibles.length
   }), !modoColaborador && /*#__PURE__*/React.createElement(StatCard, {
     label: "Recetas",
@@ -7960,9 +7963,9 @@ function VetApp() {
   }), active === "nuevo" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold mb-1"
-  }, "Nuevo paciente"), /*#__PURE__*/React.createElement("p", {
+  }, config?.rol === "peluquero" ? "Nuevo cliente" : "Nuevo paciente"), /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-[#6B7A72] mb-6"
-  }, config?.rol === "peluquero" ? "Completa los datos de identificación del paciente." : "Completa las 4 hojas de la ficha clínica."), /*#__PURE__*/React.createElement(PatientForm, {
+  }, config?.rol === "peluquero" ? "Completa los datos de identificación del cliente." : "Completa las 4 hojas de la ficha clínica."), /*#__PURE__*/React.createElement(PatientForm, {
     initial: null,
     onSave: savePatient,
     onCancel: () => setActive("pacientes"),
@@ -7970,7 +7973,7 @@ function VetApp() {
   })), active === "pacientes" && !editing && !selected && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold mb-5"
-  }, "Pacientes"), /*#__PURE__*/React.createElement(PatientsList, {
+  }, config?.rol === "peluquero" ? "Clientes" : "Pacientes"), /*#__PURE__*/React.createElement(PatientsList, {
     patients: patientsParaLista,
     totalSinFiltro: activePatients.length,
     trashed: config?.rol === "peluquero" && modoColaborador ? trashedPatients.filter(p => p._esPropio) : trashedPatients,
