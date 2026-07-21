@@ -821,6 +821,11 @@ function etiquetaDireccionNegocio(rol) {
   if (rol === "peluquero") return "Dirección de la peluquería";
   return "Dirección del negocio";
 }
+function etiquetaLogoNegocio(rol) {
+  if (rol === "veterinario") return "Logo de la clínica";
+  if (rol === "peluquero") return "Logo de la peluquería";
+  return "Logo del negocio";
+}
 function placeholderNombreNegocio(rol) {
   if (rol === "veterinario") return "Ej. Clínica Veterinaria San Roque";
   if (rol === "peluquero") return "Ej. Peluquería Canina Huellitas";
@@ -1847,7 +1852,7 @@ const emptyPatient = () => ({
   etiquetas: [],
   fotos: []
 });
-const HOJAS = ["Identificación", "Consulta", "Plan", "Seguimiento"];
+const HOJAS_TODAS = ["Identificación", "Consulta", "Plan", "Seguimiento"];
 const RAZAS_PERRO = ["Labrador Retriever", "Golden Retriever", "Pastor Aleman", "Bulldog Frances", "Bulldog Ingles", "Poodle Caniche", "Beagle", "Rottweiler", "Yorkshire Terrier", "Boxer", "Dachshund Salchicha", "Chihuahua", "Husky Siberiano", "Gran Danes", "Doberman", "Shih Tzu", "Pomerania", "Border Collie", "Schnauzer", "Cocker Spaniel", "Pug Carlino", "Maltes", "Akita", "San Bernardo", "Basset Hound", "Bull Terrier", "Pit Bull Terrier", "Dalmata", "Chow Chow", "Shar Pei", "Weimaraner", "Galgo", "Mastin", "Bichon Frise", "Pointer", "Setter Irlandes", "Terranova", "Cane Corso", "Perro de Agua Espanol", "Fox Terrier", "Jack Russell Terrier", "Whippet", "Basenji", "Boyero de Berna", "Collie", "Papillon", "Lhasa Apso", "Rhodesian Ridgeback", "Mestizo Criollo", "Otra"];
 const RAZAS_GATO = ["Comun Europeo Mestizo", "Persa", "Siames", "Maine Coon", "Angora Turco", "Bengali", "British Shorthair", "Ragdoll", "Sphynx Esfinge", "Abisinio", "Exotico de Pelo Corto", "Devon Rex", "Cornish Rex", "Azul Ruso", "Scottish Fold", "Himalayo", "Bombay", "Birmano", "Manx", "Munchkin", "Ocicat", "Somali", "Tonkines", "Van Turco", "Chartreux", "Korat", "Burmes", "Selkirk Rex", "Egyptian Mau", "Otra"];
 
@@ -1856,10 +1861,14 @@ const CANTONES_GUAYAS = ["Guayaquil", "Alfredo Baquerizo Moreno (Jujan)", "Balao
 function PatientForm({
   initial,
   onSave,
-  onCancel
+  onCancel,
+  config
 }) {
   const [step, setStep] = useState(0);
   const [data, setData] = useState(initial || emptyPatient());
+  // Un peluquero/a no usa consulta médica, diagnóstico ni seguimiento
+  // clínico — su formulario se reduce a la sola hoja de identificación.
+  const HOJAS = config?.rol === "peluquero" ? ["Identificación"] : HOJAS_TODAS;
   const ESPECIES_COMUNES = ["Perro", "Gato", "Ave", "Conejo", "Roedor", "Reptil"];
   const [especieEsOtro, setEspecieEsOtro] = useState(!!(initial && initial.especie && !ESPECIES_COMUNES.includes(initial.especie)));
   const razasDeEspecie = data.especie === "Perro" ? RAZAS_PERRO : data.especie === "Gato" ? RAZAS_GATO : null;
@@ -2568,10 +2577,17 @@ function PatientDetail({
   const galeriaFileRef = useRef(null);
   const galeriaCameraRef = useRef(null);
 
+  // Para un peluquero/a, la ficha completa (motivo de consulta, diagnóstico,
+  // tratamiento, próxima visita médica, etc.) no aplica — solo necesita ver
+  // los datos de identificación del paciente; agendar el baño se hace desde
+  // la pestaña "Baños" (PatientSecciones), no desde aquí.
+  const esFichaSimplificada = config?.rol === "peluquero";
+
   // ¿Ya pasó la hora de la próxima visita? Si solo hay fecha (sin hora), se
   // considera vencida recién al día siguiente (para no molestar el mismo
   // día antes de que en realidad haya pasado la cita).
   const citaVencida = (() => {
+    if (esFichaSimplificada) return false;
     if (!patient.proximaVisita) return false;
     const ahora = new Date();
     if (patient.proximaVisitaHora) {
@@ -2799,7 +2815,7 @@ function PatientDetail({
   }), /*#__PURE__*/React.createElement(DetailRow, {
     label: "Teléfono propietario",
     value: patient.telefonoPropietario
-  })), /*#__PURE__*/React.createElement("div", {
+  })), !esFichaSimplificada && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "h-px bg-[#DDD5C4] my-4"
   }), /*#__PURE__*/React.createElement(DetailRow, {
     label: "Motivo de consulta",
@@ -2826,7 +2842,7 @@ function PatientDetail({
   }), /*#__PURE__*/React.createElement(DetailRow, {
     label: "Próxima visita",
     value: patient.proximaVisita ? formatDate(patient.proximaVisita, config?.dateFormat) + (patient.proximaVisitaHora ? ` — ${patient.proximaVisitaHora}` : "") : ""
-  }), /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement("div", {
     className: "h-px bg-[#DDD5C4] my-4"
   }), /*#__PURE__*/React.createElement("div", {
     className: "mb-2 flex items-center justify-between"
@@ -5065,6 +5081,13 @@ function ConfigForm({
   onUpdateInmediato
 }) {
   const [data, setData] = useState(() => migrarConfig(config));
+  // Una vez creada la cuenta, si el rol elegido no es veterinario/a (ej.
+  // peluquero, vendedor, otro), ya no se puede cambiar — evita que alguien
+  // cambie de rol después y quede con un menú/pestañas que no coinciden con
+  // lo que en verdad tiene guardado. Durante la configuración inicial
+  // (isSetup) sí se puede elegir libremente, porque todavía no se "creó" la
+  // cuenta con ese rol.
+  const rolBloqueado = !isSetup && !!data.rol && data.rol !== "veterinario";
   // Recuerda cómo se veía la configuración la última vez que este formulario
   // se sincronizó (ya sea al abrirse, o por un cambio remoto ya reflejado).
   const ultimaConfigSincronizadaRef = useRef(JSON.stringify(migrarConfig(config)));
@@ -5370,7 +5393,7 @@ function ConfigForm({
   }, /*#__PURE__*/React.createElement("span", {
     className: "block text-[11px] uppercase tracking-wider mb-1.5 text-[#6B7A72]",
     style: styles.mono
-  }, "Logo de la clínica"), /*#__PURE__*/React.createElement("div", {
+  }, etiquetaLogoNegocio(data.rol)), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-4"
   }, /*#__PURE__*/React.createElement("div", {
     onClick: () => fileRef.current?.click(),
@@ -5456,11 +5479,14 @@ function ConfigForm({
   }, /*#__PURE__*/React.createElement("select", {
     value: data.rol || "veterinario",
     onChange: set("rol"),
-    className: inputClass
+    disabled: rolBloqueado,
+    className: inputClass + (rolBloqueado ? " opacity-60 cursor-not-allowed" : "")
   }, ROLES_DISPONIBLES.map(r => /*#__PURE__*/React.createElement("option", {
     key: r.key,
     value: r.key
-  }, r.label)))), data.rol === "otro" && /*#__PURE__*/React.createElement(Field, {
+  }, r.label))), rolBloqueado && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#6B7A72] mt-1"
+  }, "Tu rol no se puede cambiar después de crear la cuenta.")), data.rol === "otro" && /*#__PURE__*/React.createElement(Field, {
     label: "Cuéntanos qué tipo de negocio es"
   }, /*#__PURE__*/React.createElement(TextInput, {
     value: data.rolOtro,
@@ -7530,10 +7556,11 @@ function VetApp() {
     className: "text-2xl font-semibold mb-1"
   }, "Nuevo paciente"), /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-[#6B7A72] mb-6"
-  }, "Completa las 4 hojas de la ficha clínica."), /*#__PURE__*/React.createElement(PatientForm, {
+  }, config?.rol === "peluquero" ? "Completa los datos de identificación del paciente." : "Completa las 4 hojas de la ficha clínica."), /*#__PURE__*/React.createElement(PatientForm, {
     initial: null,
     onSave: savePatient,
-    onCancel: () => setActive("pacientes")
+    onCancel: () => setActive("pacientes"),
+    config: config
   })), active === "pacientes" && !editing && !selected && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold mb-5"
@@ -7600,10 +7627,11 @@ function VetApp() {
     className: "text-2xl font-semibold mb-1"
   }, "Editar ficha — ", editing.nombre), /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-[#6B7A72] mb-6"
-  }, "Actualiza la información en las 4 hojas."), /*#__PURE__*/React.createElement(PatientForm, {
+  }, config?.rol === "peluquero" ? "Actualiza los datos de identificación." : "Actualiza la información en las 4 hojas."), /*#__PURE__*/React.createElement(PatientForm, {
     initial: editing,
     onSave: savePatient,
-    onCancel: () => setEditing(null)
+    onCancel: () => setEditing(null),
+    config: config
   })), active === "recetas" && /*#__PURE__*/React.createElement(RecetasView, {
     patients: activePatients,
     recetas: recetas,
