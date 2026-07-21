@@ -7450,6 +7450,11 @@ function VetApp() {
       record = {
         ...datosLimpios,
         id: datosLimpios.id || uid(),
+        // Se usa para que el robot de notificaciones (revisar-citas.js) avise
+        // a los colaboradores (ej. un peluquero) cuando se agrega un cliente
+        // nuevo — solo se pone al crear, nunca se toca en ediciones
+        // posteriores.
+        creadoEn: Date.now(),
         updatedAt: Date.now()
       };
     }
