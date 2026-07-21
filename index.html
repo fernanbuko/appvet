@@ -1104,6 +1104,56 @@ const collectionStore = {
     await Promise.all(snap.docs.map(d => d.ref.delete()));
   }
 };
+
+// Igual que collectionStore, pero SIEMPRE apunta a la propia cuenta
+// (users/{currentUid}/...), sin importar si esta cuenta es colaboradora de
+// otra o parte de un equipo compartido. Se usa para los "pacientes propios"
+// de un colaborador (ej. un peluquero que consigue un cliente por su cuenta
+// y no quiere que la ficha viva en la cuenta del dueño de la clínica).
+function ownUserCollection(name) {
+  return db.collection("users").doc(currentUid).collection(name);
+}
+const ownCollectionStore = {
+  async getAll(name) {
+    if (!db || !currentUid) return [];
+    try {
+      const snap = await withTimeout(ownUserCollection(name).get());
+      return snap.docs.map(d => d.data());
+    } catch (e) {
+      console.error("Error leyendo (propio) " + name + ":", e);
+      return [];
+    }
+  },
+  async setOne(name, id, data) {
+    if (!db || !currentUid) return false;
+    try {
+      await withTimeout(ownUserCollection(name).doc(String(id)).set(data));
+      return true;
+    } catch (e) {
+      console.error("Error guardando (propio) en " + name + ":", e);
+      return false;
+    }
+  },
+  async deleteOne(name, id) {
+    if (!db || !currentUid) return false;
+    try {
+      await withTimeout(ownUserCollection(name).doc(String(id)).delete());
+      return true;
+    } catch (e) {
+      console.error("Error borrando (propio) de " + name + ":", e);
+      return false;
+    }
+  },
+  listen(name, onData) {
+    if (!db || !currentUid) return () => {};
+    try {
+      return ownUserCollection(name).onSnapshot(snap => onData(snap.docs.map(d => d.data())), e => console.error("Error escuchando (propio) " + name + ":", e));
+    } catch (e) {
+      console.error("Error suscribiéndose (propio) a " + name + ":", e);
+      return () => {};
+    }
+  }
+};
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
 // Lee los datos que haya guardados de la versión anterior de la app (antes de
@@ -2572,6 +2622,7 @@ function PatientDetail({
   onUpdateFotos,
   onUpdateVisita,
   config,
+  modoColaborador,
   recetas,
   examenes,
   historial
@@ -2590,6 +2641,10 @@ function PatientDetail({
   // los datos de identificación del paciente; agendar el baño se hace desde
   // la pestaña "Baños" (PatientSecciones), no desde aquí.
   const esFichaSimplificada = config?.rol === "peluquero";
+  // Un paciente "ajeno" es uno que la clínica comparte con este colaborador
+  // pero que NO es suyo propio — no puede editar su ficha, no puede ver su
+  // galería de fotos ni borrarlo, solo ver sus datos y trabajar en Baños.
+  const esPacienteAjeno = modoColaborador && !patient._esPropio;
 
   // ¿Ya pasó la hora de la próxima visita? Si solo hay fecha (sin hora), se
   // considera vencida recién al día siguiente (para no molestar el mismo
@@ -2640,6 +2695,12 @@ function PatientDetail({
   };
   const mensajeGeneralWhatsApp = () => {
     const mensaje = `Hola${patient.propietario ? " " + patient.propietario : ""}, le escribimos de ${config?.clinica || "la clínica"} sobre ${patient.nombre}. `;
+    window.open(whatsappLink(patient.telefonoPropietario, mensaje), "_blank");
+  };
+  // Solo para el rol Peluquero/a: avisa al dueño que ya bañaron a su mascota
+  // y puede pasar a recogerla.
+  const mensajeBanoListoWhatsApp = () => {
+    const mensaje = `Hola${patient.propietario ? " " + patient.propietario : ""}, le escribimos de ${config?.clinica || "la clínica"}. ` + `Le contamos que ${patient.nombre} ya fue bañado/a y está listo/a para que lo/la recoja. ¡Gracias!`;
     window.open(whatsappLink(patient.telefonoPropietario, mensaje), "_blank");
   };
 
@@ -2741,7 +2802,14 @@ function PatientDetail({
     style: styles.mono
   }, "Nombre del propietario"), /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-[#6B7A72]"
-  }, patient.propietario || "Sin propietario registrado"), patient.etiquetas && patient.etiquetas.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, patient.propietario || "Sin propietario registrado"), modoColaborador && /*#__PURE__*/React.createElement("span", {
+    className: "inline-block text-[10px] px-2 py-0.5 rounded-full mt-1.5 mr-1.5",
+    style: {
+      ...styles.mono,
+      color: patient._esPropio ? "var(--accent-green)" : "var(--accent-orange)",
+      background: patient._esPropio ? "var(--accent-green-bg)" : "var(--accent-orange-bg)"
+    }
+  }, patient._esPropio ? "🙋 Paciente propio" : `🏥 Paciente de ${config?.colaboradorDe?.nombre || "la clínica"}`), patient.etiquetas && patient.etiquetas.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap gap-1.5 mt-1.5"
   }, patient.etiquetas.map(t => /*#__PURE__*/React.createElement("span", {
     key: t,
@@ -2852,7 +2920,7 @@ function PatientDetail({
     value: patient.proximaVisita ? formatDate(patient.proximaVisita, config?.dateFormat) + (patient.proximaVisitaHora ? ` — ${patient.proximaVisitaHora}` : "") : ""
   }), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#A6A08F] -mt-1 mb-1"
-  }, "Esta fecha es para citas médicas generales. Para agendar un baño (que sí vea el peluquero/a), usa la pestaña \"Baños\" de este paciente, más abajo.")), /*#__PURE__*/React.createElement("div", {
+  }, "Esta fecha es para citas médicas generales. Para agendar un baño (que sí vea el peluquero/a), usa la pestaña \"Baños\" de este paciente, más abajo.")), !esPacienteAjeno && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "h-px bg-[#DDD5C4] my-4"
   }), /*#__PURE__*/React.createElement("div", {
     className: "mb-2 flex items-center justify-between"
@@ -2899,7 +2967,7 @@ function PatientDetail({
     className: "absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white text-xs flex items-center justify-center"
   }, "✕")))) : /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#A6A08F] mb-2"
-  }, "Sin fotos adicionales (heridas, evolución, radiografías, etc.)"), patient.telefonoPropietario && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }, "Sin fotos adicionales (heridas, evolución, radiografías, etc.)")), patient.telefonoPropietario && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "h-px bg-[#DDD5C4] my-4"
   }), /*#__PURE__*/React.createElement("span", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-2 block",
@@ -2914,12 +2982,15 @@ function PatientDetail({
   }, "Recordar próxima visita"), cumpleanosInfo && /*#__PURE__*/React.createElement(GhostButton, {
     onClick: felicitarCumpleanosWhatsApp,
     icon: "🎂"
-  }, "Felicitar cumpleaños"), /*#__PURE__*/React.createElement(GhostButton, {
+  }, "Felicitar cumpleaños"), config?.rol === "peluquero" && /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: mensajeBanoListoWhatsApp,
+    icon: "🛁"
+  }, "Avisar que ya está listo"), /*#__PURE__*/React.createElement(GhostButton, {
     onClick: mensajeGeneralWhatsApp,
     icon: "💬"
   }, "Mensaje por WhatsApp"))), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 mt-6 flex-wrap"
-  }, /*#__PURE__*/React.createElement(PrimaryButton, {
+  }, !esPacienteAjeno && /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: () => onEdit(patient),
     icon: "✏️"
   }, "Editar ficha"), /*#__PURE__*/React.createElement(GhostButton, {
@@ -2928,7 +2999,7 @@ function PatientDetail({
   }, "Código QR"), /*#__PURE__*/React.createElement(GhostButton, {
     onClick: () => exportPatientPDF(patient, config, recetas || [], examenes || [], historial || []),
     icon: "🖨️"
-  }, "Exportar ficha en PDF"), config?.rol !== "peluquero" && /*#__PURE__*/React.createElement(GhostButton, {
+  }, "Exportar ficha en PDF"), !esPacienteAjeno && /*#__PURE__*/React.createElement(GhostButton, {
     onClick: () => onDelete(patient),
     icon: "🗑️",
     danger: true
@@ -3703,10 +3774,12 @@ function BanosSection({
   const [producto, setProducto] = useState("");
   const [notas, setNotas] = useState("");
   const [proximoBano, setProximoBano] = useState("");
+  const [proximoBanoHora, setProximoBanoHora] = useState("");
   // Para reagendar el "próximo baño" directamente desde su aviso, sin tener
   // que abrir el formulario completo de edición.
   const [reprogramandoId, setReprogramandoId] = useState(null);
   const [nuevaFechaProximoBano, setNuevaFechaProximoBano] = useState("");
+  const [nuevaHoraProximoBano, setNuevaHoraProximoBano] = useState("");
   const entries = banos.filter(b => b.patientId === patient.id).sort((a, b) => a.fecha < b.fecha ? 1 : -1);
   const reset = () => {
     setTipo("Baño");
@@ -3714,6 +3787,7 @@ function BanosSection({
     setProducto("");
     setNotas("");
     setProximoBano("");
+    setProximoBanoHora("");
     setShowForm(false);
     setEditingId(null);
   };
@@ -3724,6 +3798,7 @@ function BanosSection({
     setProducto(b.producto || "");
     setNotas(b.notas || "");
     setProximoBano(b.proximoBano || "");
+    setProximoBanoHora(b.proximoBanoHora || "");
     setShowForm(true);
   };
   const save = () => {
@@ -3735,7 +3810,8 @@ function BanosSection({
       fecha,
       producto,
       notas,
-      proximoBano
+      proximoBano,
+      proximoBanoHora: proximoBano ? proximoBanoHora : ""
     };
     if (editingId) onUpdate(data);else onAdd(data);
     reset();
@@ -3755,11 +3831,13 @@ function BanosSection({
       fecha: hoy,
       producto: "",
       notas: "",
-      proximoBano: ""
+      proximoBano: "",
+      proximoBanoHora: ""
     });
     onUpdate({
       ...b,
-      proximoBano: ""
+      proximoBano: "",
+      proximoBanoHora: ""
     });
   };
   // "Cancelar": se decidió no hacer ese baño programado, sin registrar
@@ -3767,17 +3845,20 @@ function BanosSection({
   const cancelarProximoBano = b => {
     onUpdate({
       ...b,
-      proximoBano: ""
+      proximoBano: "",
+      proximoBanoHora: ""
     });
   };
   const guardarReprogramacionBano = b => {
     if (!nuevaFechaProximoBano) return;
     onUpdate({
       ...b,
-      proximoBano: nuevaFechaProximoBano
+      proximoBano: nuevaFechaProximoBano,
+      proximoBanoHora: nuevaHoraProximoBano
     });
     setReprogramandoId(null);
     setNuevaFechaProximoBano("");
+    setNuevaHoraProximoBano("");
   };
   return /*#__PURE__*/React.createElement("div", {
     className: "max-w-2xl mt-6"
@@ -3800,7 +3881,7 @@ function BanosSection({
     onChange: e => setTipo(e.target.value),
     className: inputClass
   }, /*#__PURE__*/React.createElement("option", null, "Baño"), /*#__PURE__*/React.createElement("option", null, "Corte de pelo"), /*#__PURE__*/React.createElement("option", null, "Baño y corte"), /*#__PURE__*/React.createElement("option", null, "Desenredado"), /*#__PURE__*/React.createElement("option", null, "Limpieza de oídos"), /*#__PURE__*/React.createElement("option", null, "Corte de uñas"), /*#__PURE__*/React.createElement("option", null, "Otro"))), /*#__PURE__*/React.createElement(Field, {
-    label: "Fecha"
+    label: "Fecha de ingreso"
   }, /*#__PURE__*/React.createElement(TextInput, {
     type: "date",
     value: fecha,
@@ -3818,13 +3899,22 @@ function BanosSection({
     value: notas,
     onChange: e => setNotas(e.target.value),
     placeholder: "Piel sensible, reacciones, observaciones..."
-  })), /*#__PURE__*/React.createElement(Field, {
-    label: "Próximo baño programado (opcional)"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-4"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Fecha separada para baño (opcional)"
   }, /*#__PURE__*/React.createElement(TextInput, {
     type: "date",
     value: proximoBano,
     onChange: e => setProximoBano(e.target.value)
-  })), /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Hora (opcional)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "time",
+    value: proximoBanoHora,
+    onChange: e => setProximoBanoHora(e.target.value),
+    disabled: !proximoBano
+  }))), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2 mt-2"
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: save,
@@ -3846,7 +3936,7 @@ function BanosSection({
   }, b.tipo), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72]",
     style: styles.mono
-  }, formatDate(b.fecha, config?.dateFormat))), /*#__PURE__*/React.createElement("div", {
+  }, "Ingreso: ", formatDate(b.fecha, config?.dateFormat))), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-3"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => startEdit(b),
@@ -3867,12 +3957,16 @@ function BanosSection({
       color: proximoBanoVencido(b) ? "var(--accent-orange)" : "var(--accent-green)",
       background: proximoBanoVencido(b) ? "var(--accent-orange-bg)" : "var(--accent-green-bg)"
     }
-  }, proximoBanoVencido(b) ? "⚠ Próximo baño vencido: " : "📅 Próximo baño: ", formatDate(b.proximoBano, config?.dateFormat)), reprogramandoId === b.id ? /*#__PURE__*/React.createElement("div", {
+  }, proximoBanoVencido(b) ? "⚠ Baño vencido: " : "🛁 Baño programado: ", formatDate(b.proximoBano, config?.dateFormat), b.proximoBanoHora && ` — ${b.proximoBanoHora}`), reprogramandoId === b.id ? /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 mt-2 flex-wrap"
   }, /*#__PURE__*/React.createElement(TextInput, {
     type: "date",
     value: nuevaFechaProximoBano,
     onChange: e => setNuevaFechaProximoBano(e.target.value)
+  }), /*#__PURE__*/React.createElement(TextInput, {
+    type: "time",
+    value: nuevaHoraProximoBano,
+    onChange: e => setNuevaHoraProximoBano(e.target.value)
   }), /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: () => guardarReprogramacionBano(b),
     disabled: !nuevaFechaProximoBano,
@@ -3881,6 +3975,7 @@ function BanosSection({
     onClick: () => {
       setReprogramandoId(null);
       setNuevaFechaProximoBano("");
+      setNuevaHoraProximoBano("");
     }
   }, "Cancelar")) : /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 mt-2 flex-wrap"
@@ -3891,6 +3986,7 @@ function BanosSection({
     onClick: () => {
       setReprogramandoId(b.id);
       setNuevaFechaProximoBano(b.proximoBano);
+      setNuevaHoraProximoBano(b.proximoBanoHora || "");
     },
     icon: "📅"
   }, "Reprogramar"), /*#__PURE__*/React.createElement(GhostButton, {
@@ -4214,7 +4310,8 @@ function CobrosSection({
 function PatientCard({
   p,
   onSelect,
-  config
+  config,
+  modoColaborador
 }) {
   return /*#__PURE__*/React.createElement("button", {
     onClick: () => onSelect(p),
@@ -4239,7 +4336,14 @@ function PatientCard({
     style: styles.mono
   }, "Nombre del propietario"), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72] truncate"
-  }, p.propietario || "Sin propietario"))), p.etiquetas && p.etiquetas.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, p.propietario || "Sin propietario"))), modoColaborador && /*#__PURE__*/React.createElement("span", {
+    className: "inline-block text-[9px] px-1.5 py-0.5 rounded-full mt-2",
+    style: {
+      ...styles.mono,
+      color: p._esPropio ? "var(--accent-green)" : "var(--accent-orange)",
+      background: p._esPropio ? "var(--accent-green-bg)" : "var(--accent-orange-bg)"
+    }
+  }, p._esPropio ? "🙋 Propio" : "🏥 De la clínica"), p.etiquetas && p.etiquetas.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap gap-1 mt-2"
   }, p.etiquetas.map(t => /*#__PURE__*/React.createElement("span", {
     key: t,
@@ -4368,15 +4472,17 @@ function PatientsList({
     key: p.id,
     p: p,
     onSelect: onSelect,
-    config: config
+    config: config,
+    modoColaborador: modoColaborador
   })))))) : /*#__PURE__*/React.createElement("div", {
     className: "grid sm:grid-cols-2 lg:grid-cols-3 gap-3"
   }, filtered.map(p => /*#__PURE__*/React.createElement(PatientCard, {
     key: p.id,
     p: p,
     onSelect: onSelect,
-    config: config
-  }))), trashed && trashed.length > 0 && config?.rol !== "peluquero" && /*#__PURE__*/React.createElement("div", {
+    config: config,
+    modoColaborador: modoColaborador
+  }))), trashed && trashed.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "mt-8"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowTrash(s => !s),
@@ -6192,25 +6298,32 @@ function AgendaView({
   const porFecha = useMemo(() => {
     const map = {};
     if (esPeluquero) {
-      // Para un peluquero/a, la agenda se arma con las fechas de la sección
-      // "Baños" de cada paciente (la fecha del servicio, si todavía no pasó,
-      // y/o la fecha del "próximo baño programado"), no con "Próxima
-      // visita" (que es una cita médica y no le corresponde).
-      const hoy = new Date().toISOString().slice(0, 10);
+      // Para un peluquero/a, la agenda se arma únicamente con la "fecha
+      // separada para baño" de cada registro (no con la fecha de ingreso,
+      // que es solo un dato de cuándo se anotó el servicio, ni con
+      // "Próxima visita", que es una cita médica y no le corresponde).
       (banos || []).forEach(b => {
+        if (!b.proximoBano) return;
         const patient = patients.find(p => p.id === b.patientId);
         if (!patient) return;
-        const fechas = new Set();
-        if (b.fecha && b.fecha >= hoy) fechas.add(b.fecha);
-        if (b.proximoBano) fechas.add(b.proximoBano);
-        fechas.forEach(fecha => {
-          if (!map[fecha]) map[fecha] = {};
-          map[fecha][patient.id] = patient;
-        });
+        if (!map[b.proximoBano]) map[b.proximoBano] = {};
+        const existente = map[b.proximoBano][patient.id];
+        if (!existente || (b.proximoBanoHora || "") < (existente.hora || "")) {
+          map[b.proximoBano][patient.id] = {
+            patient,
+            hora: b.proximoBanoHora || ""
+          };
+        }
       });
       const mapArrays = {};
       Object.entries(map).forEach(([fecha, porId]) => {
-        mapArrays[fecha] = Object.values(porId).sort((a, b) => a.nombre.localeCompare(b.nombre));
+        mapArrays[fecha] = Object.values(porId).sort((a, b) => (a.hora || "99:99") < (b.hora || "99:99") ? -1 : 1).map(({
+          patient,
+          hora
+        }) => ({
+          ...patient,
+          proximaVisitaHora: hora
+        }));
       });
       return mapArrays;
     }
@@ -6321,7 +6434,7 @@ function AgendaView({
     className: "font-medium text-sm"
   }, p.nombre), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72]"
-  }, p.propietario || "Sin propietario")), !esPeluquero && p.proximaVisitaHora && /*#__PURE__*/React.createElement("span", {
+  }, p.propietario || "Sin propietario")), p.proximaVisitaHora && /*#__PURE__*/React.createElement("span", {
     className: "text-xs font-semibold text-[#3D6B5C] shrink-0",
     style: styles.mono
   }, p.proximaVisitaHora))))));
@@ -6454,7 +6567,7 @@ function HomeScreen({
   // pacientes que ya tienen al menos un servicio en "Baños" registrado —
   // un paciente nuevo de la clínica sin ningún baño todavía no le sirve.
   const idsConBano = new Set((banos || []).map(b => b.patientId));
-  const patientsVisibles = esPeluquero ? patients.filter(p => idsConBano.has(p.id)) : patients;
+  const patientsVisibles = esPeluquero && modoColaborador ? patients.filter(p => idsConBano.has(p.id) || p._esPropio) : patients;
   // El acceso rápido a "Agenda" sí aplica para un peluquero/a (incluso en
   // modo colaborador, ya que la Agenda ahora se arma con sus propios datos
   // de Baños); "Reportes" sigue siendo exclusivo de quien administra cobros.
@@ -6471,19 +6584,18 @@ function HomeScreen({
     if (!esPeluquero) return [];
     const porPaciente = {};
     (banos || []).forEach(b => {
+      if (!b.proximoBano || b.proximoBano < hoy) return;
       const patient = patients.find(p => p.id === b.patientId);
       if (!patient) return;
-      const candidatas = [b.fecha, b.proximoBano].filter(f => f && f >= hoy);
-      if (candidatas.length === 0) return;
-      const fechaMasCercana = candidatas.sort()[0];
-      if (!porPaciente[patient.id] || fechaMasCercana < porPaciente[patient.id].fecha) {
+      if (!porPaciente[patient.id] || b.proximoBano < porPaciente[patient.id].fecha) {
         porPaciente[patient.id] = {
           patient,
-          fecha: fechaMasCercana
+          fecha: b.proximoBano,
+          hora: b.proximoBanoHora || ""
         };
       }
     });
-    return Object.values(porPaciente).sort((a, b) => a.fecha < b.fecha ? -1 : 1).slice(0, 3);
+    return Object.values(porPaciente).sort((a, b) => a.fecha !== b.fecha ? a.fecha < b.fecha ? -1 : 1 : (a.hora || "99:99") < (b.hora || "99:99") ? -1 : 1).slice(0, 3);
   }, [banos, patients, esPeluquero, hoy]);
   const vacunasProximas = (vacunas || []).filter(v => v.proximaDosis && v.proximaDosis <= en30dias).sort((a, b) => a.proximaDosis < b.proximaDosis ? -1 : 1).slice(0, 3);
   const desparasitacionesProximas = (desparasitaciones || []).filter(d => d.proximaDosis && d.proximaDosis <= en30dias).sort((a, b) => a.proximaDosis < b.proximaDosis ? -1 : 1).slice(0, 3);
@@ -6603,7 +6715,8 @@ function HomeScreen({
     className: "space-y-2 max-w-md"
   }, proximosBanos.map(({
     patient,
-    fecha
+    fecha,
+    hora
   }) => /*#__PURE__*/React.createElement("button", {
     key: patient.id,
     onClick: () => {
@@ -6628,7 +6741,7 @@ function HomeScreen({
   }, patient.propietario || "Sin propietario"))), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#B14E1C] bg-[#E08A3E]/10 px-2 py-1 rounded text-right shrink-0",
     style: styles.mono
-  }, "🛁 ", formatDate(fecha, config?.dateFormat)))))), actualmenteHospitalizados.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "🛁 ", formatDate(fecha, config?.dateFormat), hora && ` — ${hora}`))))), actualmenteHospitalizados.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "mb-8"
   }, /*#__PURE__*/React.createElement("h2", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
@@ -6760,6 +6873,12 @@ function parseHash(hash) {
 function VetApp() {
   const [active, setActive] = useState("inicio");
   const [patients, setPatients] = useState([]);
+  // Pacientes "propios" de un colaborador (ej. un peluquero que consigue un
+  // cliente por su cuenta): viven en SU PROPIA cuenta, no en la del dueño de
+  // la clínica, así que no le aparecen a nadie más y él sí los puede borrar
+  // sin afectar la cuenta principal. Solo se usan cuando esta cuenta trabaja
+  // en modo colaborador.
+  const [patientsPropios, setPatientsPropios] = useState([]);
   const [recetas, setRecetas] = useState([]);
   const [examenes, setExamenes] = useState([]);
   const [historial, setHistorial] = useState([]);
@@ -6767,6 +6886,9 @@ function VetApp() {
   const [desparasitaciones, setDesparasitaciones] = useState([]);
   const [hospitalizaciones, setHospitalizaciones] = useState([]);
   const [banos, setBanos] = useState([]);
+  // Baños de los pacientes PROPIOS de un colaborador (ver patientsPropios):
+  // viven en su propia cuenta, nunca en la de la clínica.
+  const [banosPropios, setBanosPropios] = useState([]);
   const [cirugias, setCirugias] = useState([]);
   const [cobros, setCobros] = useState([]);
   const [config, setConfig] = useState(null);
@@ -6892,7 +7014,11 @@ function VetApp() {
       // quién le corresponde cada servicio); las demás colecciones solo se
       // piden si están en la lista de secciones permitidas.
       const puedeVer = nombreSeccion => seccionesPermitidas === null || seccionesPermitidas.includes(nombreSeccion);
-      const [p, r, e, h, v, cb, dw, hp, bn, cg] = await Promise.all([collectionStore.getAll("patients"), puedeVer("recetas") ? collectionStore.getAll("recetas") : Promise.resolve([]), puedeVer("examenes") ? collectionStore.getAll("examenes") : Promise.resolve([]), puedeVer("historial") ? collectionStore.getAll("historial") : Promise.resolve([]), puedeVer("vacunas") ? collectionStore.getAll("vacunas") : Promise.resolve([]), puedeVer("cobros") ? collectionStore.getAll("cobros") : Promise.resolve([]), puedeVer("desparasitaciones") ? collectionStore.getAll("desparasitaciones") : Promise.resolve([]), puedeVer("hospitalizaciones") ? collectionStore.getAll("hospitalizaciones") : Promise.resolve([]), puedeVer("banos") ? collectionStore.getAll("banos") : Promise.resolve([]), puedeVer("cirugias") ? collectionStore.getAll("cirugias") : Promise.resolve([])]);
+      // Si esta cuenta es colaboradora Y su rol es peluquero/a, además de los
+      // pacientes compartidos por la clínica, se traen sus propios clientes
+      // (guardados en su propia cuenta, nunca en la del dueño).
+      const trayendoPropios = !!(c?.colaboradorDe?.uid && c?.rol === "peluquero");
+      const [p, r, e, h, v, cb, dw, hp, bn, cg, pp, bnp] = await Promise.all([collectionStore.getAll("patients"), puedeVer("recetas") ? collectionStore.getAll("recetas") : Promise.resolve([]), puedeVer("examenes") ? collectionStore.getAll("examenes") : Promise.resolve([]), puedeVer("historial") ? collectionStore.getAll("historial") : Promise.resolve([]), puedeVer("vacunas") ? collectionStore.getAll("vacunas") : Promise.resolve([]), puedeVer("cobros") ? collectionStore.getAll("cobros") : Promise.resolve([]), puedeVer("desparasitaciones") ? collectionStore.getAll("desparasitaciones") : Promise.resolve([]), puedeVer("hospitalizaciones") ? collectionStore.getAll("hospitalizaciones") : Promise.resolve([]), puedeVer("banos") ? collectionStore.getAll("banos") : Promise.resolve([]), puedeVer("cirugias") ? collectionStore.getAll("cirugias") : Promise.resolve([]), trayendoPropios ? ownCollectionStore.getAll("patients") : Promise.resolve([]), trayendoPropios ? ownCollectionStore.getAll("banos") : Promise.resolve([])]);
       if (cancelled) return;
       const firestoreVacio = !(p && p.length) && !(r && r.length) && !(e && e.length) && !c;
       const legacyDismissed = localStorage.getItem("vetapp:legacyDismissed") === "1";
@@ -6904,6 +7030,7 @@ function VetApp() {
         }
       }
       setPatients(p || []);
+      setPatientsPropios(pp || []);
       setRecetas(r || []);
       setExamenes(e || []);
       setHistorial(h || []);
@@ -6912,6 +7039,7 @@ function VetApp() {
       setDesparasitaciones(dw || []);
       setHospitalizaciones(hp || []);
       setBanos(bn || []);
+      setBanosPropios(bnp || []);
       setCirugias(cg || []);
       setConfig(c || null);
       setDataLoaded(true);
@@ -6954,6 +7082,8 @@ function VetApp() {
     // rechazadas por las reglas de Firestore.
     const puedeEscuchar = nombreSeccion => !modoColaborador || (seccionesColaborador || []).includes(nombreSeccion);
     const unsubPatients = collectionStore.listen("patients", setPatients);
+    const unsubPatientsPropios = modoColaborador && config?.rol === "peluquero" ? ownCollectionStore.listen("patients", setPatientsPropios) : () => {};
+    const unsubBanosPropios = modoColaborador && config?.rol === "peluquero" ? ownCollectionStore.listen("banos", setBanosPropios) : () => {};
     const unsubRecetas = puedeEscuchar("recetas") ? collectionStore.listen("recetas", setRecetas) : () => {};
     const unsubExamenes = puedeEscuchar("examenes") ? collectionStore.listen("examenes", setExamenes) : () => {};
     const unsubHistorial = puedeEscuchar("historial") ? collectionStore.listen("historial", setHistorial) : () => {};
@@ -6977,6 +7107,8 @@ function VetApp() {
     }
     return () => {
       unsubPatients();
+      unsubPatientsPropios();
+      unsubBanosPropios();
       unsubRecetas();
       unsubExamenes();
       unsubHistorial();
@@ -6988,7 +7120,7 @@ function VetApp() {
       unsubCirugias();
       unsubConfig();
     };
-  }, [user, dataLoaded, modoColaborador, seccionesColaborador]);
+  }, [user, dataLoaded, modoColaborador, seccionesColaborador, config?.rol]);
   const linkLegacyData = async () => {
     setLinkingLoading(true);
     try {
@@ -7288,54 +7420,102 @@ function VetApp() {
   const savePatient = data => {
     let next;
     let record;
-    const yaExiste = data.id && patients.some(p => p.id === data.id);
+    const enPropios = patientsPropios.some(p => p.id === data.id);
+    const enCompartidos = patients.some(p => p.id === data.id);
+    const yaExiste = enPropios || enCompartidos;
+    // Un colaborador peluquero/a crea SIEMPRE sus pacientes nuevos en su
+    // propia cuenta (nunca en la de la clínica); si está editando uno que ya
+    // existía, se queda guardado en la colección donde ya estaba.
+    const esPropio = yaExiste ? enPropios : !!(modoColaborador && config?.rol === "peluquero");
+    const {
+      _esPropio,
+      ...datosLimpios
+    } = data;
     if (yaExiste) {
       record = {
-        ...data,
+        ...datosLimpios,
         updatedAt: Date.now()
       };
-      next = patients.map(p => p.id === data.id ? record : p);
     } else {
       // Aunque emptyPatient() ya trae un id generado desde el inicio (para que
       // las fotos sepan en qué carpeta guardarse mientras se llena el
       // formulario), este paciente todavía no existe en la lista: se agrega
       // como nuevo, conservando ese mismo id (no se genera uno distinto).
       record = {
-        ...data,
-        id: data.id || uid(),
+        ...datosLimpios,
+        id: datosLimpios.id || uid(),
         updatedAt: Date.now()
       };
-      next = [...patients, record];
     }
-    setPatients(next);
-    collectionStore.setOne("patients", record.id, record);
+    if (esPropio) {
+      next = enPropios ? patientsPropios.map(p => p.id === record.id ? record : p) : [...patientsPropios, record];
+      setPatientsPropios(next);
+      ownCollectionStore.setOne("patients", record.id, record);
+    } else {
+      next = enCompartidos ? patients.map(p => p.id === record.id ? record : p) : [...patients, record];
+      setPatients(next);
+      collectionStore.setOne("patients", record.id, record);
+    }
     setEditing(null);
     setActive("pacientes");
-    setSelected(next.find(p => p.id === record.id) || null);
+    setSelected({
+      ...record,
+      _esPropio: esPropio
+    });
     showToast("Ficha guardada");
   };
   const deletePatient = patient => {
+    const {
+      _esPropio,
+      ...limpio
+    } = patient;
     const record = {
-      ...patient,
+      ...limpio,
       eliminadoEn: Date.now()
     };
-    const next = patients.map(p => p.id === patient.id ? record : p);
-    setPatients(next);
-    collectionStore.setOne("patients", patient.id, record);
+    if (_esPropio) {
+      setPatientsPropios(patientsPropios.map(p => p.id === patient.id ? record : p));
+      ownCollectionStore.setOne("patients", patient.id, record);
+    } else {
+      setPatients(patients.map(p => p.id === patient.id ? record : p));
+      collectionStore.setOne("patients", patient.id, record);
+    }
     setSelected(null);
     showToast("Paciente movido a la papelera");
   };
   const restorePatient = patient => {
+    const {
+      _esPropio,
+      ...limpio
+    } = patient;
     const record = {
-      ...patient
+      ...limpio
     };
     delete record.eliminadoEn;
-    const next = patients.map(p => p.id === patient.id ? record : p);
-    setPatients(next);
-    collectionStore.setOne("patients", patient.id, record);
+    if (_esPropio) {
+      setPatientsPropios(patientsPropios.map(p => p.id === patient.id ? record : p));
+      ownCollectionStore.setOne("patients", patient.id, record);
+    } else {
+      setPatients(patients.map(p => p.id === patient.id ? record : p));
+      collectionStore.setOne("patients", patient.id, record);
+    }
     showToast("Paciente restaurado");
   };
   const permanentlyDeletePatient = patient => {
+    if (patient._esPropio) {
+      // Un paciente propio del colaborador solo puede tener registros de
+      // "Baños" (las demás secciones ni siquiera están disponibles para su
+      // rol), así que el borrado en cascada se limita a eso, en su propia
+      // colección.
+      setPatientsPropios(patientsPropios.filter(p => p.id !== patient.id));
+      ownCollectionStore.deleteOne("patients", patient.id);
+      banosPropios.filter(b => b.patientId === patient.id).forEach(b => {
+        ownCollectionStore.deleteOne("banos", b.id);
+      });
+      setBanosPropios(cur => cur.filter(b => b.patientId !== patient.id));
+      showToast("Paciente y sus registros eliminados definitivamente");
+      return;
+    }
     const next = patients.filter(p => p.id !== patient.id);
     setPatients(next);
     collectionStore.deleteOne("patients", patient.id);
@@ -7483,22 +7663,43 @@ function VetApp() {
     setHospitalizaciones(next);
     collectionStore.deleteOne("hospitalizaciones", id);
   };
+  // Decide si un registro (por su patientId) pertenece a un paciente propio
+  // del colaborador (vive en su propia cuenta) o a uno compartido por la
+  // clínica (vive en la cuenta del dueño) — para saber en qué colección
+  // guardar/borrar.
+  const esPacientePropio = patientId => patientsPropios.some(p => p.id === patientId);
   const addBano = b => {
-    const next = [...banos, b];
-    setBanos(next);
-    collectionStore.setOne("banos", b.id, b);
+    if (esPacientePropio(b.patientId)) {
+      const next = [...banosPropios, b];
+      setBanosPropios(next);
+      ownCollectionStore.setOne("banos", b.id, b);
+    } else {
+      const next = [...banos, b];
+      setBanos(next);
+      collectionStore.setOne("banos", b.id, b);
+    }
     showToast("Servicio registrado");
   };
   const updateBano = b => {
-    const next = banos.map(x => x.id === b.id ? b : x);
-    setBanos(next);
-    collectionStore.setOne("banos", b.id, b);
+    if (esPacientePropio(b.patientId)) {
+      const next = banosPropios.map(x => x.id === b.id ? b : x);
+      setBanosPropios(next);
+      ownCollectionStore.setOne("banos", b.id, b);
+    } else {
+      const next = banos.map(x => x.id === b.id ? b : x);
+      setBanos(next);
+      collectionStore.setOne("banos", b.id, b);
+    }
     showToast("Servicio actualizado");
   };
   const deleteBano = id => {
-    const next = banos.filter(b => b.id !== id);
-    setBanos(next);
-    collectionStore.deleteOne("banos", id);
+    if (banosPropios.some(b => b.id === id)) {
+      setBanosPropios(banosPropios.filter(b => b.id !== id));
+      ownCollectionStore.deleteOne("banos", id);
+    } else {
+      setBanos(banos.filter(b => b.id !== id));
+      collectionStore.deleteOne("banos", id);
+    }
   };
   const addCirugia = c => {
     const next = [...cirugias, c];
@@ -7637,14 +7838,30 @@ function VetApp() {
       onUpdateInmediato: actualizarConfigInmediato
     });
   }
-  const activePatients = patients.filter(p => !p.eliminadoEn);
-  const trashedPatients = patients.filter(p => p.eliminadoEn);
+  // Un colaborador peluquero/a puede tener DOS tipos de pacientes: los que
+  // comparte la clínica (viven en la cuenta del dueño, de solo lectura para
+  // él) y los suyos propios (clientes que consiguió por su cuenta, viven en
+  // SU cuenta, los puede editar/borrar libremente y nadie más los ve). Se
+  // combinan aquí en una sola lista, marcando de cuál tipo es cada uno.
+  const patientsCombinados = [...patients.map(p => ({
+    ...p,
+    _esPropio: false
+  })), ...patientsPropios.map(p => ({
+    ...p,
+    _esPropio: true
+  }))];
+  const activePatients = patientsCombinados.filter(p => !p.eliminadoEn);
+  const trashedPatients = patientsCombinados.filter(p => p.eliminadoEn);
+  // Igual que con los pacientes: los baños de un colaborador peluquero/a se
+  // combinan entre los compartidos por la clínica y los suyos propios.
+  const banosCombinados = [...banos, ...banosPropios];
   // Para un peluquero/a, un paciente recién creado por la clínica (que
   // todavía no tiene ningún baño agendado) no le sirve de nada ver en su
   // lista — solo le interesan los pacientes que ya tienen al menos un
-  // registro en "Baños" (agendado o realizado).
-  const idsConBano = new Set((banos || []).map(b => b.patientId));
-  const patientsParaLista = config?.rol === "peluquero" ? activePatients.filter(p => idsConBano.has(p.id)) : activePatients;
+  // registro en "Baños" (agendado o realizado), MÁS todos sus propios
+  // clientes (esos siempre se ven, tengan o no un baño registrado todavía).
+  const idsConBano = new Set(banosCombinados.map(b => b.patientId));
+  const patientsParaLista = config?.rol === "peluquero" && modoColaborador ? activePatients.filter(p => p._esPropio || idsConBano.has(p.id)) : activePatients;
   return /*#__PURE__*/React.createElement("div", {
     style: styles.page,
     className: "flex flex-col min-h-screen"
@@ -7732,7 +7949,7 @@ function VetApp() {
     vacunas: vacunas,
     desparasitaciones: desparasitaciones,
     hospitalizaciones: hospitalizaciones,
-    banos: banos,
+    banos: banosCombinados,
     setActive: setActive,
     setSelected: setSelected,
     config: config,
@@ -7753,7 +7970,7 @@ function VetApp() {
   }, "Pacientes"), /*#__PURE__*/React.createElement(PatientsList, {
     patients: patientsParaLista,
     totalSinFiltro: activePatients.length,
-    trashed: trashedPatients,
+    trashed: config?.rol === "peluquero" && modoColaborador ? trashedPatients.filter(p => p._esPropio) : trashedPatients,
     onSelect: setSelected,
     onNew: () => setActive("nuevo"),
     onRestore: restorePatient,
@@ -7771,6 +7988,7 @@ function VetApp() {
     onUpdateFotos: updatePatientFotos,
     onUpdateVisita: updatePatientVisita,
     config: config,
+    modoColaborador: modoColaborador,
     recetas: recetas,
     examenes: examenes,
     historial: historial
@@ -7798,7 +8016,7 @@ function VetApp() {
     addCirugia: addCirugia,
     updateCirugia: updateCirugia,
     deleteCirugia: deleteCirugia,
-    banos: banos,
+    banos: banosCombinados,
     addBano: addBano,
     updateBano: updateBano,
     deleteBano: deleteBano,
@@ -7836,7 +8054,7 @@ function VetApp() {
     config: config
   }), active === "agenda" && /*#__PURE__*/React.createElement(AgendaView, {
     patients: activePatients,
-    banos: banos,
+    banos: banosCombinados,
     config: config,
     setActive: setActive,
     setSelected: setSelected
