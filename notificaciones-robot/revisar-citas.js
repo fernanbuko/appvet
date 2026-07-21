@@ -1,18 +1,23 @@
 // Este script lo ejecuta GitHub Actions cada cierto tiempo (ver el archivo
-// .github/workflows/revisar-citas.yml). Revisa si hay pacientes cuya
-// próxima cita está por comenzar, y si es así, manda una notificación push
-// al celular del doctor/a (o de todo el equipo, si el paciente pertenece a
-// una clínica compartida).
+// .github/workflows/revisar-citas.yml). Revisa:
+//   - Próximas visitas de pacientes (avisa cuando falta poco, con hora exacta)
+//   - Próximas dosis de vacunas
+//   - Próximas dosis de desparasitación
+//   - Próximas revisiones post-quirúrgicas (cirugías)
+//   - Próximos baños programados
+// y manda una notificación push al celular del doctor/a (o de todo el
+// equipo, si el paciente pertenece a una clínica compartida) cuando
+// corresponde.
 //
-// No modifica nada más de la app: solo LEE pacientes y config, y ESCRIBE
-// una marca en el paciente para no avisar dos veces por la misma cita.
+// No modifica nada más de la app: solo LEE estos registros y config, y
+// ESCRIBE una marca en cada uno para no avisar dos veces por lo mismo.
 //
 // A propósito, este script NO usa consultas de "grupo de colección"
 // (collectionGroup): esas requieren crear un índice especial en Firestore
 // que puede ser confuso de configurar a mano. En su lugar, revisa clínica
-// por clínica y usuario por usuario, consultando cada colección de
-// pacientes por separado — más lento con MUCHOS usuarios, pero no necesita
-// ninguna configuración extra en Firestore.
+// por clínica y usuario por usuario, consultando cada colección por
+// separado — más lento con MUCHOS usuarios, pero no necesita ninguna
+// configuración extra en Firestore.
 
 const admin = require("firebase-admin");
 
@@ -44,14 +49,16 @@ admin.initializeApp({
 const db = admin.firestore();
 const messaging = admin.messaging();
 
-// Ventana de aviso: se notifica cuando falten entre 0 y 30 minutos para la
-// cita (una sola vez por cita, gracias a la marca que se guarda después).
+// Ventana de aviso para citas CON hora exacta: se notifica cuando falten
+// entre 0 y 30 minutos. Para vacunas/desparasitación/cirugías/baños (que
+// solo tienen fecha, sin hora) se avisa una vez el mismo día que
+// corresponde, sin necesitar minutos exactos.
 const MINUTOS_VENTANA = 30;
 
 function hoyComoTexto() {
-  // Igual que con la hora de la cita: se calcula "qué día es hoy" según la
-  // hora de Ecuador (UTC-5), no la del servidor donde corre el robot — para
-  // no confundirse cerca de la medianoche.
+  // Se calcula "qué día es hoy" según la hora de Ecuador (UTC-5), no la del
+  // servidor donde corre el robot — para no confundirse cerca de la
+  // medianoche.
   const ahoraEcuador = new Date(Date.now() - 5 * 60 * 60 * 1000);
   const y = ahoraEcuador.getUTCFullYear();
   const m = String(ahoraEcuador.getUTCMonth() + 1).padStart(2, "0");
@@ -62,126 +69,187 @@ function hoyComoTexto() {
 function minutosHastaLaCita(fechaTexto, horaTexto) {
   const [anio, mes, dia] = fechaTexto.split("-").map(Number);
   const [hora, minuto] = horaTexto.split(":").map(Number);
-  // La app está pensada para clínicas en Ecuador (UTC-5, sin horario de
-  // verano). El robot corre en un servidor que usa hora UTC, así que se
-  // arma el momento de la cita directamente en UTC sumándole 5 horas a la
-  // hora de Ecuador que se guardó — así el resultado es correcto sin
-  // importar en qué zona horaria esté físicamente el servidor del robot.
   const momentoCitaUTC = Date.UTC(anio, mes - 1, dia, hora + 5, minuto, 0);
   const ahoraUTC = Date.now();
   return Math.round((momentoCitaUTC - ahoraUTC) / 60000);
 }
 
-async function enviarSiCorresponde(patientDoc, hoy, tokens, etiqueta) {
+async function tokensDeUsuario(usuarioRef) {
+  const configDoc = await usuarioRef.collection("data").doc("config").get();
+  return configDoc.exists ? configDoc.data()?.value?.fcmTokens || [] : [];
+}
+
+async function tokensDeClinica(clinicaId, usuarios) {
+  const tokens = [];
+  for (const usuarioRef of usuarios) {
+    const configDoc = await usuarioRef.collection("data").doc("config").get();
+    const valor = configDoc.exists ? configDoc.data()?.value : null;
+    if (valor?.clinicaId === clinicaId && Array.isArray(valor.fcmTokens)) {
+      tokens.push(...valor.fcmTokens);
+    }
+  }
+  return [...new Set(tokens)];
+}
+
+async function mandarNotificacion(tokens, dataPayload, etiqueta, nombrePaciente) {
+  if (!tokens || tokens.length === 0) {
+    console.log(`[${etiqueta}] ${nombrePaciente}: sin dispositivos con notificaciones activadas, se omite.`);
+    return false;
+  }
+  try {
+    const resultado = await messaging.sendEachForMulticast({ data: dataPayload, tokens });
+    console.log(`[${etiqueta}] Notificación enviada para ${nombrePaciente}: ${resultado.successCount} éxito(s), ${resultado.failureCount} fallo(s).`);
+    return true;
+  } catch (e) {
+    console.error(`[${etiqueta}] Error enviando notificación para ${nombrePaciente}:`, e.message);
+    return false;
+  }
+}
+
+/* ---------------------------------------------------------
+   Próximas visitas de pacientes (con hora exacta)
+----------------------------------------------------------*/
+async function revisarUnPacienteParaVisita(patientDoc, hoy, tokens, etiqueta) {
   const paciente = patientDoc.data();
 
   if (!paciente.proximaVisitaHora) return false;
   if (paciente.eliminadoEn) return false;
 
-  // La marca de "ya avisado" incluye la fecha Y la hora exactas de la cita
-  // (no solo el día): si el paciente reprograma la cita a otra hora, o
-  // incluso a otro día, esto cambia y el aviso se puede volver a mandar.
   const marcaDeEstaCita = `${paciente.proximaVisita} ${paciente.proximaVisitaHora}`;
   if (paciente.recordatorioEnviadoPara === marcaDeEstaCita) return false;
 
   const minutosRestantes = minutosHastaLaCita(paciente.proximaVisita, paciente.proximaVisitaHora);
   if (minutosRestantes < 0 || minutosRestantes > MINUTOS_VENTANA) return false;
 
-  if (!tokens || tokens.length === 0) {
-    console.log(`[${etiqueta}] Paciente ${paciente.nombre}: sin dispositivos con notificaciones activadas, se omite.`);
-    return false;
-  }
-
-  // Se manda solo como "data" (no como "notification"): si se manda como
-  // "notification", el navegador la muestra solo automáticamente, y como
-  // nuestro propio código TAMBIÉN la muestra a mano, salían dos veces. Con
-  // solo "data", el control es 100% de nuestro código, sin duplicar.
-  const mensaje = {
-    data: {
-      title: `Cita en ${minutosRestantes <= 1 ? "un momento" : minutosRestantes + " min"}: ${paciente.nombre}`,
-      body: paciente.propietario ? `Propietario: ${paciente.propietario}` : "Revisa la ficha del paciente.",
-      patientId: String(paciente.id || patientDoc.id),
-      // Foto de perfil del paciente (si tiene). Se manda como texto vacío
-      // si no hay foto, ya que los mensajes "data" de FCM solo aceptan
-      // valores de texto, nunca "undefined" o "null".
-      foto: paciente.foto || "",
-    },
-    tokens,
+  const dataPayload = {
+    title: `Cita en ${minutosRestantes <= 1 ? "un momento" : minutosRestantes + " min"}: ${paciente.nombre}`,
+    body: paciente.propietario ? `Propietario: ${paciente.propietario}` : "Revisa la ficha del paciente.",
+    patientId: String(paciente.id || patientDoc.id),
+    foto: paciente.foto || "",
   };
 
-  try {
-    const resultado = await messaging.sendEachForMulticast(mensaje);
-    console.log(`[${etiqueta}] Notificación enviada para ${paciente.nombre}: ${resultado.successCount} éxito(s), ${resultado.failureCount} fallo(s).`);
-  } catch (e) {
-    console.error(`[${etiqueta}] Error enviando notificación para ${paciente.nombre}:`, e.message);
-  }
-
+  const seEnvio = await mandarNotificacion(tokens, dataPayload, etiqueta, paciente.nombre);
   await patientDoc.ref.update({ recordatorioEnviadoPara: marcaDeEstaCita });
-  return true;
+  return seEnvio;
 }
 
-async function revisarPacientesPersonales(hoy) {
+async function revisarVisitasPersonales(hoy) {
   let avisos = 0;
   const usuarios = await db.collection("users").listDocuments();
-  console.log(`Revisando ${usuarios.length} cuenta(s) personal(es)...`);
+  console.log(`Revisando ${usuarios.length} cuenta(s) personal(es) — próximas visitas...`);
 
   for (const usuarioRef of usuarios) {
-    const configDoc = await usuarioRef.collection("data").doc("config").get();
-    const tokens = configDoc.exists ? configDoc.data()?.value?.fcmTokens || [] : [];
-
-    const pacientesSnap = await usuarioRef
-      .collection("patients")
-      .where("proximaVisita", "==", hoy)
-      .get();
-
+    const tokens = await tokensDeUsuario(usuarioRef);
+    const pacientesSnap = await usuarioRef.collection("patients").where("proximaVisita", "==", hoy).get();
     for (const patientDoc of pacientesSnap.docs) {
-      const seEnvio = await enviarSiCorresponde(patientDoc, hoy, tokens, `users/${usuarioRef.id}`);
+      const seEnvio = await revisarUnPacienteParaVisita(patientDoc, hoy, tokens, `users/${usuarioRef.id}`);
       if (seEnvio) avisos++;
     }
   }
   return avisos;
 }
 
-async function revisarPacientesDeClinicas(hoy) {
+async function revisarVisitasDeClinicas(hoy) {
   let avisos = 0;
+  const usuarios = await db.collection("users").listDocuments();
   const clinicas = await db.collection("clinics").listDocuments();
-  console.log(`Revisando ${clinicas.length} clínica(s) compartida(s)...`);
+  console.log(`Revisando ${clinicas.length} clínica(s) compartida(s) — próximas visitas...`);
 
   for (const clinicaRef of clinicas) {
-    // Se junta el token de TODOS los doctores cuyo config.clinicaId apunte a
-    // esta clínica, para avisarle a todo el equipo.
-    const usuarios = await db.collection("users").listDocuments();
-    const tokens = [];
-    for (const usuarioRef of usuarios) {
-      const configDoc = await usuarioRef.collection("data").doc("config").get();
-      const valor = configDoc.exists ? configDoc.data()?.value : null;
-      if (valor?.clinicaId === clinicaRef.id && Array.isArray(valor.fcmTokens)) {
-        tokens.push(...valor.fcmTokens);
-      }
-    }
-    const tokensUnicos = [...new Set(tokens)];
-
-    const pacientesSnap = await clinicaRef
-      .collection("patients")
-      .where("proximaVisita", "==", hoy)
-      .get();
-
+    const tokens = await tokensDeClinica(clinicaRef.id, usuarios);
+    const pacientesSnap = await clinicaRef.collection("patients").where("proximaVisita", "==", hoy).get();
     for (const patientDoc of pacientesSnap.docs) {
-      const seEnvio = await enviarSiCorresponde(patientDoc, hoy, tokensUnicos, `clinics/${clinicaRef.id}`);
+      const seEnvio = await revisarUnPacienteParaVisita(patientDoc, hoy, tokens, `clinics/${clinicaRef.id}`);
       if (seEnvio) avisos++;
     }
   }
+  return avisos;
+}
+
+/* ---------------------------------------------------------
+   Recordatorios por SOLO FECHA (sin hora): vacunas,
+   desparasitación, cirugías (próxima revisión) y baños. Se
+   avisa una vez el día exacto que corresponde.
+----------------------------------------------------------*/
+const TIPOS_DE_RECORDATORIO_POR_FECHA = [
+  {
+    coleccion: "vacunas",
+    campoFecha: "proximaDosis",
+    construirTitulo: (r) => `Vacuna hoy: ${r.patientName}`,
+    construirCuerpo: (r) => `Le corresponde la vacuna: ${r.nombre || "(sin especificar)"}`,
+  },
+  {
+    coleccion: "desparasitaciones",
+    campoFecha: "proximaDosis",
+    construirTitulo: (r) => `Desparasitación hoy: ${r.patientName}`,
+    construirCuerpo: (r) => `Le corresponde desparasitación ${r.tipo ? "(" + r.tipo + ")" : ""}`.trim(),
+  },
+  {
+    coleccion: "cirugias",
+    campoFecha: "proximaRevision",
+    construirTitulo: (r) => `Revisión post-operatoria hoy: ${r.patientName}`,
+    construirCuerpo: (r) => `Seguimiento de: ${r.tipoCirugia || "cirugía"}`,
+  },
+  {
+    coleccion: "banos",
+    campoFecha: "proximoBano",
+    construirTitulo: (r) => `Baño programado hoy: ${r.patientName}`,
+    construirCuerpo: (r) => r.tipo || "Servicio de estética programado",
+  },
+];
+
+async function revisarRecordatoriosPorFecha(tipoRecordatorio, hoy) {
+  const { coleccion, campoFecha, construirTitulo, construirCuerpo } = tipoRecordatorio;
+  let avisos = 0;
+
+  const usuarios = await db.collection("users").listDocuments();
+  const clinicas = await db.collection("clinics").listDocuments();
+  console.log(`Revisando "${coleccion}" (campo ${campoFecha}) en ${usuarios.length} cuenta(s) y ${clinicas.length} clínica(s)...`);
+
+  const procesarColeccion = async (parentRef, tokens, etiqueta) => {
+    let contador = 0;
+    const snap = await parentRef.collection(coleccion).where(campoFecha, "==", hoy).get();
+    for (const doc of snap.docs) {
+      const registro = doc.data();
+      if (registro.recordatorioEnviadoPara === hoy) continue;
+
+      const dataPayload = {
+        title: construirTitulo(registro),
+        body: construirCuerpo(registro),
+        patientId: String(registro.patientId || ""),
+      };
+      const seEnvio = await mandarNotificacion(tokens, dataPayload, etiqueta, registro.patientName || "(paciente)");
+      await doc.ref.update({ recordatorioEnviadoPara: hoy });
+      if (seEnvio) contador++;
+    }
+    return contador;
+  };
+
+  for (const usuarioRef of usuarios) {
+    const tokens = await tokensDeUsuario(usuarioRef);
+    avisos += await procesarColeccion(usuarioRef, tokens, `users/${usuarioRef.id}`);
+  }
+  for (const clinicaRef of clinicas) {
+    const tokens = await tokensDeClinica(clinicaRef.id, usuarios);
+    avisos += await procesarColeccion(clinicaRef, tokens, `clinics/${clinicaRef.id}`);
+  }
+
   return avisos;
 }
 
 async function main() {
   const hoy = hoyComoTexto();
-  console.log(`Revisando citas para el día ${hoy}...`);
+  console.log(`Revisando recordatorios para el día ${hoy}...`);
 
-  const avisosPersonales = await revisarPacientesPersonales(hoy);
-  const avisosClinicas = await revisarPacientesDeClinicas(hoy);
+  let totalAvisos = 0;
+  totalAvisos += await revisarVisitasPersonales(hoy);
+  totalAvisos += await revisarVisitasDeClinicas(hoy);
 
-  console.log(`Listo. Avisos mandados en esta corrida: ${avisosPersonales + avisosClinicas}.`);
+  for (const tipoRecordatorio of TIPOS_DE_RECORDATORIO_POR_FECHA) {
+    totalAvisos += await revisarRecordatoriosPorFecha(tipoRecordatorio, hoy);
+  }
+
+  console.log(`Listo. Avisos mandados en esta corrida: ${totalAvisos}.`);
 }
 
 main()
