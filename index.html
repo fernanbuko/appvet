@@ -2842,7 +2842,9 @@ function PatientDetail({
   }), /*#__PURE__*/React.createElement(DetailRow, {
     label: "Próxima visita",
     value: patient.proximaVisita ? formatDate(patient.proximaVisita, config?.dateFormat) + (patient.proximaVisitaHora ? ` — ${patient.proximaVisitaHora}` : "") : ""
-  })), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#A6A08F] -mt-1 mb-1"
+  }, "Esta fecha es para citas médicas generales. Para agendar un baño (que sí vea el peluquero/a), usa la pestaña \"Baños\" de este paciente, más abajo.")), /*#__PURE__*/React.createElement("div", {
     className: "h-px bg-[#DDD5C4] my-4"
   }), /*#__PURE__*/React.createElement("div", {
     className: "mb-2 flex items-center justify-between"
