@@ -1643,8 +1643,7 @@ function Sidebar({
   // permiso de verlas. Si no es colaborador, el rol de la propia cuenta
   // decide qué secciones aplican (ej. un peluquero no usa Recetas).
   const keysPermitidosPorRol = itemsNavPermitidos(config?.rol);
-  const itemsMenu = modoColaborador ? NAV.filter(item => ["inicio", "nuevo", "pacientes", "config"].includes(item.key)) : keysPermitidosPorRol ? NAV.filter(item => keysPermitidosPorRol.includes(item.key)) : NAV;
-  return /*#__PURE__*/React.createElement("div", {
+const itemsMenu = modoColaborador ? NAV.filter(item => ["inicio", "nuevo", "pacientes", "agenda", "config"].includes(item.key)) : keysPermitidosPorRol ? NAV.filter(item => keysPermitidosPorRol.includes(item.key)) : NAV;  return /*#__PURE__*/React.createElement("div", {
     className: "hidden md:flex md:w-60 md:min-h-screen bg-[#23342F] text-white md:flex-col"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setActive("inicio"),
@@ -1747,7 +1746,7 @@ function MobileBottomNav({
   modoColaborador,
   config
 }) {
-  const items = modoColaborador ? [{
+ const items = modoColaborador ? [{
     key: "inicio",
     label: "Inicio",
     icon: "🏠"
@@ -1755,6 +1754,14 @@ function MobileBottomNav({
     key: "pacientes",
     label: "Pacientes",
     icon: "👥"
+  }, {
+    key: "agenda",
+    label: "Agenda",
+    icon: "📅"
+  }, {
+    key: "config",
+    label: "Configuración",
+    icon: "⚙️"
   }] : BOTTOM_NAV_POR_ROL[config?.rol] || BOTTOM_NAV_ITEMS;
   return /*#__PURE__*/React.createElement("div", {
     className: "md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white flex items-stretch",
@@ -6634,7 +6641,7 @@ function VetApp() {
   // llega a una sección restringida estando en modo colaborador, se regresa
   // a Inicio en vez de mostrarla.
   useEffect(() => {
-    if (modoColaborador && ["recetas", "examenes", "agenda", "reportes"].includes(active)) {
+   if (modoColaborador && ["recetas", "examenes", "reportes"].includes(active)) {
       setActive("inicio");
       return;
     }
