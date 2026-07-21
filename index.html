@@ -3819,23 +3819,13 @@ function BanosSection({
   const hoy = new Date().toISOString().slice(0, 10);
   const proximoBanoVencido = b => b.proximoBano && b.proximoBano < hoy;
 
-  // "Ya se atendió": el baño programado sí se hizo, así que se registra
-  // como un nuevo servicio (fecha de hoy) y se quita el aviso pendiente de
-  // este registro.
+  // "Ya se atendió": el baño programado sí se hizo. Se actualiza ESTE MISMO
+  // registro (poniendo su fecha de ingreso en hoy y quitando el aviso
+  // pendiente) en vez de crear uno nuevo — así no queda duplicado.
   const marcarBanoAtendido = b => {
-    onAdd({
-      id: uid(),
-      patientId: patient.id,
-      patientName: patient.nombre,
-      tipo: b.tipo || "Baño",
-      fecha: hoy,
-      producto: "",
-      notas: "",
-      proximoBano: "",
-      proximoBanoHora: ""
-    });
     onUpdate({
       ...b,
+      fecha: hoy,
       proximoBano: "",
       proximoBanoHora: ""
     });
