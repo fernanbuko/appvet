@@ -3452,12 +3452,14 @@ function BanosSection({
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [producto, setProducto] = useState("");
   const [notas, setNotas] = useState("");
+  const [proximoBano, setProximoBano] = useState("");
   const entries = banos.filter(b => b.patientId === patient.id).sort((a, b) => a.fecha < b.fecha ? 1 : -1);
   const reset = () => {
     setTipo("Baño");
     setFecha(new Date().toISOString().slice(0, 10));
     setProducto("");
     setNotas("");
+    setProximoBano("");
     setShowForm(false);
     setEditingId(null);
   };
@@ -3467,6 +3469,7 @@ function BanosSection({
     setFecha(b.fecha);
     setProducto(b.producto || "");
     setNotas(b.notas || "");
+    setProximoBano(b.proximoBano || "");
     setShowForm(true);
   };
   const save = () => {
@@ -3477,11 +3480,14 @@ function BanosSection({
       tipo,
       fecha,
       producto,
-      notas
+      notas,
+      proximoBano
     };
     if (editingId) onUpdate(data);else onAdd(data);
     reset();
   };
+  const hoy = new Date().toISOString().slice(0, 10);
+  const proximoBanoVencido = b => b.proximoBano && b.proximoBano < hoy;
   return /*#__PURE__*/React.createElement("div", {
     className: "max-w-2xl mt-6"
   }, /*#__PURE__*/React.createElement("div", {
@@ -3521,6 +3527,12 @@ function BanosSection({
     value: notas,
     onChange: e => setNotas(e.target.value),
     placeholder: "Piel sensible, reacciones, observaciones..."
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Próximo baño programado (opcional)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: proximoBano,
+    onChange: e => setProximoBano(e.target.value)
   })), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2 mt-2"
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
@@ -3555,7 +3567,14 @@ function BanosSection({
     className: "text-sm mt-2 text-[#6B7A72]"
   }, /*#__PURE__*/React.createElement("b", null, "Producto:"), " ", b.producto), b.notas && /*#__PURE__*/React.createElement("p", {
     className: "text-sm mt-1 text-[#6B7A72] whitespace-pre-wrap"
-  }, b.notas)))));
+  }, b.notas), b.proximoBano && /*#__PURE__*/React.createElement("div", {
+    className: "mt-2 inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded",
+    style: {
+      ...styles.mono,
+      color: proximoBanoVencido(b) ? "var(--accent-orange)" : "var(--accent-green)",
+      background: proximoBanoVencido(b) ? "var(--accent-orange-bg)" : "var(--accent-green-bg)"
+    }
+  }, proximoBanoVencido(b) ? "⚠ Próximo baño vencido: " : "📅 Próximo baño: ", formatDate(b.proximoBano, config?.dateFormat))))));
 }
 
 /* ---------------------------------------------------------
