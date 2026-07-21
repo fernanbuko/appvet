@@ -2323,6 +2323,103 @@ function exportPatientPDF(patient, config, recetas, examenes, historial) {
   win.focus();
   setTimeout(() => win.print(), 350);
 }
+
+// Agrupa en pestañas las secciones "extra" de la ficha del paciente
+// (Historial, Vacunas, Desparasitación, Hospitalización, Cirugías, Baños,
+// Cobros) para que no ocupen tanto espacio todas apiladas — se ve solo una
+// a la vez, cambiando con los botones de arriba.
+function PatientSecciones(props) {
+  const [tab, setTab] = useState("historial");
+  const TABS = [{
+    key: "historial",
+    label: "Historial",
+    icon: "📋"
+  }, {
+    key: "vacunas",
+    label: "Vacunas",
+    icon: "💉"
+  }, {
+    key: "desparasitacion",
+    label: "Desparasitación",
+    icon: "🐛"
+  }, {
+    key: "hospitalizacion",
+    label: "Hospitalización",
+    icon: "🏥"
+  }, {
+    key: "cirugias",
+    label: "Cirugías",
+    icon: "🔪"
+  }, {
+    key: "banos",
+    label: "Baños",
+    icon: "🛁"
+  }, {
+    key: "cobros",
+    label: "Cobros",
+    icon: "💰"
+  }];
+  return /*#__PURE__*/React.createElement("div", {
+    className: "max-w-2xl mt-6"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-1 overflow-x-auto border-b border-[#DDD5C4]"
+  }, TABS.map(t => /*#__PURE__*/React.createElement("button", {
+    key: t.key,
+    onClick: () => setTab(t.key),
+    className: "px-3 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition shrink-0 " + (tab === t.key ? "border-[#3D6B5C] text-[#23342F]" : "border-transparent text-[#6B7A72] hover:text-[#23342F]")
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "mr-1"
+  }, t.icon), t.label))), tab === "historial" && /*#__PURE__*/React.createElement(HistorialMedico, {
+    patient: props.patient,
+    historial: props.historial,
+    onAdd: props.addHistorial,
+    onUpdate: props.updateHistorial,
+    onDelete: props.deleteHistorial,
+    config: props.config
+  }), tab === "vacunas" && /*#__PURE__*/React.createElement(VacunasSection, {
+    patient: props.patient,
+    vacunas: props.vacunas,
+    onAdd: props.addVacuna,
+    onUpdate: props.updateVacuna,
+    onDelete: props.deleteVacuna,
+    config: props.config
+  }), tab === "desparasitacion" && /*#__PURE__*/React.createElement(DesparasitacionSection, {
+    patient: props.patient,
+    desparasitaciones: props.desparasitaciones,
+    onAdd: props.addDesparasitacion,
+    onUpdate: props.updateDesparasitacion,
+    onDelete: props.deleteDesparasitacion,
+    config: props.config
+  }), tab === "hospitalizacion" && /*#__PURE__*/React.createElement(HospitalizacionSection, {
+    patient: props.patient,
+    hospitalizaciones: props.hospitalizaciones,
+    onAdd: props.addHospitalizacion,
+    onUpdate: props.updateHospitalizacion,
+    onDelete: props.deleteHospitalizacion,
+    config: props.config
+  }), tab === "cirugias" && /*#__PURE__*/React.createElement(CirugiasSection, {
+    patient: props.patient,
+    cirugias: props.cirugias,
+    onAdd: props.addCirugia,
+    onUpdate: props.updateCirugia,
+    onDelete: props.deleteCirugia,
+    config: props.config
+  }), tab === "banos" && /*#__PURE__*/React.createElement(BanosSection, {
+    patient: props.patient,
+    banos: props.banos,
+    onAdd: props.addBano,
+    onUpdate: props.updateBano,
+    onDelete: props.deleteBano,
+    config: props.config
+  }), tab === "cobros" && /*#__PURE__*/React.createElement(CobrosSection, {
+    patient: props.patient,
+    cobros: props.cobros,
+    onAdd: props.addCobro,
+    onUpdate: props.updateCobro,
+    onDelete: props.deleteCobro,
+    config: props.config
+  }));
+}
 function PatientDetail({
   patient,
   onEdit,
@@ -7062,55 +7159,37 @@ function VetApp() {
   }), /*#__PURE__*/React.createElement(WeightChart, {
     patient: selected,
     historial: historial
-  }), /*#__PURE__*/React.createElement(VacunasSection, {
+  }), /*#__PURE__*/React.createElement(PatientSecciones, {
     patient: selected,
+    config: config,
     vacunas: vacunas,
-    onAdd: addVacuna,
-    onUpdate: updateVacuna,
-    onDelete: deleteVacuna,
-    config: config
-  }), /*#__PURE__*/React.createElement(DesparasitacionSection, {
-    patient: selected,
+    addVacuna: addVacuna,
+    updateVacuna: updateVacuna,
+    deleteVacuna: deleteVacuna,
     desparasitaciones: desparasitaciones,
-    onAdd: addDesparasitacion,
-    onUpdate: updateDesparasitacion,
-    onDelete: deleteDesparasitacion,
-    config: config
-  }), /*#__PURE__*/React.createElement(HospitalizacionSection, {
-    patient: selected,
+    addDesparasitacion: addDesparasitacion,
+    updateDesparasitacion: updateDesparasitacion,
+    deleteDesparasitacion: deleteDesparasitacion,
     hospitalizaciones: hospitalizaciones,
-    onAdd: addHospitalizacion,
-    onUpdate: updateHospitalizacion,
-    onDelete: deleteHospitalizacion,
-    config: config
-  }), /*#__PURE__*/React.createElement(CirugiasSection, {
-    patient: selected,
+    addHospitalizacion: addHospitalizacion,
+    updateHospitalizacion: updateHospitalizacion,
+    deleteHospitalizacion: deleteHospitalizacion,
     cirugias: cirugias,
-    onAdd: addCirugia,
-    onUpdate: updateCirugia,
-    onDelete: deleteCirugia,
-    config: config
-  }), /*#__PURE__*/React.createElement(BanosSection, {
-    patient: selected,
+    addCirugia: addCirugia,
+    updateCirugia: updateCirugia,
+    deleteCirugia: deleteCirugia,
     banos: banos,
-    onAdd: addBano,
-    onUpdate: updateBano,
-    onDelete: deleteBano,
-    config: config
-  }), /*#__PURE__*/React.createElement(HistorialMedico, {
-    patient: selected,
+    addBano: addBano,
+    updateBano: updateBano,
+    deleteBano: deleteBano,
     historial: historial,
-    onAdd: addHistorial,
-    onUpdate: updateHistorial,
-    onDelete: deleteHistorial,
-    config: config
-  }), /*#__PURE__*/React.createElement(CobrosSection, {
-    patient: selected,
+    addHistorial: addHistorial,
+    updateHistorial: updateHistorial,
+    deleteHistorial: deleteHistorial,
     cobros: cobros,
-    onAdd: addCobro,
-    onUpdate: updateCobro,
-    onDelete: deleteCobro,
-    config: config
+    addCobro: addCobro,
+    updateCobro: updateCobro,
+    deleteCobro: deleteCobro
   })), active === "pacientes" && editing && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold mb-1"
