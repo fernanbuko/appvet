@@ -791,6 +791,43 @@ function nombreCompletoDoctor(config) {
   return config?.doctorNombre || "";
 }
 
+// Roles disponibles al crear la cuenta. No todo el que usa la app es una
+// clínica veterinaria (puede ser un peluquero, un vendedor de insumos,
+// etc.), así que el rol elegido cambia cómo se llaman algunos campos del
+// formulario (nombre del "negocio", si se muestra "Dr./Dra.", etc.).
+const ROLES_DISPONIBLES = [{
+  key: "veterinario",
+  label: "Veterinario/a"
+}, {
+  key: "peluquero",
+  label: "Peluquero/a"
+}, {
+  key: "vendedor",
+  label: "Vendedor/a de productos"
+}, {
+  key: "otro",
+  label: "Otro"
+}];
+
+// Texto del campo "nombre del negocio" según el rol elegido: solo una
+// clínica veterinaria tiene "clínica", el resto tiene un "negocio" genérico.
+function etiquetaNombreNegocio(rol) {
+  if (rol === "veterinario") return "Nombre de la clínica";
+  if (rol === "peluquero") return "Nombre de la peluquería";
+  return "Nombre del negocio";
+}
+function etiquetaDireccionNegocio(rol) {
+  if (rol === "veterinario") return "Dirección de la clínica";
+  if (rol === "peluquero") return "Dirección de la peluquería";
+  return "Dirección del negocio";
+}
+function placeholderNombreNegocio(rol) {
+  if (rol === "veterinario") return "Ej. Clínica Veterinaria San Roque";
+  if (rol === "peluquero") return "Ej. Peluquería Canina Huellitas";
+  if (rol === "vendedor") return "Ej. PetShop Guayas";
+  return "Ej. Nombre de tu negocio";
+}
+
 // Devuelve la lista de cuentas de una red social. Si la cuenta se guardó con
 // la versión anterior (un solo campo de texto, antes de permitir varias
 // cuentas) y todavía no se volvió a guardar el formulario con la lista
@@ -4870,6 +4907,8 @@ function ExamenesView({
    Configuración: clínica y doctor/a
 ----------------------------------------------------------*/
 const emptyConfig = () => ({
+  rol: "veterinario",
+  rolOtro: "",
   clinica: "",
   doctorNombre: "",
   doctorNombres: "",
@@ -4945,6 +4984,14 @@ function migrarConfig(base) {
   if (!migrado.colaboradoresPermitidos) migrado = {
     ...migrado,
     colaboradoresPermitidos: {}
+  };
+  // Cuentas creadas antes de que existiera el selector de rol eran todas
+  // clínicas veterinarias, así que se les asigna ese rol por defecto para
+  // no cambiarles el formulario ni el trato (Dr./Dra.) que ya tenían.
+  if (!migrado.rol) migrado = {
+    ...migrado,
+    rol: "veterinario",
+    rolOtro: migrado.rolOtro || ""
   };
   return migrado;
 }
@@ -5255,7 +5302,7 @@ function ConfigForm({
     }
   }), isSetup && /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-[#6B7A72] mb-5"
-  }, "Antes de empezar, cuéntanos quién eres y el nombre de tu clínica. Esto se usará para saludarte y para identificar tus recetas cuando las compartas con los dueños."), /*#__PURE__*/React.createElement("div", {
+  }, "Antes de empezar, cuéntanos a qué te dedicas, quién eres y el nombre de tu negocio. Esto se usará para saludarte y para identificar la app cuando compartas información con tus clientes."), /*#__PURE__*/React.createElement("div", {
     className: "bg-white border border-[#DDD5C4] rounded-lg p-6"
   }, /*#__PURE__*/React.createElement("div", {
     className: "mb-4"
@@ -5344,14 +5391,29 @@ function ConfigForm({
   }, "Quitar foto"), fotoError && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#B14E1C] mt-1"
   }, fotoError)))), /*#__PURE__*/React.createElement(Field, {
-    label: "Nombre de la clínica"
+    label: "¿A qué te dedicas?"
+  }, /*#__PURE__*/React.createElement("select", {
+    value: data.rol || "veterinario",
+    onChange: set("rol"),
+    className: inputClass
+  }, ROLES_DISPONIBLES.map(r => /*#__PURE__*/React.createElement("option", {
+    key: r.key,
+    value: r.key
+  }, r.label)))), data.rol === "otro" && /*#__PURE__*/React.createElement(Field, {
+    label: "Cuéntanos qué tipo de negocio es"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    value: data.rolOtro,
+    onChange: set("rolOtro"),
+    placeholder: "Ej. Adiestrador canino, transporte de mascotas..."
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: etiquetaNombreNegocio(data.rol)
   }, /*#__PURE__*/React.createElement(TextInput, {
     value: data.clinica,
     onChange: set("clinica"),
-    placeholder: "Ej. Clínica Veterinaria San Roque"
+    placeholder: placeholderNombreNegocio(data.rol)
   })), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-3 gap-3"
-  }, /*#__PURE__*/React.createElement(Field, {
+    className: data.rol === "veterinario" ? "grid grid-cols-3 gap-3" : "grid grid-cols-2 gap-3"
+  }, data.rol === "veterinario" && /*#__PURE__*/React.createElement(Field, {
     label: "Trato"
   }, /*#__PURE__*/React.createElement("select", {
     value: data.doctorTitulo,
@@ -5370,7 +5432,7 @@ function ConfigForm({
     onChange: set("doctorApellidos"),
     placeholder: "Ej. Gómez Pérez"
   }))), /*#__PURE__*/React.createElement(Field, {
-    label: "Dirección de la clínica"
+    label: etiquetaDireccionNegocio(data.rol)
   }, /*#__PURE__*/React.createElement(TextInput, {
     value: data.direccion,
     onChange: set("direccion"),
@@ -5874,7 +5936,7 @@ function GreetingScreen({
     className: "text-3xl font-semibold text-[#23342F] leading-tight"
   }, greetingByHour(), /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
     className: "text-2xl"
-  }, config.doctorTitulo, " ", nombreCompletoDoctor(config))), config.clinica && /*#__PURE__*/React.createElement("p", {
+  }, config.rol === "veterinario" && config.doctorTitulo ? config.doctorTitulo + " " : "", nombreCompletoDoctor(config))), config.clinica && /*#__PURE__*/React.createElement("p", {
     className: "text-[#6B7A72] mt-2"
   }, config.clinica), /*#__PURE__*/React.createElement("div", {
     className: "mt-8"
@@ -5888,7 +5950,7 @@ function GreetingScreen({
     className: "text-3xl font-semibold text-[#23342F] leading-tight"
   }, "Bienvenido/a a VetData"), /*#__PURE__*/React.createElement("p", {
     className: "text-[#6B7A72] mt-2"
-  }, "Configura el nombre de tu clínica y tus datos para personalizar la app."), /*#__PURE__*/React.createElement("div", {
+  }, "Cuéntanos a qué te dedicas y configura tus datos para personalizar la app."), /*#__PURE__*/React.createElement("div", {
     className: "mt-8 text-left"
   }, /*#__PURE__*/React.createElement(ConfigForm, {
     config: null,
