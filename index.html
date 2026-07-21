@@ -1643,7 +1643,7 @@ function Sidebar({
   // permiso de verlas. Si no es colaborador, el rol de la propia cuenta
   // decide qué secciones aplican (ej. un peluquero no usa Recetas).
   const keysPermitidosPorRol = itemsNavPermitidos(config?.rol);
-  const itemsMenu = modoColaborador ? NAV.filter(item => ["inicio", "nuevo", "pacientes", "config"].includes(item.key)) : keysPermitidosPorRol ? NAV.filter(item => keysPermitidosPorRol.includes(item.key)) : NAV;
+  const itemsMenu = modoColaborador ? NAV.filter(item => ["inicio", "nuevo", "pacientes", "agenda", "config"].includes(item.key)) : keysPermitidosPorRol ? NAV.filter(item => keysPermitidosPorRol.includes(item.key)) : NAV;
   return /*#__PURE__*/React.createElement("div", {
     className: "hidden md:flex md:w-60 md:min-h-screen bg-[#23342F] text-white md:flex-col"
   }, /*#__PURE__*/React.createElement("button", {
@@ -1755,6 +1755,14 @@ function MobileBottomNav({
     key: "pacientes",
     label: "Pacientes",
     icon: "👥"
+  }, {
+    key: "agenda",
+    label: "Agenda",
+    icon: "📅"
+  }, {
+    key: "config",
+    label: "Configuración",
+    icon: "⚙️"
   }] : BOTTOM_NAV_POR_ROL[config?.rol] || BOTTOM_NAV_ITEMS;
   return /*#__PURE__*/React.createElement("div", {
     className: "md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white flex items-stretch",
@@ -2920,7 +2928,7 @@ function PatientDetail({
   }, "Código QR"), /*#__PURE__*/React.createElement(GhostButton, {
     onClick: () => exportPatientPDF(patient, config, recetas || [], examenes || [], historial || []),
     icon: "🖨️"
-  }, "Exportar ficha en PDF"), /*#__PURE__*/React.createElement(GhostButton, {
+  }, "Exportar ficha en PDF"), config?.rol !== "peluquero" && /*#__PURE__*/React.createElement(GhostButton, {
     onClick: () => onDelete(patient),
     icon: "🗑️",
     danger: true
@@ -3695,6 +3703,10 @@ function BanosSection({
   const [producto, setProducto] = useState("");
   const [notas, setNotas] = useState("");
   const [proximoBano, setProximoBano] = useState("");
+  // Para reagendar el "próximo baño" directamente desde su aviso, sin tener
+  // que abrir el formulario completo de edición.
+  const [reprogramandoId, setReprogramandoId] = useState(null);
+  const [nuevaFechaProximoBano, setNuevaFechaProximoBano] = useState("");
   const entries = banos.filter(b => b.patientId === patient.id).sort((a, b) => a.fecha < b.fecha ? 1 : -1);
   const reset = () => {
     setTipo("Baño");
@@ -3730,6 +3742,43 @@ function BanosSection({
   };
   const hoy = new Date().toISOString().slice(0, 10);
   const proximoBanoVencido = b => b.proximoBano && b.proximoBano < hoy;
+
+  // "Ya se atendió": el baño programado sí se hizo, así que se registra
+  // como un nuevo servicio (fecha de hoy) y se quita el aviso pendiente de
+  // este registro.
+  const marcarBanoAtendido = b => {
+    onAdd({
+      id: uid(),
+      patientId: patient.id,
+      patientName: patient.nombre,
+      tipo: b.tipo || "Baño",
+      fecha: hoy,
+      producto: "",
+      notas: "",
+      proximoBano: ""
+    });
+    onUpdate({
+      ...b,
+      proximoBano: ""
+    });
+  };
+  // "Cancelar": se decidió no hacer ese baño programado, sin registrar
+  // ningún servicio nuevo.
+  const cancelarProximoBano = b => {
+    onUpdate({
+      ...b,
+      proximoBano: ""
+    });
+  };
+  const guardarReprogramacionBano = b => {
+    if (!nuevaFechaProximoBano) return;
+    onUpdate({
+      ...b,
+      proximoBano: nuevaFechaProximoBano
+    });
+    setReprogramandoId(null);
+    setNuevaFechaProximoBano("");
+  };
   return /*#__PURE__*/React.createElement("div", {
     className: "max-w-2xl mt-6"
   }, /*#__PURE__*/React.createElement("div", {
@@ -3810,13 +3859,45 @@ function BanosSection({
   }, /*#__PURE__*/React.createElement("b", null, "Producto:"), " ", b.producto), b.notas && /*#__PURE__*/React.createElement("p", {
     className: "text-sm mt-1 text-[#6B7A72] whitespace-pre-wrap"
   }, b.notas), b.proximoBano && /*#__PURE__*/React.createElement("div", {
-    className: "mt-2 inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded",
+    className: "mt-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded",
     style: {
       ...styles.mono,
       color: proximoBanoVencido(b) ? "var(--accent-orange)" : "var(--accent-green)",
       background: proximoBanoVencido(b) ? "var(--accent-orange-bg)" : "var(--accent-green-bg)"
     }
-  }, proximoBanoVencido(b) ? "⚠ Próximo baño vencido: " : "📅 Próximo baño: ", formatDate(b.proximoBano, config?.dateFormat))))));
+  }, proximoBanoVencido(b) ? "⚠ Próximo baño vencido: " : "📅 Próximo baño: ", formatDate(b.proximoBano, config?.dateFormat)), reprogramandoId === b.id ? /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mt-2 flex-wrap"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: nuevaFechaProximoBano,
+    onChange: e => setNuevaFechaProximoBano(e.target.value)
+  }), /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: () => guardarReprogramacionBano(b),
+    disabled: !nuevaFechaProximoBano,
+    icon: "✓"
+  }, "Guardar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => {
+      setReprogramandoId(null);
+      setNuevaFechaProximoBano("");
+    }
+  }, "Cancelar")) : /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mt-2 flex-wrap"
+  }, /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => marcarBanoAtendido(b),
+    icon: "✅"
+  }, "Ya se atendió"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => {
+      setReprogramandoId(b.id);
+      setNuevaFechaProximoBano(b.proximoBano);
+    },
+    icon: "📅"
+  }, "Reprogramar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => cancelarProximoBano(b),
+    icon: "✕",
+    danger: true
+  }, "Cancelar")))))));
 }
 
 /* ---------------------------------------------------------
@@ -4295,7 +4376,7 @@ function PatientsList({
     p: p,
     onSelect: onSelect,
     config: config
-  }))), trashed && trashed.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }))), trashed && trashed.length > 0 && config?.rol !== "peluquero" && /*#__PURE__*/React.createElement("div", {
     className: "mt-8"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowTrash(s => !s),
@@ -6702,7 +6783,7 @@ function VetApp() {
   // llega a una sección restringida estando en modo colaborador, se regresa
   // a Inicio en vez de mostrarla.
   useEffect(() => {
-    if (modoColaborador && ["recetas", "examenes", "agenda", "reportes"].includes(active)) {
+    if (modoColaborador && ["recetas", "examenes", "reportes"].includes(active)) {
       setActive("inicio");
       return;
     }
