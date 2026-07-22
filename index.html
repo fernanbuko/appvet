@@ -2698,7 +2698,8 @@ function PatientSecciones(props) {
     onAdd: props.addBano,
     onUpdate: props.updateBano,
     onDelete: props.deleteBano,
-    config: props.config
+    config: props.config,
+    modoColaborador: props.modoColaborador
   }), tab === "cobros" && /*#__PURE__*/React.createElement(CobrosSection, {
     patient: props.patient,
     cobros: props.cobros,
@@ -3859,8 +3860,15 @@ function BanosSection({
   onAdd,
   onUpdate,
   onDelete,
-  config
+  config,
+  modoColaborador
 }) {
+  // Un paciente "ajeno" (compartido por la clínica, no propio del
+  // colaborador) no se le puede registrar un servicio nuevo desde cero —
+  // solo se pueden usar las acciones rápidas (Ya se atendió/Reprogramar/
+  // Cancelar) o editar un registro ya existente. Para sus propios
+  // clientes, sigue teniendo control total.
+  const esPacienteAjeno = modoColaborador && !patient._esPropio;
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [tipo, setTipo] = useState("Baño");
@@ -3955,7 +3963,7 @@ function BanosSection({
   }, /*#__PURE__*/React.createElement("h3", {
     style: styles.display,
     className: "text-lg font-semibold"
-  }, "Baños y estética"), !showForm && /*#__PURE__*/React.createElement(GhostButton, {
+  }, "Baños y estética"), !showForm && !esPacienteAjeno && /*#__PURE__*/React.createElement(GhostButton, {
     onClick: () => setShowForm(true),
     icon: "🛁"
   }, "Registrar servicio")), showForm && /*#__PURE__*/React.createElement("div", {
@@ -4017,7 +4025,7 @@ function BanosSection({
     onClick: reset
   }, "Cancelar"))), entries.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
     title: "Sin servicios de baño registrados",
-    subtitle: "Los baños, cortes y otros servicios de estética que le hagas a este paciente aparecerán aquí."
+    subtitle: esPacienteAjeno ? "La clínica todavía no ha registrado ningún baño para este paciente." : "Los baños, cortes y otros servicios de estética que le hagas a este paciente aparecerán aquí."
   }) : /*#__PURE__*/React.createElement("div", {
     className: "space-y-3"
   }, entries.map(b => /*#__PURE__*/React.createElement("div", {
