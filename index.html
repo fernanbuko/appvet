@@ -2897,7 +2897,7 @@ function PatientDetail({
     value: patient.ubicacion
   }), /*#__PURE__*/React.createElement(DetailRow, {
     label: "Teléfono propietario",
-    value: patient.telefonoPropietario
+    value: esPacienteAjeno ? "" : patient.telefonoPropietario
   })), !esFichaSimplificada && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "h-px bg-[#DDD5C4] my-4"
   }), /*#__PURE__*/React.createElement(DetailRow, {
@@ -2974,7 +2974,7 @@ function PatientDetail({
     className: "absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white text-xs flex items-center justify-center"
   }, "✕")))) : /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#A6A08F] mb-2"
-  }, "Sin fotos adicionales (heridas, evolución, radiografías, etc.)")), patient.telefonoPropietario && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }, "Sin fotos adicionales (heridas, evolución, radiografías, etc.)")), patient.telefonoPropietario && !esPacienteAjeno && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "h-px bg-[#DDD5C4] my-4"
   }), /*#__PURE__*/React.createElement("span", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-2 block",
@@ -7852,6 +7852,25 @@ function VetApp() {
   // clínica (vive en la cuenta del dueño) — para saber en qué colección
   // guardar/borrar.
   const esPacientePropio = patientId => patientsPropios.some(p => p.id === patientId);
+  // Dispara un aviso hacia la cuenta del dueño de la clínica (no hacia el
+  // propio colaborador, que ya sabe que hizo la acción). El robot de
+  // notificaciones (revisar-citas.js) revisa esta colección, manda el push
+  // y borra el aviso ya procesado. Solo aplica cuando esta cuenta trabaja
+  // en modo colaborador sobre un paciente que NO es propio — un peluquero
+  // independiente, o cambios en sus propios pacientes, no tienen "clínica"
+  // a quién avisar.
+  const notificarClinica = (tipo, patientId, patientName, detalle) => {
+    if (!modoColaborador) return;
+    const id = uid();
+    collectionStore.setOne("avisosClinica", id, {
+      id,
+      tipo,
+      patientId,
+      patientName,
+      detalle,
+      creadoEn: Date.now()
+    });
+  };
   const addBano = b => {
     if (esPacientePropio(b.patientId)) {
       const next = [...banosPropios, b];
@@ -7865,7 +7884,18 @@ function VetApp() {
     showToast("Servicio registrado");
   };
   const updateBano = b => {
-    if (esPacientePropio(b.patientId)) {
+    const esPropio = esPacientePropio(b.patientId);
+    if (!esPropio) {
+      const anterior = banos.find(x => x.id === b.id);
+      if (anterior) {
+        if (!anterior.fechaAtendido && b.fechaAtendido) {
+          notificarClinica("atendido", b.patientId, b.patientName, `${b.tipo || "Baño"} atendido el ${formatDate(b.fechaAtendido, config?.dateFormat)}`);
+        } else if (b.proximoBano && b.proximoBano !== anterior.proximoBano) {
+          notificarClinica("reagendado", b.patientId, b.patientName, `Nuevo baño programado: ${formatDate(b.proximoBano, config?.dateFormat)}${b.proximoBanoHora ? " — " + b.proximoBanoHora : ""}`);
+        }
+      }
+    }
+    if (esPropio) {
       const next = banosPropios.map(x => x.id === b.id ? b : x);
       setBanosPropios(next);
       ownCollectionStore.setOne("banos", b.id, b);
@@ -7881,6 +7911,10 @@ function VetApp() {
       setBanosPropios(banosPropios.filter(b => b.id !== id));
       ownCollectionStore.deleteOne("banos", id);
     } else {
+      const registro = banos.find(b => b.id === id);
+      if (registro) {
+        notificarClinica("eliminado", registro.patientId, registro.patientName, `Se eliminó un registro de baño (${registro.tipo || "Baño"}, ingreso: ${formatDate(registro.fecha, config?.dateFormat)})`);
+      }
       setBanos(banos.filter(b => b.id !== id));
       collectionStore.deleteOne("banos", id);
     }
