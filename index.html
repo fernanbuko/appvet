@@ -165,6 +165,25 @@
   .max-w-\[160px\]{max-width:160px}
   .hover\:bg-\[\#DDE7E1\]:hover{background-color:#DDE7E1}
 
+  /* Usadas por la campanita de notificaciones — agregadas a mano porque
+     este proyecto no compila Tailwind de verdad, cada clase nueva usada en
+     el JSX hay que declararla aquí o simplemente no se ve. */
+  .w-80{width:20rem}
+  .max-w-\[85vw\]{max-width:85vw}
+  .max-h-\[70vh\]{max-height:70vh}
+  .min-w-\[16px\]{min-width:16px}
+  .top-full{top:100%}
+  .top-0{top:0}
+  .-top-1{top:-0.25rem}
+  .-right-1{right:-0.25rem}
+  .opacity-60{opacity:.6}
+  .sticky{position:sticky}
+  .hover\:bg-white\/20:hover{background-color:rgba(255,255,255,.2)}
+  .hover\:bg-\[\#EAF0EC\]:hover{background-color:#EAF0EC}
+  .hover\:bg-\[\#F7F4EC\]:hover{background-color:#F7F4EC}
+  .last\:border-0:last-child{border-width:0}
+  .border-\[\#EFEAE0\]{border-color:#EFEAE0}
+
   .w-10{width:2.5rem}.h-10{height:2.5rem}
 
   .max-w-\[380px\]{max-width:380px}
@@ -1774,7 +1793,7 @@ function NotificationBell({
     className: "fixed inset-0 z-40",
     onClick: () => setAbierto(false)
   }), /*#__PURE__*/React.createElement("div", {
-    className: "absolute right-0 mt-2 w-80 max-w-[85vw] bg-white border border-[#DDD5C4] rounded-lg shadow-lg z-50 max-h-[70vh] overflow-y-auto"
+    className: "absolute right-0 top-full mt-2 w-80 max-w-[85vw] bg-white border border-[#DDD5C4] rounded-lg shadow-lg z-50 max-h-[70vh] overflow-y-auto"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between px-4 py-3 border-b border-[#DDD5C4] sticky top-0 bg-white"
   }, /*#__PURE__*/React.createElement("span", {
