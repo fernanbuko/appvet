@@ -1176,6 +1176,23 @@ const ownCollectionStore = {
 };
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
+// Lee un link de invitación a colaborador del hash de la URL, ej.:
+// "...#invitar=UID&nombre=Golden%20Vet%20Care" — generado por el botón
+// "Copiar link de invitación" en Configuración.
+function leerInvitacionDesdeHash() {
+  const hash = typeof window !== "undefined" ? window.location.hash || "" : "";
+  const m = hash.match(/invitar=([^&]+)(?:&nombre=([^&]*))?/);
+  if (!m) return null;
+  try {
+    return {
+      uid: decodeURIComponent(m[1]),
+      nombre: m[2] ? decodeURIComponent(m[2]) : ""
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
 function readFileAsDataURL(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -5370,7 +5387,10 @@ function ConfigForm({
   onCancel,
   isSetup,
   onToggleDarkMode,
-  onUpdateInmediato
+  onUpdateInmediato,
+  solicitudesColaborador,
+  onAceptarSolicitud,
+  onRechazarSolicitud
 }) {
   const [data, setData] = useState(() => migrarConfig(config));
   // Una vez creada la cuenta, si el rol elegido no es veterinario/a (ej.
@@ -5447,6 +5467,9 @@ function ConfigForm({
   const [nuevoColabUid, setNuevoColabUid] = useState("");
   const [nuevoColabNombre, setNuevoColabNombre] = useState("");
   const [nuevoColabSecciones, setNuevoColabSecciones] = useState([]);
+  // Secciones elegidas (todavía sin guardar) para cada solicitud de
+  // colaborador pendiente de aprobar — por defecto, "Baños".
+  const [seccionesPorSolicitud, setSeccionesPorSolicitud] = useState({});
   const actualizarColaboradores = nuevoMapa => {
     setData(d => ({
       ...d,
@@ -6041,7 +6064,54 @@ function ConfigForm({
     style: styles.mono
   }, "Colaboradores (acceso limitado)"), /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-[#6B7A72] mb-4"
-  }, "Dale a alguien acceso", /*#__PURE__*/React.createElement("b", null, " solo a secciones específicas"), " — por ejemplo, un peluquero externo que solo necesita ver Baños."), Object.keys(data.colaboradoresPermitidos || {}).length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "Dale a alguien acceso", /*#__PURE__*/React.createElement("b", null, " solo a secciones específicas"), " — por ejemplo, un peluquero externo que solo necesita ver Baños."), /*#__PURE__*/React.createElement("div", {
+    className: "bg-[#EAF0EC] rounded-lg p-4 mb-4"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm mb-2"
+  }, /*#__PURE__*/React.createElement("b", null, "La forma más fácil:"), " comparte este link — quien lo abra solo tiene que iniciar sesión y confirmar, sin copiar ningún ID."), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => {
+      const link = `${window.location.origin}${window.location.pathname}#invitar=${currentUid}&nombre=${encodeURIComponent(data.clinica || "esta clínica")}`;
+      navigator.clipboard?.writeText(link);
+    },
+    icon: "🔗"
+  }, "Copiar link de invitación"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#6B7A72] mt-2"
+  }, "Después de que confirme, su solicitud te va a aparecer aquí abajo para que elijas qué secciones darle.")), (solicitudesColaborador || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "space-y-3 mb-4"
+  }, (solicitudesColaborador || []).map(s => {
+    const seccionesElegidas = seccionesPorSolicitud[s.uid] || ["banos"];
+    return /*#__PURE__*/React.createElement("div", {
+      key: s.uid,
+      className: "border rounded-lg p-4",
+      style: {
+        borderColor: "var(--accent-orange)",
+        background: "var(--accent-orange-bg)"
+      }
+    }, /*#__PURE__*/React.createElement("p", {
+      className: "text-sm mb-2"
+    }, /*#__PURE__*/React.createElement("b", null, s.nombre), " quiere conectarse como colaborador/a."), /*#__PURE__*/React.createElement("div", {
+      className: "flex gap-2 flex-wrap mb-3"
+    }, SECCIONES_COLABORADOR_DISPONIBLES.map(sec => {
+      const activo = seccionesElegidas.includes(sec.key);
+      return /*#__PURE__*/React.createElement("button", {
+        key: sec.key,
+        type: "button",
+        onClick: () => setSeccionesPorSolicitud(cur => ({
+          ...cur,
+          [s.uid]: activo ? seccionesElegidas.filter(k => k !== sec.key) : [...seccionesElegidas, sec.key]
+        })),
+        className: "text-xs px-3 py-1.5 rounded-full border transition " + (activo ? "bg-[#3D6B5C] border-[#3D6B5C] text-white" : "bg-white border-[#DDD5C4] text-[#6B7A72]")
+      }, sec.icon, " ", sec.label);
+    })), /*#__PURE__*/React.createElement("div", {
+      className: "flex gap-2"
+    }, /*#__PURE__*/React.createElement(PrimaryButton, {
+      onClick: () => onAceptarSolicitud(s, seccionesElegidas),
+      disabled: seccionesElegidas.length === 0,
+      icon: "✓"
+    }, "Aceptar"), /*#__PURE__*/React.createElement(GhostButton, {
+      onClick: () => onRechazarSolicitud(s)
+    }, "Rechazar")));
+  })), Object.keys(data.colaboradoresPermitidos || {}).length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "space-y-2 mb-4"
   }, Object.entries(data.colaboradoresPermitidos).map(([uidColab, info]) => /*#__PURE__*/React.createElement("div", {
     key: uidColab,
@@ -6148,6 +6218,39 @@ function LoadingScreen({
     className: "text-sm text-[#6B7A72] mt-5",
     style: styles.mono
   }, text || "Cargando..."));
+}
+// Se muestra cuando alguien abre un link de invitación a colaborador (ej.
+// "...#invitar=UID&nombre=Golden%20Vet%20Care") y ya inició sesión. Confirmar
+// aquí hace EXACTAMENTE lo mismo que llenar a mano "Conectarme como
+// colaborador/a" en Configuración — mismas restricciones, nada nuevo — solo
+// que ya no hay que copiar/pegar ningún ID. Además deja una "solicitud"
+// pendiente en la cuenta del dueño, para que él elija qué secciones darle
+// (eso nunca lo puede decidir el propio colaborador).
+function InvitacionColaboradorScreen({
+  invitacion,
+  onAceptar,
+  onRechazar
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "min-h-screen flex items-center justify-center px-6",
+    style: styles.page
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "max-w-sm w-full text-center"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-4xl mb-4"
+  }, "🤝"), /*#__PURE__*/React.createElement("h1", {
+    style: styles.display,
+    className: "text-2xl font-semibold text-[#23342F] leading-tight"
+  }, "Invitación para colaborar"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[#6B7A72] mt-2 text-sm"
+  }, /*#__PURE__*/React.createElement("b", null, invitacion.nombre || "Esta cuenta"), " te invitó a trabajar como colaborador/a con acceso limitado. Después de confirmar, el dueño todavía debe aprobar tu solicitud y elegir qué secciones puedes ver (por ejemplo, solo Baños)."), /*#__PURE__*/React.createElement("div", {
+    className: "mt-8 flex flex-col gap-2"
+  }, /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: onAceptar,
+    icon: "✓"
+  }, "Conectarme como colaborador/a"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: onRechazar
+  }, "Ahora no"))));
 }
 function FirebaseNotConfigured() {
   return /*#__PURE__*/React.createElement("div", {
@@ -7159,6 +7262,11 @@ function VetApp() {
   const [dataLoaded, setDataLoaded] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
+  // Invitación por link para conectarse como colaborador (ver
+  // leerInvitacionDesdeHash) y las solicitudes de colaboradores pendientes
+  // de aprobar (llegan a la propia cuenta, ver ownCollectionStore).
+  const [invitacion, setInvitacion] = useState(() => leerInvitacionDesdeHash());
+  const [solicitudesColaborador, setSolicitudesColaborador] = useState([]);
   useEffect(() => {
     if (!firebaseReady || typeof firebase === "undefined" || !db) {
       setUser(null);
@@ -7219,7 +7327,7 @@ function VetApp() {
       // pacientes compartidos por la clínica, se traen sus propios clientes
       // (guardados en su propia cuenta, nunca en la del dueño).
       const trayendoPropios = !!(c?.colaboradorDe?.uid && c?.rol === "peluquero");
-      const [p, r, e, h, v, cb, dw, hp, bn, cg, pp, bnp, nt] = await Promise.all([collectionStore.getAll("patients"), puedeVer("recetas") ? collectionStore.getAll("recetas") : Promise.resolve([]), puedeVer("examenes") ? collectionStore.getAll("examenes") : Promise.resolve([]), puedeVer("historial") ? collectionStore.getAll("historial") : Promise.resolve([]), puedeVer("vacunas") ? collectionStore.getAll("vacunas") : Promise.resolve([]), puedeVer("cobros") ? collectionStore.getAll("cobros") : Promise.resolve([]), puedeVer("desparasitaciones") ? collectionStore.getAll("desparasitaciones") : Promise.resolve([]), puedeVer("hospitalizaciones") ? collectionStore.getAll("hospitalizaciones") : Promise.resolve([]), puedeVer("banos") ? collectionStore.getAll("banos") : Promise.resolve([]), puedeVer("cirugias") ? collectionStore.getAll("cirugias") : Promise.resolve([]), trayendoPropios ? ownCollectionStore.getAll("patients") : Promise.resolve([]), trayendoPropios ? ownCollectionStore.getAll("banos") : Promise.resolve([]), ownCollectionStore.getAll("notificaciones")]);
+      const [p, r, e, h, v, cb, dw, hp, bn, cg, pp, bnp, nt, sc] = await Promise.all([collectionStore.getAll("patients"), puedeVer("recetas") ? collectionStore.getAll("recetas") : Promise.resolve([]), puedeVer("examenes") ? collectionStore.getAll("examenes") : Promise.resolve([]), puedeVer("historial") ? collectionStore.getAll("historial") : Promise.resolve([]), puedeVer("vacunas") ? collectionStore.getAll("vacunas") : Promise.resolve([]), puedeVer("cobros") ? collectionStore.getAll("cobros") : Promise.resolve([]), puedeVer("desparasitaciones") ? collectionStore.getAll("desparasitaciones") : Promise.resolve([]), puedeVer("hospitalizaciones") ? collectionStore.getAll("hospitalizaciones") : Promise.resolve([]), puedeVer("banos") ? collectionStore.getAll("banos") : Promise.resolve([]), puedeVer("cirugias") ? collectionStore.getAll("cirugias") : Promise.resolve([]), trayendoPropios ? ownCollectionStore.getAll("patients") : Promise.resolve([]), trayendoPropios ? ownCollectionStore.getAll("banos") : Promise.resolve([]), ownCollectionStore.getAll("notificaciones"), ownCollectionStore.getAll("solicitudesColaborador")]);
       if (cancelled) return;
       setPatients(p || []);
       setPatientsPropios(pp || []);
@@ -7233,6 +7341,7 @@ function VetApp() {
       setBanos(bn || []);
       setBanosPropios(bnp || []);
       setNotificaciones(nt || []);
+      setSolicitudesColaborador(sc || []);
       setCirugias(cg || []);
       setConfig(c || null);
       setDataLoaded(true);
@@ -7278,6 +7387,7 @@ function VetApp() {
     const unsubPatientsPropios = modoColaborador && config?.rol === "peluquero" ? ownCollectionStore.listen("patients", setPatientsPropios) : () => {};
     const unsubBanosPropios = modoColaborador && config?.rol === "peluquero" ? ownCollectionStore.listen("banos", setBanosPropios) : () => {};
     const unsubNotificaciones = ownCollectionStore.listen("notificaciones", setNotificaciones);
+    const unsubSolicitudesColaborador = ownCollectionStore.listen("solicitudesColaborador", setSolicitudesColaborador);
     const unsubRecetas = puedeEscuchar("recetas") ? collectionStore.listen("recetas", setRecetas) : () => {};
     const unsubExamenes = puedeEscuchar("examenes") ? collectionStore.listen("examenes", setExamenes) : () => {};
     const unsubHistorial = puedeEscuchar("historial") ? collectionStore.listen("historial", setHistorial) : () => {};
@@ -7304,6 +7414,7 @@ function VetApp() {
       unsubPatientsPropios();
       unsubBanosPropios();
       unsubNotificaciones();
+      unsubSolicitudesColaborador();
       unsubRecetas();
       unsubExamenes();
       unsubHistorial();
@@ -7455,6 +7566,57 @@ function VetApp() {
       }
     }
   }, [active, selected, editing, showGreeting]);
+  // Aceptar un link de invitación hace EXACTAMENTE lo mismo que llenar a mano
+  // "Conectarme como colaborador/a" en Configuración (mismas restricciones,
+  // mismo campo colaboradorDe) — además, deja una solicitud pendiente en la
+  // cuenta del dueño, porque solo él puede decidir qué secciones compartir.
+  const aceptarInvitacion = () => {
+    if (!invitacion?.uid) return;
+    const nuevoValor = {
+      uid: invitacion.uid,
+      nombre: invitacion.nombre || "Sin nombre"
+    };
+    history.replaceState(null, "", window.location.pathname + window.location.search);
+    saveConfig({
+      ...migrarConfig(config),
+      colaboradorDe: nuevoValor
+    });
+    db.collection("users").doc(invitacion.uid).collection("solicitudesColaborador").doc(currentUid).set({
+      uid: currentUid,
+      nombre: nombreCompletoDoctor(config) || config?.clinica || "Sin nombre",
+      creadoEn: Date.now()
+    }).catch(e => console.error("No se pudo enviar la solicitud de colaborador:", e));
+    setInvitacion(null);
+  };
+  const rechazarInvitacion = () => {
+    history.replaceState(null, "", window.location.pathname + window.location.search);
+    setInvitacion(null);
+  };
+  // Aprobar una solicitud es lo mismo que "Agregar colaborador" a mano,
+  // usando el nombre que la propia solicitud ya trae — solo falta elegir
+  // las secciones. Se guarda con la misma actualización funcional que ya
+  // usa el resto de Configuración, para no pisar cambios recientes.
+  const aceptarSolicitudColaborador = (solicitud, secciones) => {
+    if (!secciones || secciones.length === 0) return;
+    actualizarConfigInmediato(actual => {
+      const base = migrarConfig(actual);
+      return {
+        ...base,
+        colaboradoresPermitidos: {
+          ...(base.colaboradoresPermitidos || {}),
+          [solicitud.uid]: {
+            nombre: solicitud.nombre,
+            secciones
+          }
+        }
+      };
+    });
+    ownCollectionStore.deleteOne("solicitudesColaborador", solicitud.uid);
+    showToast("Colaborador/a agregado/a");
+  };
+  const rechazarSolicitudColaborador = solicitud => {
+    ownCollectionStore.deleteOne("solicitudesColaborador", solicitud.uid);
+  };
   const saveConfig = data => {
     const clinicaIdCambio = (config?.clinicaId || null) !== (data.clinicaId || null);
     const colaboradorCambio = (config?.colaboradorDe?.uid || null) !== (data.colaboradorDe?.uid || null);
@@ -8072,6 +8234,13 @@ function VetApp() {
       text: "Cargando tus datos..."
     });
   }
+  if (invitacion && (!config?.colaboradorDe?.uid || config.colaboradorDe.uid !== invitacion.uid)) {
+    return /*#__PURE__*/React.createElement(InvitacionColaboradorScreen, {
+      invitacion: invitacion,
+      onAceptar: aceptarInvitacion,
+      onRechazar: rechazarInvitacion
+    });
+  }
   if (showGreeting) {
     return /*#__PURE__*/React.createElement(GreetingScreen, {
       config: config,
@@ -8346,7 +8515,10 @@ function VetApp() {
     onSave: saveConfig,
     onCancel: () => setActive("inicio"),
     onToggleDarkMode: handleToggleDarkMode,
-    onUpdateInmediato: actualizarConfigInmediato
+    onUpdateInmediato: actualizarConfigInmediato,
+    solicitudesColaborador: solicitudesColaborador,
+    onAceptarSolicitud: aceptarSolicitudColaborador,
+    onRechazarSolicitud: rechazarSolicitudColaborador
   }), /*#__PURE__*/React.createElement("div", {
     className: "max-w-xl mt-8"
   }, /*#__PURE__*/React.createElement("h3", {
