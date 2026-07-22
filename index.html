@@ -5464,9 +5464,6 @@ function ConfigForm({
   };
 
   // --- Colaboradores: gestión de a quién le compartes secciones ---
-  const [nuevoColabUid, setNuevoColabUid] = useState("");
-  const [nuevoColabNombre, setNuevoColabNombre] = useState("");
-  const [nuevoColabSecciones, setNuevoColabSecciones] = useState([]);
   // Secciones elegidas (todavía sin guardar) para cada solicitud de
   // colaborador pendiente de aprobar — por defecto, "Baños".
   const [seccionesPorSolicitud, setSeccionesPorSolicitud] = useState({});
@@ -5486,20 +5483,6 @@ function ConfigForm({
       });
     }
   };
-  const agregarColaborador = () => {
-    if (!nuevoColabUid.trim() || !nuevoColabNombre.trim() || nuevoColabSecciones.length === 0) return;
-    const nuevoMapa = {
-      ...(data.colaboradoresPermitidos || {}),
-      [nuevoColabUid.trim()]: {
-        nombre: nuevoColabNombre.trim(),
-        secciones: nuevoColabSecciones
-      }
-    };
-    actualizarColaboradores(nuevoMapa);
-    setNuevoColabUid("");
-    setNuevoColabNombre("");
-    setNuevoColabSecciones([]);
-  };
   const quitarColaborador = uidAQuitar => {
     const nuevoMapa = {
       ...(data.colaboradoresPermitidos || {})
@@ -5509,30 +5492,15 @@ function ConfigForm({
   };
 
   // --- "Trabajar como colaborador de otra cuenta" (lado del peluquero) ---
-  const [colabDueñoUid, setColabDueñoUid] = useState(data.colaboradorDe?.uid || "");
-  const [colabDueñoNombre, setColabDueñoNombre] = useState(data.colaboradorDe?.nombre || "");
-  const conectarComoColaborador = () => {
-    if (!colabDueñoUid.trim()) return;
-    const nuevoValor = {
-      uid: colabDueñoUid.trim(),
-      nombre: colabDueñoNombre.trim() || "Sin nombre"
-    };
-    setData(d => ({
-      ...d,
-      colaboradorDe: nuevoValor
-    }));
-    onSave({
-      ...data,
-      colaboradorDe: nuevoValor
-    });
-  };
+  // Ya no hace falta un formulario manual de ID aquí: se conecta abriendo el
+  // link de invitación (ver InvitacionColaboradorScreen), que guarda
+  // colaboradorDe directamente. Aquí solo queda mostrar el estado y el
+  // botón para desconectarse.
   const desconectarComoColaborador = () => {
     setData(d => ({
       ...d,
       colaboradorDe: null
     }));
-    setColabDueñoUid("");
-    setColabDueñoNombre("");
     onSave({
       ...data,
       colaboradorDe: null
@@ -6123,50 +6091,13 @@ function ConfigForm({
   }, info.secciones.map(s => SECCIONES_COLABORADOR_DISPONIBLES.find(op => op.key === s)?.label || s).join(", "))), /*#__PURE__*/React.createElement("button", {
     onClick: () => quitarColaborador(uidColab),
     className: "text-[#B14E1C] text-xs hover:underline"
-  }, "Quitar")))), /*#__PURE__*/React.createElement(Field, {
-    label: "ID de la cuenta del colaborador"
-  }, /*#__PURE__*/React.createElement(TextInput, {
-    value: nuevoColabUid,
-    onChange: e => setNuevoColabUid(e.target.value),
-    placeholder: "Pídele que te comparta su ID desde su Configuración"
-  })), /*#__PURE__*/React.createElement(Field, {
-    label: "Nombre para identificarlo"
-  }, /*#__PURE__*/React.createElement(TextInput, {
-    value: nuevoColabNombre,
-    onChange: e => setNuevoColabNombre(e.target.value),
-    placeholder: "Ej. Juan (peluquero)"
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "mb-3"
+  }, "Quitar"))))), !isSetup && /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-6 mt-4"
   }, /*#__PURE__*/React.createElement("span", {
-    className: "block text-xs text-[#6B7A72] mb-1.5"
-  }, "¿Qué secciones puede ver y editar?"), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2 flex-wrap"
-  }, SECCIONES_COLABORADOR_DISPONIBLES.map(s => {
-    const activo = nuevoColabSecciones.includes(s.key);
-    return /*#__PURE__*/React.createElement("button", {
-      key: s.key,
-      type: "button",
-      onClick: () => setNuevoColabSecciones(cur => activo ? cur.filter(k => k !== s.key) : [...cur, s.key]),
-      className: "text-xs px-3 py-1.5 rounded-full border transition " + (activo ? "bg-[#3D6B5C] border-[#3D6B5C] text-white" : "bg-white border-[#DDD5C4] text-[#6B7A72]")
-    }, s.icon, " ", s.label);
-  }))), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: agregarColaborador,
-    disabled: !nuevoColabUid.trim() || !nuevoColabNombre.trim() || nuevoColabSecciones.length === 0,
-    icon: "➕"
-  }, "Agregar colaborador"), /*#__PURE__*/React.createElement("div", {
-    className: "h-px bg-[#DDD5C4] my-5"
-  }), /*#__PURE__*/React.createElement("span", {
     className: "block text-[11px] uppercase tracking-wider mb-2 text-[#6B7A72]",
     style: styles.mono
-  }, "Tu ID (para compartir con quien te dé acceso a ellos)"), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 mb-2"
-  }, /*#__PURE__*/React.createElement("code", {
-    className: "flex-1 bg-[#EAF0EC] rounded-md px-3 py-2 text-sm font-mono break-all"
-  }, currentUid), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => navigator.clipboard?.writeText(currentUid),
-    icon: "📋"
-  }, "Copiar")), data.colaboradorDe ? /*#__PURE__*/React.createElement("div", {
-    className: "mt-3 p-3 rounded-md",
+  }, "Trabajar como colaborador/a de otra cuenta"), data.colaboradorDe ? /*#__PURE__*/React.createElement("div", {
+    className: "p-3 rounded-md",
     style: {
       background: "var(--accent-green-bg)"
     }
@@ -6176,27 +6107,9 @@ function ConfigForm({
     onClick: desconectarComoColaborador,
     danger: true,
     icon: "✕"
-  }, "Dejar de ser colaborador/a")) : /*#__PURE__*/React.createElement("div", {
-    className: "mt-3"
-  }, /*#__PURE__*/React.createElement("p", {
-    className: "text-sm text-[#6B7A72] mb-2"
-  }, "¿Trabajas para otra clínica con acceso limitado (por ejemplo, eres peluquero/a externo)? Pon aquí el ID que te compartieron:"), /*#__PURE__*/React.createElement(Field, {
-    label: "ID de la cuenta a la que te vas a conectar"
-  }, /*#__PURE__*/React.createElement(TextInput, {
-    value: colabDueñoUid,
-    onChange: e => setColabDueñoUid(e.target.value),
-    placeholder: "Pega aquí el ID que te compartieron"
-  })), /*#__PURE__*/React.createElement(Field, {
-    label: "Nombre de esa clínica (para tu referencia)"
-  }, /*#__PURE__*/React.createElement(TextInput, {
-    value: colabDueñoNombre,
-    onChange: e => setColabDueñoNombre(e.target.value),
-    placeholder: "Ej. Golden Vet care"
-  })), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: conectarComoColaborador,
-    disabled: !colabDueñoUid.trim(),
-    icon: "🔗"
-  }, "Conectarme"))));
+  }, "Dejar de ser colaborador/a")) : /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-[#6B7A72]"
+  }, "Si trabajas para otra clínica con acceso limitado (por ejemplo, eres peluquero/a externo), pídele que te mande su link de invitación — ábrelo y confirma ahí para conectarte, sin tener que escribir ningún ID aquí.")));
 }
 
 /* ---------------------------------------------------------
