@@ -373,6 +373,60 @@ async function revisarClientesNuevos() {
   return avisos;
 }
 
+/* ---------------------------------------------------------
+   Avisos hacia la clínica: cuando un colaborador (ej. un
+   peluquero) reagenda un baño, lo marca como atendido, o
+   elimina un registro de baño de un paciente COMPARTIDO por
+   la clínica, la propia app deja un "aviso" pendiente en la
+   colección "avisosClinica" de la cuenta dueña. Aquí se
+   procesan: se le manda el push SOLO al dueño/equipo (no al
+   colaborador que hizo la acción, que ya lo sabe) y se borra
+   el aviso ya procesado, para no acumularlos ni repetirlos.
+----------------------------------------------------------*/
+const TITULOS_AVISO_CLINICA = {
+  reagendado: (r) => `Baño reagendado: ${r.patientName}`,
+  atendido: (r) => `Baño atendido: ${r.patientName}`,
+  eliminado: (r) => `Registro de baño eliminado: ${r.patientName}`,
+};
+
+async function revisarAvisosClinica() {
+  let avisos = 0;
+  const usuarios = await db.collection("users").listDocuments();
+  const clinicas = await db.collection("clinics").listDocuments();
+  console.log(`Revisando avisos pendientes para la clínica en ${usuarios.length} cuenta(s) y ${clinicas.length} clínica(s)...`);
+
+  const procesarAvisos = async (parentRef, tokens, etiqueta) => {
+    let contador = 0;
+    const snap = await parentRef.collection("avisosClinica").get();
+    for (const doc of snap.docs) {
+      const aviso = doc.data();
+      const construirTitulo = TITULOS_AVISO_CLINICA[aviso.tipo] || ((r) => `Aviso: ${r.patientName}`);
+      const dataPayload = {
+        title: construirTitulo(aviso),
+        body: aviso.detalle || "",
+        patientId: String(aviso.patientId || ""),
+      };
+      const seEnvio = await mandarNotificacion(tokens, dataPayload, etiqueta, aviso.patientName || "(paciente)");
+      // Se borra siempre (haya o no dispositivos con notificaciones activadas)
+      // para que la colección no crezca sin límite.
+      await doc.ref.delete();
+      if (seEnvio) contador++;
+    }
+    return contador;
+  };
+
+  for (const usuarioRef of usuarios) {
+    const tokens = await tokensDeUsuario(usuarioRef);
+    avisos += await procesarAvisos(usuarioRef, tokens, `users/${usuarioRef.id}`);
+  }
+  for (const clinicaRef of clinicas) {
+    const tokens = await tokensDeClinica(clinicaRef.id, usuarios);
+    avisos += await procesarAvisos(clinicaRef, tokens, `clinics/${clinicaRef.id}`);
+  }
+
+  return avisos;
+}
+
 async function main() {
   const hoy = hoyComoTexto();
   console.log(`Revisando recordatorios para el día ${hoy}...`);
@@ -386,6 +440,7 @@ async function main() {
   }
 
   totalAvisos += await revisarClientesNuevos();
+  totalAvisos += await revisarAvisosClinica();
 
   console.log(`Listo. Avisos mandados en esta corrida: ${totalAvisos}.`);
 }
