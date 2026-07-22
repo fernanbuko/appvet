@@ -2031,6 +2031,10 @@ const PRODUCTOS_DESPARASITACION = ["Drontal Plus", "Drontal Cat", "Nexgard", "Ne
 // campo "Tipo de cirugía".
 const CIRUGIAS_COMUNES = ["Esterilización (Ovariohisterectomía)", "Castración (Orquiectomía)", "Cesárea", "Piometra", "Extracción de tumor / Mastectomía", "Extracción dental", "Hernia umbilical", "Hernia inguinal", "Osteosíntesis (fractura)", "Amputación", "Cistotomía (cálculos vesicales)", "Enterotomía (cuerpo extraño intestinal)", "Gastrotomía", "Corrección de entropión/ectropión", "Extirpación de glándulas anales", "Corrección de luxación de rótula", "Esplenectomía", "Extirpación de quiste/tumor de piel", "Reparación de laceración/herida", "Biopsia", "Extracción de cuerpo extraño", "Nefrectomía", "Otra"];
 
+// Vacunas más comunes en perros y gatos, para el buscador del campo
+// "Nombre de la vacuna".
+const VACUNAS_COMUNES = ["Óctuple canina (Polivalente)", "Séxtuple canina", "Quíntuple canina", "Antirrábica (Rabia)", "Parvovirus canino", "Moquillo canino (Distemper)", "Leptospirosis", "Tos de las perreras (Bordetella)", "Giardia canina", "Triple felina (Panleucopenia/Rinotraqueítis/Calicivirus)", "Cuádruple felina", "Leucemia felina (FeLV)", "Rabia felina", "Otra"];
+
 // Los 25 cantones de la provincia del Guayas, Ecuador
 const CANTONES_GUAYAS = ["Guayaquil", "Alfredo Baquerizo Moreno (Jujan)", "Balao", "Balzar", "Colimes", "Coronel Marcelino Maridueña", "Daule", "Duran", "El Empalme", "El Triunfo", "General Antonio Elizalde (Bucay)", "Isidro Ayora", "Lomas de Sargentillo", "Milagro", "Naranjal", "Naranjito", "Nobol", "Palestina", "Pedro Carbo", "Playas", "Salitre", "Samborondon", "San Jacinto de Yaguachi", "Santa Lucia", "Simon Bolivar"];
 function PatientForm({
@@ -3480,9 +3484,10 @@ function VacunasSection({
     className: "bg-white border border-[#DDD5C4] rounded-lg p-6 mb-4"
   }, /*#__PURE__*/React.createElement(Field, {
     label: "Nombre de la vacuna"
-  }, /*#__PURE__*/React.createElement(TextInput, {
+  }, /*#__PURE__*/React.createElement(SearchableSelect, {
+    options: VACUNAS_COMUNES.filter(v => v !== "Otra"),
     value: nombre,
-    onChange: e => setNombre(e.target.value),
+    onChange: v => setNombre(v),
     placeholder: "Ej. Rabia, Séxtuple, Antirrábica..."
   })), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-4"
