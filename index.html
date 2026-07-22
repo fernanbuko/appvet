@@ -33,13 +33,14 @@
 <style>
   /* Reset y utilidades propias (sin depender de ningún CDN de estilos) */
   * { box-sizing: border-box; }
-  body { margin:0; }
+  html, body { margin:0; overflow-x: hidden; width: 100%; }
+  #root { overflow-x: hidden; max-width: 100vw; }
   input[type="date"]::-webkit-calendar-picker-indicator { cursor:pointer; }
   #boot-msg { font-family: Arial, sans-serif; padding: 32px; color: #23342F; max-width: 520px; margin: 40px auto; line-height: 1.5; }
 
   .absolute{position:absolute}.relative{position:relative}.fixed{position:fixed}
   .block{display:block}.flex{display:flex}.inline-flex{display:inline-flex}.grid{display:grid}.hidden{display:none}
-  .flex-1{flex:1 1 0%}.flex-col{flex-direction:column}.flex-wrap{flex-wrap:wrap}.shrink-0{flex-shrink:0}
+  .flex-1{flex:1 1 0%;min-width:0}.flex-col{flex-direction:column}.flex-wrap{flex-wrap:wrap}.shrink-0{flex-shrink:0}
   .items-center{align-items:center}.items-start{align-items:flex-start}
   .justify-between{justify-content:space-between}.justify-center{justify-content:center}
   .grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -64,7 +65,7 @@
   .leading-none{line-height:1}.leading-tight{line-height:1.25}
   .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .whitespace-pre-wrap{white-space:pre-wrap}
-  .overflow-hidden{overflow:hidden}.overflow-x-auto{overflow-x:auto}.overflow-visible{overflow:visible}
+  .overflow-hidden{overflow:hidden}.overflow-x-auto{overflow-x:auto;min-width:0}.overflow-visible{overflow:visible}
   .object-cover{object-fit:cover}
   .cursor-pointer{cursor:pointer}.select-none{user-select:none}
   .shadow-sm{box-shadow:0 1px 2px rgba(0,0,0,.06)}.shadow-lg{box-shadow:0 8px 20px rgba(0,0,0,.15)}
@@ -6759,6 +6760,63 @@ function ReportesView({
     style: styles.mono
   }, "Pendiente")))))));
 }
+// Fila deslizable: deslizar el dedo de izquierda a derecha confirma la cita
+// (revela un fondo verde), y de derecha a izquierda la reagenda (revela un
+// fondo naranja). Si el movimiento no pasa el umbral, la fila regresa a su
+// lugar sola y el toque se comporta como un tap normal (abre el paciente).
+function SwipeRow({
+  onConfirmar,
+  onReagendar,
+  children
+}) {
+  const [dx, setDx] = useState(0);
+  const draggingRef = useRef(false);
+  const startXRef = useRef(0);
+  const UMBRAL = 72;
+  const handleTouchStart = e => {
+    startXRef.current = e.touches[0].clientX;
+    draggingRef.current = true;
+  };
+  const handleTouchMove = e => {
+    if (!draggingRef.current) return;
+    const delta = e.touches[0].clientX - startXRef.current;
+    if (Math.abs(delta) > 10) e.preventDefault();
+    setDx(Math.max(-100, Math.min(100, delta)));
+  };
+  const handleTouchEnd = () => {
+    draggingRef.current = false;
+    if (dx > UMBRAL && onConfirmar) onConfirmar();else if (dx < -UMBRAL && onReagendar) onReagendar();
+    setDx(0);
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "relative overflow-hidden rounded-lg"
+  }, !!onConfirmar && /*#__PURE__*/React.createElement("div", {
+    className: "absolute inset-0 flex items-center px-4 rounded-lg",
+    style: {
+      background: "var(--accent-green)",
+      opacity: dx > 8 ? Math.min(1, dx / UMBRAL) : 0
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-white text-xs font-semibold"
+  }, "✓ Confirmar")), !!onReagendar && /*#__PURE__*/React.createElement("div", {
+    className: "absolute inset-0 flex items-center justify-end px-4 rounded-lg",
+    style: {
+      background: "var(--accent-orange)",
+      opacity: dx < -8 ? Math.min(1, -dx / UMBRAL) : 0
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-white text-xs font-semibold"
+  }, "Reagendar 📅")), /*#__PURE__*/React.createElement("div", {
+    onTouchStart: handleTouchStart,
+    onTouchMove: handleTouchMove,
+    onTouchEnd: handleTouchEnd,
+    style: {
+      transform: `translateX(${dx}px)`,
+      transition: draggingRef.current ? "none" : "transform .2s ease",
+      touchAction: "pan-y"
+    }
+  }, children));
+}
 function HomeScreen({
   patients,
   recetas,
@@ -6770,9 +6828,15 @@ function HomeScreen({
   setActive,
   setSelected,
   config,
-  modoColaborador
+  modoColaborador,
+  onUpdateVisita
 }) {
   const esPeluquero = config?.rol === "peluquero";
+  // Para reagendar una visita deslizando (swipe) directamente desde la
+  // lista de "Próximas visitas" en Inicio, sin tener que entrar al paciente.
+  const [reagendandoVisitaId, setReagendandoVisitaId] = useState(null);
+  const [nuevaFechaVisitaSwipe, setNuevaFechaVisitaSwipe] = useState("");
+  const [nuevaHoraVisitaSwipe, setNuevaHoraVisitaSwipe] = useState("");
   // Para un peluquero/a, solo cuentan (y aparecen en "Próximas") los
   // pacientes que ya tienen al menos un servicio en "Baños" registrado —
   // un paciente nuevo de la clínica sin ningún baño todavía no le sirve.
@@ -6898,13 +6962,53 @@ function HomeScreen({
     style: styles.mono
   }, "Próximas visitas"), /*#__PURE__*/React.createElement("div", {
     className: "space-y-2 max-w-md"
-  }, proximas.map(p => /*#__PURE__*/React.createElement("button", {
-    key: p.id,
+  }, proximas.map(p => /*#__PURE__*/React.createElement(React.Fragment, {
+    key: p.id
+  }, reagendandoVisitaId === p.id ? /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-sm font-medium mb-2"
+  }, "Reagendar visita de ", p.nombre), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 flex-wrap"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: nuevaFechaVisitaSwipe,
+    onChange: e => setNuevaFechaVisitaSwipe(e.target.value)
+  }), /*#__PURE__*/React.createElement(TextInput, {
+    type: "time",
+    value: nuevaHoraVisitaSwipe,
+    onChange: e => setNuevaHoraVisitaSwipe(e.target.value)
+  }), /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: () => {
+      if (!nuevaFechaVisitaSwipe) return;
+      onUpdateVisita(p, {
+        proximaVisita: nuevaFechaVisitaSwipe,
+        proximaVisitaHora: nuevaHoraVisitaSwipe
+      });
+      setReagendandoVisitaId(null);
+    },
+    disabled: !nuevaFechaVisitaSwipe,
+    icon: "✓"
+  }, "Guardar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => setReagendandoVisitaId(null)
+  }, "Cancelar"))) : /*#__PURE__*/React.createElement(SwipeRow, {
+    onConfirmar: onUpdateVisita ? () => {
+      onUpdateVisita(p, {
+        proximaVisita: "",
+        proximaVisitaHora: ""
+      });
+    } : null,
+    onReagendar: onUpdateVisita ? () => {
+      setNuevaFechaVisitaSwipe(p.proximaVisita || "");
+      setNuevaHoraVisitaSwipe(p.proximaVisitaHora || "");
+      setReagendandoVisitaId(p.id);
+    } : null
+  }, /*#__PURE__*/React.createElement("div", {
     onClick: () => {
       setActive("pacientes");
       setSelected(p);
     },
-    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#3D6B5C] transition"
+    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-3 min-w-0"
   }, /*#__PURE__*/React.createElement("div", {
@@ -6922,7 +7026,7 @@ function HomeScreen({
   }, p.propietario || "Sin propietario"))), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#B14E1C] bg-[#E08A3E]/10 px-2 py-1 rounded text-right shrink-0",
     style: styles.mono
-  }, "📅 ", formatDate(p.proximaVisita, config?.dateFormat), p.proximaVisitaHora && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("br", null), p.proximaVisitaHora)))))), proximosBanos.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "📅 ", formatDate(p.proximaVisita, config?.dateFormat), p.proximaVisitaHora && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("br", null), p.proximaVisitaHora)))))))), proximosBanos.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "mb-8"
   }, /*#__PURE__*/React.createElement("h2", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
@@ -8301,7 +8405,8 @@ function VetApp() {
     setActive: setActive,
     setSelected: setSelected,
     config: config,
-    modoColaborador: modoColaborador
+    modoColaborador: modoColaborador,
+    onUpdateVisita: updatePatientVisita
   }), active === "nuevo" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold mb-1"
