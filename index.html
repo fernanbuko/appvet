@@ -7859,10 +7859,10 @@ function VetApp() {
   // en modo colaborador sobre un paciente que NO es propio — un peluquero
   // independiente, o cambios en sus propios pacientes, no tienen "clínica"
   // a quién avisar.
-  const notificarClinica = (tipo, patientId, patientName, detalle) => {
+  const notificarClinica = async (tipo, patientId, patientName, detalle) => {
     if (!modoColaborador) return;
     const id = uid();
-    collectionStore.setOne("avisosClinica", id, {
+    const ok = await collectionStore.setOne("avisosClinica", id, {
       id,
       tipo,
       patientId,
@@ -7870,6 +7870,10 @@ function VetApp() {
       detalle,
       creadoEn: Date.now()
     });
+    if (!ok) {
+      console.error("No se pudo guardar el aviso para la clínica (avisosClinica). Revisa las reglas de seguridad de Firestore.");
+      showToast("⚠ No se pudo avisar a la clínica de este cambio");
+    }
   };
   const addBano = b => {
     if (esPacientePropio(b.patientId)) {
