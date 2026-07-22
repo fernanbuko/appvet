@@ -457,6 +457,54 @@ async function revisarAvisosClinica() {
   return avisos;
 }
 
+/* ---------------------------------------------------------
+   Dirección contraria: cuando la propia clínica programa o
+   reagenda un baño, se les avisa AL INSTANTE a sus
+   colaboradores con acceso a "Baños" (ej. un peluquero
+   externo) — sin esperar al aviso del mismo día que ya manda
+   revisarRecordatoriosPorFecha. La app deja el evento en
+   "avisosColaboradores" de la propia cuenta del dueño (no
+   necesita ninguna regla nueva de Firestore, ya que el dueño
+   siempre tiene acceso total a lo suyo); aquí se procesa: se
+   le manda el push a los colaboradores (no al dueño, que ya
+   lo sabe) y se borra el evento ya procesado.
+----------------------------------------------------------*/
+const TITULOS_AVISO_COLABORADORES = {
+  programado: (r) => `Nuevo baño programado: ${r.patientName}`,
+  reagendado: (r) => `Baño reagendado: ${r.patientName}`,
+};
+
+async function revisarAvisosColaboradores() {
+  let avisos = 0;
+  const usuarios = await db.collection("users").listDocuments();
+  console.log(`Revisando avisos pendientes para colaboradores en ${usuarios.length} cuenta(s)...`);
+
+  for (const usuarioRef of usuarios) {
+    const snap = await usuarioRef.collection("avisosColaboradores").get();
+    if (snap.empty) continue;
+
+    const config = await configDeUid(usuarioRef.id);
+    const tokens = new Set();
+    await agregarTokensDeColaboradoresConSeccion(config, "banos", tokens);
+    const tokensArr = [...tokens];
+
+    for (const doc of snap.docs) {
+      const aviso = doc.data();
+      const construirTitulo = TITULOS_AVISO_COLABORADORES[aviso.tipo] || ((r) => `Aviso: ${r.patientName}`);
+      const dataPayload = {
+        title: construirTitulo(aviso),
+        body: aviso.detalle || "",
+        patientId: String(aviso.patientId || ""),
+      };
+      const seEnvio = await mandarNotificacion(tokensArr, dataPayload, `users/${usuarioRef.id}`, aviso.patientName || "(paciente)");
+      await doc.ref.delete();
+      if (seEnvio) avisos++;
+    }
+  }
+
+  return avisos;
+}
+
 async function main() {
   const hoy = hoyComoTexto();
   console.log(`Revisando recordatorios para el día ${hoy}...`);
@@ -471,6 +519,7 @@ async function main() {
 
   totalAvisos += await revisarClientesNuevos();
   totalAvisos += await revisarAvisosClinica();
+  totalAvisos += await revisarAvisosColaboradores();
 
   console.log(`Listo. Avisos mandados en esta corrida: ${totalAvisos}.`);
 }
