@@ -8011,6 +8011,25 @@ function VetApp() {
       showToast("⚠ No se pudo avisar a la clínica de este cambio");
     }
   };
+  // Dirección contraria: cuando la propia clínica (no un colaborador)
+  // programa o reagenda un baño, se avisa AL INSTANTE a los colaboradores
+  // que tengan acceso a "Baños" (ej. un peluquero externo) — sin esperar al
+  // aviso del mismo día que ya manda el robot. Solo aplica si esta cuenta
+  // en verdad tiene algún colaborador con esa sección compartida.
+  const notificarColaboradores = async (tipo, patientId, patientName, detalle) => {
+    if (modoColaborador) return;
+    const tieneColaboradoresBanos = Object.values(config?.colaboradoresPermitidos || {}).some(info => info?.secciones?.includes("banos"));
+    if (!tieneColaboradoresBanos) return;
+    const id = uid();
+    await collectionStore.setOne("avisosColaboradores", id, {
+      id,
+      tipo,
+      patientId,
+      patientName,
+      detalle,
+      creadoEn: Date.now()
+    });
+  };
   const addBano = b => {
     if (esPacientePropio(b.patientId)) {
       const next = [...banosPropios, b];
@@ -8020,6 +8039,9 @@ function VetApp() {
       const next = [...banos, b];
       setBanos(next);
       collectionStore.setOne("banos", b.id, b);
+      if (b.proximoBano) {
+        notificarColaboradores("programado", b.patientId, b.patientName, `Baño programado: ${formatDate(b.proximoBano, config?.dateFormat)}${b.proximoBanoHora ? " — " + b.proximoBanoHora : ""}`);
+      }
     }
     showToast("Servicio registrado");
   };
@@ -8032,6 +8054,7 @@ function VetApp() {
           notificarClinica("atendido", b.patientId, b.patientName, `${b.tipo || "Baño"} atendido el ${formatDate(b.fechaAtendido, config?.dateFormat)}`);
         } else if (b.proximoBano && b.proximoBano !== anterior.proximoBano) {
           notificarClinica("reagendado", b.patientId, b.patientName, `Nuevo baño programado: ${formatDate(b.proximoBano, config?.dateFormat)}${b.proximoBanoHora ? " — " + b.proximoBanoHora : ""}`);
+          notificarColaboradores(anterior.proximoBano ? "reagendado" : "programado", b.patientId, b.patientName, `Baño ${anterior.proximoBano ? "reagendado" : "programado"}: ${formatDate(b.proximoBano, config?.dateFormat)}${b.proximoBanoHora ? " — " + b.proximoBanoHora : ""}`);
         }
       }
     }
