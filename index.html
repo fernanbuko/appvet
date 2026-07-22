@@ -2022,6 +2022,15 @@ const HOJAS_TODAS = ["Identificación", "Consulta", "Plan", "Seguimiento"];
 const RAZAS_PERRO = ["Labrador Retriever", "Golden Retriever", "Pastor Aleman", "Bulldog Frances", "Bulldog Ingles", "Poodle Caniche", "Beagle", "Rottweiler", "Yorkshire Terrier", "Boxer", "Dachshund Salchicha", "Chihuahua", "Husky Siberiano", "Gran Danes", "Doberman", "Shih Tzu", "Pomerania", "Border Collie", "Schnauzer", "Cocker Spaniel", "Pug Carlino", "Maltes", "Akita", "San Bernardo", "Basset Hound", "Bull Terrier", "Pit Bull Terrier", "Dalmata", "Chow Chow", "Shar Pei", "Weimaraner", "Galgo", "Mastin", "Bichon Frise", "Pointer", "Setter Irlandes", "Terranova", "Cane Corso", "Perro de Agua Espanol", "Fox Terrier", "Jack Russell Terrier", "Whippet", "Basenji", "Boyero de Berna", "Collie", "Papillon", "Lhasa Apso", "Rhodesian Ridgeback", "Mestizo Criollo", "Otra"];
 const RAZAS_GATO = ["Comun Europeo Mestizo", "Persa", "Siames", "Maine Coon", "Angora Turco", "Bengali", "British Shorthair", "Ragdoll", "Sphynx Esfinge", "Abisinio", "Exotico de Pelo Corto", "Devon Rex", "Cornish Rex", "Azul Ruso", "Scottish Fold", "Himalayo", "Bombay", "Birmano", "Manx", "Munchkin", "Ocicat", "Somali", "Tonkines", "Van Turco", "Chartreux", "Korat", "Burmes", "Selkirk Rex", "Egyptian Mau", "Otra"];
 
+// Antiparasitarios (internos, externos y combinados) más usados en la
+// práctica veterinaria en Ecuador, para el buscador del campo "Producto
+// usado" en Desparasitación.
+const PRODUCTOS_DESPARASITACION = ["Drontal Plus", "Drontal Cat", "Nexgard", "Nexgard Spectra", "Bravecto", "Simparica", "Simparica Trio", "Frontline Plus", "Frontline Combo", "Advantix", "Advantage II", "Revolution (Stronghold)", "Milbemax", "Panacur (Fenbendazol)", "Vermiplex", "Endogard", "Canex", "Prazitel Plus", "Profender", "Credelio", "Comfortis", "Capstar", "Ivermectina", "Quantum Antiparasitario", "Virbac Vermic", "Dolthene", "Otro"];
+
+// Cirugías veterinarias más comunes en perros y gatos, para el buscador del
+// campo "Tipo de cirugía".
+const CIRUGIAS_COMUNES = ["Esterilización (Ovariohisterectomía)", "Castración (Orquiectomía)", "Cesárea", "Piometra", "Extracción de tumor / Mastectomía", "Extracción dental", "Hernia umbilical", "Hernia inguinal", "Osteosíntesis (fractura)", "Amputación", "Cistotomía (cálculos vesicales)", "Enterotomía (cuerpo extraño intestinal)", "Gastrotomía", "Corrección de entropión/ectropión", "Extirpación de glándulas anales", "Corrección de luxación de rótula", "Esplenectomía", "Extirpación de quiste/tumor de piel", "Reparación de laceración/herida", "Biopsia", "Extracción de cuerpo extraño", "Nefrectomía", "Otra"];
+
 // Los 25 cantones de la provincia del Guayas, Ecuador
 const CANTONES_GUAYAS = ["Guayaquil", "Alfredo Baquerizo Moreno (Jujan)", "Balao", "Balzar", "Colimes", "Coronel Marcelino Maridueña", "Daule", "Duran", "El Empalme", "El Triunfo", "General Antonio Elizalde (Bucay)", "Isidro Ayora", "Lomas de Sargentillo", "Milagro", "Naranjal", "Naranjito", "Nobol", "Palestina", "Pedro Carbo", "Playas", "Salitre", "Samborondon", "San Jacinto de Yaguachi", "Santa Lucia", "Simon Bolivar"];
 function PatientForm({
@@ -3626,9 +3635,10 @@ function DesparasitacionSection({
     className: inputClass
   }, /*#__PURE__*/React.createElement("option", null, "Interna y externa"), /*#__PURE__*/React.createElement("option", null, "Interna"), /*#__PURE__*/React.createElement("option", null, "Externa"))), /*#__PURE__*/React.createElement(Field, {
     label: "Producto usado"
-  }, /*#__PURE__*/React.createElement(TextInput, {
+  }, /*#__PURE__*/React.createElement(SearchableSelect, {
+    options: PRODUCTOS_DESPARASITACION.filter(p => p !== "Otro"),
     value: producto,
-    onChange: e => setProducto(e.target.value),
+    onChange: v => setProducto(v),
     placeholder: "Ej. Drontal, Nexgard..."
   }))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-4"
@@ -4188,9 +4198,10 @@ function CirugiasSection({
     className: "bg-white border border-[#DDD5C4] rounded-lg p-6 mb-4"
   }, /*#__PURE__*/React.createElement(Field, {
     label: "Tipo de cirugía"
-  }, /*#__PURE__*/React.createElement(TextInput, {
+  }, /*#__PURE__*/React.createElement(SearchableSelect, {
+    options: CIRUGIAS_COMUNES.filter(c => c !== "Otra"),
     value: tipoCirugia,
-    onChange: e => setTipoCirugia(e.target.value),
+    onChange: v => setTipoCirugia(v),
     placeholder: "Ej. Esterilización, extracción de tumor..."
   })), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-4"
