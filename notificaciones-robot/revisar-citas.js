@@ -159,7 +159,37 @@ async function tokensDeTodosLosColaboradores(config) {
   return [...tokens];
 }
 
+// Dado un grupo de tokens (los que se van a usar para mandar un push),
+// busca en la caché de configuraciones ya leídas cuáles cuentas (uids) son
+// dueñas de alguno de esos tokens. Se usa para guardar una copia de cada
+// notificación en la "bandeja" de cada cuenta destinataria (para el centro
+// de notificaciones dentro de la app) sin tener que rehacer todo el
+// recorrido de colaboradores en cada función — como para entonces ya se
+// leyó la config de cada cuenta involucrada, alcanza con revisar la caché.
+function uidsDueñosDeTokens(tokens) {
+  const uids = [];
+  for (const [uid, config] of configCachePorUid.entries()) {
+    if (config?.fcmTokens?.some((t) => tokens.includes(t))) {
+      uids.push(uid);
+    }
+  }
+  return uids;
+}
+
 async function mandarNotificacion(tokens, dataPayload, etiqueta, nombrePaciente) {
+  // Se guarda una copia en la bandeja de cada cuenta destinataria (para el
+  // centro de notificaciones dentro de la app), sin importar si el push
+  // por FCM en sí se logra entregar al dispositivo o no.
+  const uidsDestino = uidsDueñosDeTokens(tokens || []);
+  await Promise.all(
+    uidsDestino.map((uidDestino) => {
+      const ref = db.collection("users").doc(uidDestino).collection("notificaciones").doc();
+      return ref
+        .set({ ...dataPayload, id: ref.id, leida: false, creadoEn: Date.now() })
+        .catch((e) => console.error(`No se pudo guardar la notificación en la bandeja de ${uidDestino}:`, e.message));
+    })
+  );
+
   if (!tokens || tokens.length === 0) {
     console.log(`[${etiqueta}] ${nombrePaciente}: sin dispositivos con notificaciones activadas, se omite.`);
     return false;
