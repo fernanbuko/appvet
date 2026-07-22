@@ -838,7 +838,7 @@ function placeholderNombreNegocio(rol) {
 // ni Reportes (son cosas veterinarias), así que se ocultan del menú. "otro"
 // se deja con el menú completo hasta tener más claridad de qué necesita.
 const NAV_POR_ROL = {
-  peluquero: ["inicio", "nuevo", "pacientes", "agenda", "config"],
+  peluquero: ["inicio", "nuevo", "pacientes", "agenda", "banos", "config"],
   vendedor: ["inicio", "nuevo", "pacientes", "agenda", "config"]
 };
 function itemsNavPermitidos(rol) {
@@ -1672,6 +1672,10 @@ const NAV = [{
   label: "Agenda",
   icon: "📅"
 }, {
+  key: "banos",
+  label: "Baños",
+  icon: "🛁"
+}, {
   key: "reportes",
   label: "Reportes",
   icon: "📊"
@@ -1693,7 +1697,7 @@ function Sidebar({
   // permiso de verlas. Si no es colaborador, el rol de la propia cuenta
   // decide qué secciones aplican (ej. un peluquero no usa Recetas).
   const keysPermitidosPorRol = itemsNavPermitidos(config?.rol);
-  const itemsMenu = (modoColaborador ? NAV.filter(item => ["inicio", "nuevo", "pacientes", "agenda", "config"].includes(item.key)) : keysPermitidosPorRol ? NAV.filter(item => keysPermitidosPorRol.includes(item.key)) : NAV).map(item => config?.rol === "peluquero" ? {
+  const itemsMenu = (modoColaborador ? NAV.filter(item => ["inicio", "nuevo", "pacientes", "agenda", "banos", "config"].includes(item.key)) : keysPermitidosPorRol ? NAV.filter(item => keysPermitidosPorRol.includes(item.key)) : NAV).map(item => config?.rol === "peluquero" ? {
     ...item,
     label: item.key === "pacientes" ? "Clientes" : item.key === "nuevo" ? "Nuevo cliente" : item.label
   } : item);
@@ -6447,6 +6451,169 @@ function AgendaView({
 }
 
 /* ---------------------------------------------------------
+   Todos los baños: vista general de todos los registros de la
+   sección "Baños" de todos los pacientes en un solo lugar (en
+   vez de tener que entrar paciente por paciente). Disponible
+   para veterinario/a y peluquero/a.
+----------------------------------------------------------*/
+function BanosGeneralView({
+  banos,
+  patients,
+  onUpdate,
+  config,
+  setActive,
+  setSelected
+}) {
+  const [reprogramandoId, setReprogramandoId] = useState(null);
+  const [nuevaFecha, setNuevaFecha] = useState("");
+  const [nuevaHora, setNuevaHora] = useState("");
+  const hoy = new Date().toISOString().slice(0, 10);
+  const proximoBanoVencido = b => b.proximoBano && b.proximoBano < hoy;
+  const conPaciente = (banos || []).map(b => ({
+    ...b,
+    _patient: patients.find(p => p.id === b.patientId)
+  })).filter(b => b._patient && !b._patient.eliminadoEn);
+  const programados = conPaciente.filter(b => b.proximoBano).sort((a, b) => a.proximoBano !== b.proximoBano ? a.proximoBano < b.proximoBano ? -1 : 1 : (a.proximoBanoHora || "99:99") < (b.proximoBanoHora || "99:99") ? -1 : 1);
+  const historial = conPaciente.slice().sort((a, b) => a.fecha < b.fecha ? 1 : -1).slice(0, 30);
+  const irAFicha = patient => {
+    setActive("pacientes");
+    setSelected(patient);
+  };
+  const marcarAtendido = b => {
+    onUpdate({
+      ...b,
+      _patient: undefined,
+      fechaAtendido: hoy,
+      proximoBano: "",
+      proximoBanoHora: ""
+    });
+  };
+  const cancelar = b => {
+    onUpdate({
+      ...b,
+      _patient: undefined,
+      proximoBano: "",
+      proximoBanoHora: ""
+    });
+  };
+  const guardarReprogramacion = b => {
+    if (!nuevaFecha) return;
+    onUpdate({
+      ...b,
+      _patient: undefined,
+      proximoBano: nuevaFecha,
+      proximoBanoHora: nuevaHora
+    });
+    setReprogramandoId(null);
+    setNuevaFecha("");
+    setNuevaHora("");
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "max-w-2xl"
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: styles.display,
+    className: "text-lg font-semibold mb-3"
+  }, "🛁 Baños programados"), programados.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    title: "Sin baños programados",
+    subtitle: "Los baños con \"Fecha separada para baño\" que registres en cualquier paciente aparecerán aquí."
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-3 mb-10"
+  }, programados.map(b => /*#__PURE__*/React.createElement("div", {
+    key: b.id,
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-4"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => irAFicha(b._patient),
+    className: "flex items-center gap-3 text-left w-full hover:opacity-80"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
+  }, b._patient.foto ? /*#__PURE__*/React.createElement("img", {
+    src: b._patient.foto,
+    alt: "",
+    className: "w-full h-full object-cover"
+  }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0 flex-1"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-sm"
+  }, b._patient.nombre, " ", /*#__PURE__*/React.createElement("span", {
+    className: "text-[#6B7A72] font-normal"
+  }, "· ", b.tipo)), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72]"
+  }, b._patient.propietario || "Sin propietario"))), /*#__PURE__*/React.createElement("div", {
+    className: "inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded mt-2",
+    style: {
+      ...styles.mono,
+      color: proximoBanoVencido(b) ? "var(--accent-orange)" : "var(--accent-green)",
+      background: proximoBanoVencido(b) ? "var(--accent-orange-bg)" : "var(--accent-green-bg)"
+    }
+  }, proximoBanoVencido(b) ? "⚠ Vencido: " : "🛁 Programado: ", formatDate(b.proximoBano, config?.dateFormat), b.proximoBanoHora && ` — ${b.proximoBanoHora}`), reprogramandoId === b.id ? /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mt-2 flex-wrap"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: nuevaFecha,
+    onChange: e => setNuevaFecha(e.target.value)
+  }), /*#__PURE__*/React.createElement(TextInput, {
+    type: "time",
+    value: nuevaHora,
+    onChange: e => setNuevaHora(e.target.value)
+  }), /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: () => guardarReprogramacion(b),
+    disabled: !nuevaFecha,
+    icon: "✓"
+  }, "Guardar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => {
+      setReprogramandoId(null);
+      setNuevaFecha("");
+      setNuevaHora("");
+    }
+  }, "Cancelar")) : /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mt-2 flex-wrap"
+  }, /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => marcarAtendido(b),
+    icon: "✅"
+  }, "Ya se atendió"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => {
+      setReprogramandoId(b.id);
+      setNuevaFecha(b.proximoBano);
+      setNuevaHora(b.proximoBanoHora || "");
+    },
+    icon: "📅"
+  }, "Reprogramar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => cancelar(b),
+    icon: "✕",
+    danger: true
+  }, "Cancelar"))))), /*#__PURE__*/React.createElement("h3", {
+    style: styles.display,
+    className: "text-lg font-semibold mb-3"
+  }, "Historial reciente"), historial.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    title: "Sin servicios registrados",
+    subtitle: "Los baños y servicios de estética que registres en cualquier paciente aparecerán aquí."
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2"
+  }, historial.map(b => /*#__PURE__*/React.createElement("button", {
+    key: b.id,
+    onClick: () => irAFicha(b._patient),
+    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#3D6B5C] transition"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-8 h-8 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
+  }, b._patient.foto ? /*#__PURE__*/React.createElement("img", {
+    src: b._patient.foto,
+    alt: "",
+    className: "w-full h-full object-cover"
+  }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-sm truncate"
+  }, b._patient.nombre, " · ", b.tipo), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72] truncate"
+  }, b._patient.propietario || "Sin propietario"))), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72] text-right shrink-0",
+    style: styles.mono
+  }, "Ingreso: ", formatDate(b.fecha, config?.dateFormat), b.fechaAtendido && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("br", null), "✅ ", formatDate(b.fechaAtendido, config?.dateFormat)))))));
+}
+
+/* ---------------------------------------------------------
    Reportes: totales de cobros por mes
 ----------------------------------------------------------*/
 function ReportesView({
@@ -6579,6 +6746,7 @@ function HomeScreen({
   // de Baños); "Reportes" sigue siendo exclusivo de quien administra cobros.
   const seccionesDeNavPermitidas = itemsNavPermitidos(config?.rol);
   const puedeVerAgenda = modoColaborador || !seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("agenda");
+  const puedeVerBanos = modoColaborador || !seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("banos");
   const puedeVerReportes = !modoColaborador && (!seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("reportes"));
   const proximas = patients.filter(p => p.proximaVisita).sort((a, b) => a.proximaVisita > b.proximaVisita ? 1 : -1).slice(0, 3);
   const hoy = new Date().toISOString().slice(0, 10);
@@ -6666,7 +6834,7 @@ function HomeScreen({
   }), !modoColaborador && /*#__PURE__*/React.createElement(StatCard, {
     label: "Exámenes",
     value: examenes.length
-  })), (puedeVerAgenda || puedeVerReportes) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
+  })), (puedeVerAgenda || puedeVerBanos || puedeVerReportes) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
     style: styles.mono
   }, "Accesos rápidos"), /*#__PURE__*/React.createElement("div", {
@@ -6676,6 +6844,11 @@ function HomeScreen({
     title: "Agenda",
     subtitle: esPeluquero ? "Calendario de próximos baños" : "Calendario de próximas visitas",
     onClick: () => setActive("agenda")
+  }), puedeVerBanos && /*#__PURE__*/React.createElement(ActionCard, {
+    icon: "🛁",
+    title: "Baños",
+    subtitle: "Todos los baños programados y su historial",
+    onClick: () => setActive("banos")
   }), puedeVerReportes && /*#__PURE__*/React.createElement(ActionCard, {
     icon: "📊",
     title: "Reportes",
@@ -8069,7 +8242,17 @@ function VetApp() {
     config: config,
     setActive: setActive,
     setSelected: setSelected
-  }), active === "reportes" && /*#__PURE__*/React.createElement(ReportesView, {
+  }), active === "banos" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    style: styles.display,
+    className: "text-2xl font-semibold mb-5"
+  }, "Baños"), /*#__PURE__*/React.createElement(BanosGeneralView, {
+    banos: banosCombinados,
+    patients: activePatients,
+    onUpdate: updateBano,
+    config: config,
+    setActive: setActive,
+    setSelected: setSelected
+  })), active === "reportes" && /*#__PURE__*/React.createElement(ReportesView, {
     cobros: cobros,
     patients: activePatients,
     onSelectPatient: p => {
