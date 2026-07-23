@@ -1178,6 +1178,42 @@ const ownCollectionStore = {
 };
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
+// Hace que el botón/gesto "atrás" del celular cierre PRIMERO una ventana
+// emergente (foto ampliada, QR, confirmaciones, notificaciones) en vez de
+// salir directamente de la pantalla en la que estaba — el comportamiento
+// "inteligente" que se espera en una app de celular. Funciona agregando una
+// entrada extra al historial mientras el modal está abierto: si el usuario
+// presiona atrás, esa entrada se "gasta" primero (cerrando el modal); si el
+// modal se cierra de otra forma (tocar "Cancelar", tocar afuera), se quita
+// esa entrada sola para no dejar un "atrás" fantasma que no haga nada.
+function useCerrarConAtras(abierto, onCerrar) {
+  const onCerrarRef = useRef(onCerrar);
+  onCerrarRef.current = onCerrar;
+  useEffect(() => {
+    if (!abierto) return;
+    let empujado = false;
+    try {
+      window.history.pushState({
+        vetdataModal: true
+      }, "");
+      empujado = true;
+    } catch (e) {
+      // Igual que con el resto de la navegación: en un visor en sandbox que
+      // no permite tocar el historial, simplemente no habrá este atajo.
+    }
+    const onPopState = () => onCerrarRef.current();
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      if (empujado && window.history.state?.vetdataModal) {
+        try {
+          window.history.back();
+        } catch (e) {}
+      }
+    };
+  }, [abierto]);
+}
+
 // Lee un link de invitación a colaborador del hash de la URL, ej.:
 // "...#invitar=UID&nombre=Golden%20Vet%20Care" — generado por el botón
 // "Copiar link de invitación" en Configuración.
@@ -1377,12 +1413,52 @@ function GhostButton({
   children,
   onClick,
   icon,
-  danger
+  danger,
+  disabled
 }) {
   return /*#__PURE__*/React.createElement("button", {
     onClick: onClick,
-    className: "inline-flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium border transition " + (danger ? "border-[#E08A3E]/40 text-[#B14E1C] hover:bg-[#E08A3E]/10" : "border-[#DDD5C4] text-[#23342F] hover:bg-white")
+    disabled: disabled,
+    className: "inline-flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium border transition disabled:opacity-40 disabled:cursor-not-allowed " + (danger ? "border-[#E08A3E]/40 text-[#B14E1C] hover:bg-[#E08A3E]/10" : "border-[#DDD5C4] text-[#23342F] hover:bg-white")
   }, icon && /*#__PURE__*/React.createElement("span", null, icon), children);
+}
+
+// Ventana de confirmación propia de la app — reemplaza a window.confirm(),
+// que en el navegador siempre muestra el nombre del sitio (ej.
+// "fernanbuko.github.io dice"), algo que ningún sitio puede quitar ni
+// personalizar por ser una medida de seguridad del propio navegador.
+function ConfirmModal({
+  title,
+  message,
+  confirmLabel,
+  cancelLabel,
+  danger,
+  onConfirm,
+  onCancel
+}) {
+  useCerrarConAtras(true, onCancel);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 flex items-center justify-center p-4",
+    style: {
+      background: "rgba(0,0,0,.5)"
+    },
+    onClick: onCancel
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-lg p-6 max-w-sm w-full",
+    onClick: e => e.stopPropagation()
+  }, title && /*#__PURE__*/React.createElement("h3", {
+    style: styles.display,
+    className: "text-lg font-semibold text-[#23342F] mb-2"
+  }, title), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-[#6B7A72] mb-6 whitespace-pre-line"
+  }, message), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 justify-end flex-wrap"
+  }, /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: onCancel
+  }, cancelLabel || "Cancelar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: onConfirm,
+    danger: !!danger
+  }, confirmLabel || "Aceptar"))));
 }
 
 /* ---------------------------------------------------------
@@ -1779,6 +1855,7 @@ function NotificationBell({
   oscuro
 }) {
   const [abierto, setAbierto] = useState(false);
+  useCerrarConAtras(abierto, () => setAbierto(false));
   const lista = (notificaciones || []).slice().sort((a, b) => (b.creadoEn || 0) - (a.creadoEn || 0)).slice(0, 30);
   const noLeidas = lista.filter(n => !n.leida).length;
   return /*#__PURE__*/React.createElement("div", {
@@ -2437,6 +2514,7 @@ function ImageLightbox({
   src,
   onClose
 }) {
+  useCerrarConAtras(true, onClose);
   return /*#__PURE__*/React.createElement("div", {
     className: "fixed inset-0 z-50 flex items-center justify-center px-4",
     style: {
@@ -2757,6 +2835,7 @@ function PatientDetail({
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [uploadingFoto, setUploadingFoto] = useState(false);
   const [showQR, setShowQR] = useState(false);
+  useCerrarConAtras(showQR, () => setShowQR(false));
   const [resolviendoCita, setResolviendoCita] = useState(false);
   const [nuevaFechaVisita, setNuevaFechaVisita] = useState("");
   const [nuevaHoraVisita, setNuevaHoraVisita] = useState("");
@@ -4511,6 +4590,7 @@ function PatientsList({
   const [orden, setOrden] = useState("nombre");
   const [agrupar, setAgrupar] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
+  const [confirmandoEliminar, setConfirmandoEliminar] = useState(null);
   const especiesDisponibles = useMemo(() => [...new Set(patients.map(p => p.especie).filter(Boolean))].sort(), [patients]);
   const etiquetasDisponibles = useMemo(() => [...new Set(patients.flatMap(p => p.etiquetas || []))].sort(), [patients]);
   const filtered = useMemo(() => {
@@ -4652,12 +4732,20 @@ function PatientsList({
     onClick: () => onRestore(p),
     icon: "↩️"
   }, "Restaurar"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => {
-      if (window.confirm(`¿Eliminar definitivamente a ${p.nombre}? Esto no se puede deshacer.`)) onPermanentDelete(p);
-    },
+    onClick: () => setConfirmandoEliminar(p),
     icon: "🗑️",
     danger: true
-  }, "Eliminar")))))));
+  }, "Eliminar")))))), confirmandoEliminar && /*#__PURE__*/React.createElement(ConfirmModal, {
+    title: "Eliminar definitivamente",
+    message: `¿Eliminar definitivamente a ${confirmandoEliminar.nombre}? Esto no se puede deshacer.`,
+    confirmLabel: "Eliminar",
+    danger: true,
+    onCancel: () => setConfirmandoEliminar(null),
+    onConfirm: () => {
+      onPermanentDelete(confirmandoEliminar);
+      setConfirmandoEliminar(null);
+    }
+  }));
 }
 function GlobalSearch({
   patients,
@@ -7629,15 +7717,21 @@ function VetApp() {
     handleSignIn();
   };
   const [deletingAccount, setDeletingAccount] = useState(false);
-  const handleDeleteAccount = async () => {
+  // 0 = nada, 1 = primer aviso, 2 = pedir que escriba "ELIMINAR"
+  const [confirmarEliminarPaso, setConfirmarEliminarPaso] = useState(0);
+  const [textoConfirmacionEliminar, setTextoConfirmacionEliminar] = useState("");
+  const handleDeleteAccount = () => {
     if (deletingAccount) return;
-    const paso1 = window.confirm("Esto va a ELIMINAR PERMANENTEMENTE tu cuenta y TODOS tus datos (pacientes, recetas, exámenes, historial médico). " + "No se puede deshacer. ¿Quieres continuar?");
-    if (!paso1) return;
-    const escrito = window.prompt('Para confirmar, escribe ELIMINAR (en mayúsculas):');
-    if (escrito !== "ELIMINAR") {
-      if (escrito !== null) alert("No coincide con \"ELIMINAR\". Se canceló la eliminación.");
-      return;
-    }
+    setConfirmarEliminarPaso(1);
+  };
+  const cerrarModalEliminarCuenta = () => {
+    setConfirmarEliminarPaso(0);
+    setTextoConfirmacionEliminar("");
+  };
+  useCerrarConAtras(confirmarEliminarPaso === 2, cerrarModalEliminarCuenta);
+  const ejecutarEliminacionCuenta = async () => {
+    if (textoConfirmacionEliminar !== "ELIMINAR") return;
+    cerrarModalEliminarCuenta();
     setDeletingAccount(true);
     try {
       await Promise.all([collectionStore.deleteAll("patients"), collectionStore.deleteAll("recetas"), collectionStore.deleteAll("examenes"), collectionStore.deleteAll("historial"), collectionStore.deleteAll("vacunas"), collectionStore.deleteAll("cobros")]);
@@ -7648,9 +7742,9 @@ function VetApp() {
       // Al borrarse el usuario, onAuthStateChanged se dispara solo y muestra el login.
     } catch (e) {
       if (e && e.code === "auth/requires-recent-login") {
-        alert("Por seguridad, Google pide que hayas iniciado sesión recientemente para poder eliminar la cuenta. " + "Cierra sesión, vuelve a entrar, y de inmediato intenta eliminar la cuenta otra vez.");
+        showToast("Por seguridad, cierra sesión, entra de nuevo, e intenta eliminar la cuenta otra vez.");
       } else {
-        alert("No se pudo eliminar la cuenta: " + (e?.message || "intenta de nuevo."));
+        showToast("No se pudo eliminar la cuenta: " + (e?.message || "intenta de nuevo."));
       }
     } finally {
       setDeletingAccount(false);
@@ -8328,40 +8422,45 @@ function VetApp() {
     URL.revokeObjectURL(url);
     showToast("Respaldo descargado");
   };
+  const [pendingBackupData, setPendingBackupData] = useState(null);
   const importBackup = file => {
     const reader = new FileReader();
     reader.onload = e => {
       try {
         const data = JSON.parse(e.target.result);
-        const ok = window.confirm("Esto va a reemplazar todos los datos actuales (pacientes, recetas, exámenes, historial, vacunas, cobros y configuración) por los del respaldo. ¿Continuar?");
-        if (!ok) return;
-        const nextPatients = Array.isArray(data.patients) ? data.patients : [];
-        const nextRecetas = Array.isArray(data.recetas) ? data.recetas : [];
-        const nextExamenes = Array.isArray(data.examenes) ? data.examenes : [];
-        const nextHistorial = Array.isArray(data.historial) ? data.historial : [];
-        const nextVacunas = Array.isArray(data.vacunas) ? data.vacunas : [];
-        const nextCobros = Array.isArray(data.cobros) ? data.cobros : [];
-        const nextConfig = data.config || null;
-        setPatients(nextPatients);
-        setRecetas(nextRecetas);
-        setExamenes(nextExamenes);
-        setHistorial(nextHistorial);
-        setVacunas(nextVacunas);
-        setCobros(nextCobros);
-        setConfig(nextConfig);
-        nextPatients.forEach(p => collectionStore.setOne("patients", p.id || uid(), p));
-        nextRecetas.forEach(r => collectionStore.setOne("recetas", r.id || uid(), r));
-        nextExamenes.forEach(ex => collectionStore.setOne("examenes", ex.id || uid(), ex));
-        nextHistorial.forEach(h => collectionStore.setOne("historial", h.id || uid(), h));
-        nextVacunas.forEach(v => collectionStore.setOne("vacunas", v.id || uid(), v));
-        nextCobros.forEach(c => collectionStore.setOne("cobros", c.id || uid(), c));
-        store.set("config", nextConfig);
-        showToast("Respaldo restaurado");
+        setPendingBackupData(data);
       } catch (err) {
-        alert("No se pudo leer el archivo. Asegúrate de que sea un respaldo válido de VetData (.json).");
+        showToast("No se pudo leer el archivo. Asegúrate de que sea un respaldo válido de VetData (.json).");
       }
     };
     reader.readAsText(file);
+  };
+  const confirmarRestaurarBackup = () => {
+    const data = pendingBackupData;
+    setPendingBackupData(null);
+    if (!data) return;
+    const nextPatients = Array.isArray(data.patients) ? data.patients : [];
+    const nextRecetas = Array.isArray(data.recetas) ? data.recetas : [];
+    const nextExamenes = Array.isArray(data.examenes) ? data.examenes : [];
+    const nextHistorial = Array.isArray(data.historial) ? data.historial : [];
+    const nextVacunas = Array.isArray(data.vacunas) ? data.vacunas : [];
+    const nextCobros = Array.isArray(data.cobros) ? data.cobros : [];
+    const nextConfig = data.config || null;
+    setPatients(nextPatients);
+    setRecetas(nextRecetas);
+    setExamenes(nextExamenes);
+    setHistorial(nextHistorial);
+    setVacunas(nextVacunas);
+    setCobros(nextCobros);
+    setConfig(nextConfig);
+    nextPatients.forEach(p => collectionStore.setOne("patients", p.id || uid(), p));
+    nextRecetas.forEach(r => collectionStore.setOne("recetas", r.id || uid(), r));
+    nextExamenes.forEach(ex => collectionStore.setOne("examenes", ex.id || uid(), ex));
+    nextHistorial.forEach(h => collectionStore.setOne("historial", h.id || uid(), h));
+    nextVacunas.forEach(v => collectionStore.setOne("vacunas", v.id || uid(), v));
+    nextCobros.forEach(c => collectionStore.setOne("cobros", c.id || uid(), c));
+    store.set("config", nextConfig);
+    showToast("Respaldo restaurado");
   };
   if (!firebaseReady) {
     return /*#__PURE__*/React.createElement(FirebaseNotConfigured, null);
@@ -8716,7 +8815,40 @@ function VetApp() {
     onClick: handleDeleteAccount,
     icon: "🗑️",
     danger: true
-  }, deletingAccount ? "Eliminando..." : "Eliminar cuenta y todos mis datos"))), /*#__PURE__*/React.createElement("div", {
+  }, deletingAccount ? "Eliminando..." : "Eliminar cuenta y todos mis datos")), confirmarEliminarPaso === 1 && /*#__PURE__*/React.createElement(ConfirmModal, {
+    title: "Eliminar cuenta",
+    message: "Esto va a ELIMINAR PERMANENTEMENTE tu cuenta y TODOS tus datos (pacientes, recetas, exámenes, historial médico). No se puede deshacer.",
+    confirmLabel: "Continuar",
+    danger: true,
+    onCancel: cerrarModalEliminarCuenta,
+    onConfirm: () => setConfirmarEliminarPaso(2)
+  }), confirmarEliminarPaso === 2 && /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 flex items-center justify-center p-4",
+    style: {
+      background: "rgba(0,0,0,.5)"
+    },
+    onClick: cerrarModalEliminarCuenta
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-lg p-6 max-w-sm w-full",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: styles.display,
+    className: "text-lg font-semibold text-[#23342F] mb-2"
+  }, "Confirmar eliminación"), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-[#6B7A72] mb-3"
+  }, "Para confirmar, escribe ", /*#__PURE__*/React.createElement("b", null, "ELIMINAR"), " (en mayúsculas):"), /*#__PURE__*/React.createElement(TextInput, {
+    value: textoConfirmacionEliminar,
+    onChange: e => setTextoConfirmacionEliminar(e.target.value),
+    placeholder: "ELIMINAR"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 justify-end mt-4"
+  }, /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: cerrarModalEliminarCuenta
+  }, "Cancelar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: ejecutarEliminacionCuenta,
+    disabled: textoConfirmacionEliminar !== "ELIMINAR",
+    danger: true
+  }, "Eliminar definitivamente"))))), /*#__PURE__*/React.createElement("div", {
     className: "max-w-xl mt-8"
   }, /*#__PURE__*/React.createElement("h3", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
@@ -8752,6 +8884,13 @@ function VetApp() {
     },
     modoColaborador: modoColaborador,
     config: config
+  }), pendingBackupData && /*#__PURE__*/React.createElement(ConfirmModal, {
+    title: "Restaurar respaldo",
+    message: "Esto va a reemplazar todos los datos actuales (pacientes, recetas, exámenes, historial, vacunas, cobros y configuración) por los del respaldo. ¿Continuar?",
+    confirmLabel: "Continuar",
+    danger: true,
+    onCancel: () => setPendingBackupData(null),
+    onConfirm: confirmarRestaurarBackup
   }));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(VetApp, null));
