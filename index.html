@@ -2369,7 +2369,21 @@ function PatientForm({
     value: data.raza,
     onChange: set("raza"),
     placeholder: "Ej. Mestizo"
-  })), /*#__PURE__*/React.createElement(Field, {
+  })), data.especie === "Perro" && /*#__PURE__*/React.createElement(Field, {
+    label: "Tamaño"
+  }, /*#__PURE__*/React.createElement("select", {
+    value: data.tamano || "",
+    onChange: set("tamano"),
+    className: inputClass
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Sin especificar"), /*#__PURE__*/React.createElement("option", {
+    value: "Pequeño"
+  }, "Pequeño"), /*#__PURE__*/React.createElement("option", {
+    value: "Mediano"
+  }, "Mediano"), /*#__PURE__*/React.createElement("option", {
+    value: "Grande"
+  }, "Grande"))), /*#__PURE__*/React.createElement(Field, {
     label: "Fecha de nacimiento (aprox.)"
   }, /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-2"
@@ -3088,6 +3102,9 @@ function PatientDetail({
   }), /*#__PURE__*/React.createElement(DetailRow, {
     label: "Raza",
     value: patient.raza
+  }), patient.especie === "Perro" && patient.tamano && /*#__PURE__*/React.createElement(DetailRow, {
+    label: "Tamaño",
+    value: patient.tamano
   }), /*#__PURE__*/React.createElement(DetailRow, {
     label: "Fecha de nacimiento",
     value: formatDate(patient.fechaNacimiento, config?.dateFormat)
