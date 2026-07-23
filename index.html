@@ -1690,6 +1690,10 @@ const NAV = [{
   label: "Baños",
   icon: "🛁"
 }, {
+  key: "desparasitacion",
+  label: "Desparasitación",
+  icon: "🐛"
+}, {
   key: "reportes",
   label: "Reportes",
   icon: "📊"
@@ -6311,10 +6315,12 @@ function GreetingScreen({
 ----------------------------------------------------------*/
 function StatCard({
   label,
-  value
+  value,
+  onClick
 }) {
-  return /*#__PURE__*/React.createElement("div", {
-    className: "bg-white border border-[#DDD5C4] rounded-lg p-4 text-center"
+  return /*#__PURE__*/React.createElement(onClick ? "button" : "div", {
+    onClick: onClick,
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-4 text-center w-full" + (onClick ? " hover:border-[#3D6B5C] hover:shadow-sm transition cursor-pointer" : "")
   }, /*#__PURE__*/React.createElement("div", {
     style: styles.display,
     className: "text-3xl font-semibold text-[#3D6B5C]"
@@ -6670,6 +6676,98 @@ function BanosGeneralView({
 /* ---------------------------------------------------------
    Reportes: totales de cobros por mes
 ----------------------------------------------------------*/
+/* ---------------------------------------------------------
+   Todas las desparasitaciones: vista general de todos los
+   registros de "Desparasitación" de todos los pacientes en un
+   solo lugar.
+----------------------------------------------------------*/
+function DesparasitacionesGeneralView({
+  desparasitaciones,
+  patients,
+  config,
+  setActive,
+  setSelected
+}) {
+  const hoy = new Date().toISOString().slice(0, 10);
+  const vencida = d => d.proximaDosis && d.proximaDosis < hoy;
+  const conPaciente = (desparasitaciones || []).map(d => ({
+    ...d,
+    _patient: patients.find(p => p.id === d.patientId)
+  })).filter(d => d._patient && !d._patient.eliminadoEn);
+  const proximas = conPaciente.filter(d => d.proximaDosis).sort((a, b) => a.proximaDosis < b.proximaDosis ? -1 : 1);
+  const historial = conPaciente.slice().sort((a, b) => a.fechaAplicada < b.fechaAplicada ? 1 : -1).slice(0, 30);
+  const irAFicha = patient => {
+    setActive("pacientes");
+    setSelected(patient);
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "max-w-2xl"
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: styles.display,
+    className: "text-lg font-semibold mb-3"
+  }, "🐛 Próximas dosis"), proximas.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    title: "Sin dosis programadas",
+    subtitle: "Las desparasitaciones con \"Próxima dosis\" que registres en cualquier paciente aparecerán aquí."
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2 mb-10"
+  }, proximas.map(d => /*#__PURE__*/React.createElement("button", {
+    key: d.id,
+    onClick: () => irAFicha(d._patient),
+    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#3D6B5C] transition"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
+  }, d._patient.foto ? /*#__PURE__*/React.createElement("img", {
+    src: d._patient.foto,
+    alt: "",
+    className: "w-full h-full object-cover"
+  }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-sm truncate"
+  }, d._patient.nombre, " ", /*#__PURE__*/React.createElement("span", {
+    className: "text-[#6B7A72] font-normal"
+  }, "· ", d.tipo)), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72] truncate"
+  }, d._patient.propietario || "Sin propietario"))), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs px-2 py-1 rounded shrink-0",
+    style: {
+      ...styles.mono,
+      color: vencida(d) ? "var(--accent-orange)" : "var(--accent-green)",
+      background: vencida(d) ? "var(--accent-orange-bg)" : "var(--accent-green-bg)"
+    }
+  }, vencida(d) ? "⚠ " : "🐛 ", formatDate(d.proximaDosis, config?.dateFormat))))), /*#__PURE__*/React.createElement("h3", {
+    style: styles.display,
+    className: "text-lg font-semibold mb-3"
+  }, "Historial reciente"), historial.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    title: "Sin desparasitaciones registradas",
+    subtitle: "Las desparasitaciones que registres en cualquier paciente aparecerán aquí."
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2"
+  }, historial.map(d => /*#__PURE__*/React.createElement("button", {
+    key: d.id,
+    onClick: () => irAFicha(d._patient),
+    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#3D6B5C] transition"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-8 h-8 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
+  }, d._patient.foto ? /*#__PURE__*/React.createElement("img", {
+    src: d._patient.foto,
+    alt: "",
+    className: "w-full h-full object-cover"
+  }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-sm truncate"
+  }, d._patient.nombre, " · ", d.tipo), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72] truncate"
+  }, d._patient.propietario || "Sin propietario"))), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72] text-right shrink-0",
+    style: styles.mono
+  }, "Aplicada: ", formatDate(d.fechaAplicada, config?.dateFormat))))));
+}
 function ReportesView({
   cobros,
   patients,
@@ -6864,6 +6962,7 @@ function HomeScreen({
   const seccionesDeNavPermitidas = itemsNavPermitidos(config?.rol);
   const puedeVerAgenda = modoColaborador || !seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("agenda");
   const puedeVerBanos = modoColaborador || !seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("banos");
+  const puedeVerDesparasitacion = !modoColaborador && (!seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("desparasitacion"));
   const puedeVerReportes = !modoColaborador && (!seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("reportes"));
   const proximas = patients.filter(p => p.proximaVisita).sort((a, b) => a.proximaVisita > b.proximaVisita ? 1 : -1).slice(0, 3);
   const hoy = new Date().toISOString().slice(0, 10);
@@ -6944,14 +7043,17 @@ function HomeScreen({
     className: "grid grid-cols-3 gap-3 mb-10 max-w-md"
   }, /*#__PURE__*/React.createElement(StatCard, {
     label: esPeluquero ? "Clientes" : "Pacientes",
-    value: patientsVisibles.length
+    value: patientsVisibles.length,
+    onClick: () => setActive("pacientes")
   }), !modoColaborador && /*#__PURE__*/React.createElement(StatCard, {
     label: "Recetas",
-    value: recetas.length
+    value: recetas.length,
+    onClick: () => setActive("recetas")
   }), !modoColaborador && /*#__PURE__*/React.createElement(StatCard, {
     label: "Exámenes",
-    value: examenes.length
-  })), (puedeVerAgenda || puedeVerBanos || puedeVerReportes) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
+    value: examenes.length,
+    onClick: () => setActive("examenes")
+  })), (puedeVerAgenda || puedeVerBanos || puedeVerDesparasitacion || puedeVerReportes) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
     style: styles.mono
   }, "Accesos rápidos"), /*#__PURE__*/React.createElement("div", {
@@ -6966,6 +7068,11 @@ function HomeScreen({
     title: "Baños",
     subtitle: "Todos los baños programados y su historial",
     onClick: () => setActive("banos")
+  }), puedeVerDesparasitacion && /*#__PURE__*/React.createElement(ActionCard, {
+    icon: "🐛",
+    title: "Desparasitación",
+    subtitle: "Próximas dosis y su historial",
+    onClick: () => setActive("desparasitacion")
   }), puedeVerReportes && /*#__PURE__*/React.createElement(ActionCard, {
     icon: "📊",
     title: "Reportes",
@@ -8534,6 +8641,15 @@ function VetApp() {
     banos: banosCombinados,
     patients: activePatients,
     onUpdate: updateBano,
+    config: config,
+    setActive: setActive,
+    setSelected: setSelected
+  })), active === "desparasitacion" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    style: styles.display,
+    className: "text-2xl font-semibold mb-5"
+  }, "Desparasitación"), /*#__PURE__*/React.createElement(DesparasitacionesGeneralView, {
+    desparasitaciones: desparasitaciones,
+    patients: activePatients,
     config: config,
     setActive: setActive,
     setSelected: setSelected
