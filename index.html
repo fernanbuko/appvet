@@ -215,6 +215,7 @@
   .right-3{right:.75rem}
 
   .break-all{word-break:break-all}
+  .break-words{overflow-wrap:break-word}
   .font-mono{font-family:"IBM Plex Mono",monospace}
 
   .bottom-0{bottom:0}
@@ -6340,8 +6341,10 @@ function ActionCard({
     className: "text-left bg-white border border-[#DDD5C4] rounded-lg p-5 hover:border-[#3D6B5C] hover:shadow-sm transition flex items-start gap-4"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-11 h-11 rounded-full bg-[#EAF0EC] flex items-center justify-center text-xl shrink-0"
-  }, icon), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-[#23342F]"
+  }, icon), /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0 flex-1"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-[#23342F] break-words"
   }, title), /*#__PURE__*/React.createElement("div", {
     className: "text-sm text-[#6B7A72] mt-0.5"
   }, subtitle)));
