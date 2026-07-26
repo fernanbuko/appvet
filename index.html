@@ -873,8 +873,8 @@ function placeholderNombreNegocio(rol) {
 // ni Reportes (son cosas veterinarias), así que se ocultan del menú. "otro"
 // se deja con el menú completo hasta tener más claridad de qué necesita.
 const NAV_POR_ROL = {
-  peluquero: ["inicio", "nuevo", "pacientes", "agenda", "banos", "config"],
-  vendedor: ["inicio", "nuevo", "pacientes", "agenda", "config"]
+  peluquero: ["inicio", "nuevo", "pacientes", "propietarios", "agenda", "banos", "config"],
+  vendedor: ["inicio", "nuevo", "pacientes", "propietarios", "agenda", "config"]
 };
 function itemsNavPermitidos(rol) {
   return NAV_POR_ROL[rol] || null; // null = todas (veterinario/a u "otro")
@@ -1764,6 +1764,10 @@ const NAV = [{
   label: "Pacientes",
   icon: "👥"
 }, {
+  key: "propietarios",
+  label: "Propietarios",
+  icon: "📇"
+}, {
   key: "recetas",
   label: "Recetas",
   icon: "💊"
@@ -1813,7 +1817,7 @@ function Sidebar({
   // permiso de verlas. Si no es colaborador, el rol de la propia cuenta
   // decide qué secciones aplican (ej. un peluquero no usa Recetas).
   const keysPermitidosPorRol = itemsNavPermitidos(config?.rol);
-  const itemsMenu = (modoColaborador ? NAV.filter(item => ["inicio", "nuevo", "pacientes", "agenda", "banos", "config"].includes(item.key)) : keysPermitidosPorRol ? NAV.filter(item => keysPermitidosPorRol.includes(item.key)) : NAV).map(item => config?.rol === "peluquero" ? {
+  const itemsMenu = (modoColaborador ? NAV.filter(item => ["inicio", "nuevo", "pacientes", "propietarios", "agenda", "banos", "config"].includes(item.key)) : keysPermitidosPorRol ? NAV.filter(item => keysPermitidosPorRol.includes(item.key)) : NAV).map(item => config?.rol === "peluquero" ? {
     ...item,
     label: item.key === "pacientes" ? "Clientes" : item.key === "nuevo" ? "Nuevo cliente" : item.label
   } : item);
@@ -7078,6 +7082,84 @@ function VacunasGeneralView({
    tienen algo puesto en ese campo (parte de la hoja "Consulta"
    de la ficha), en un solo lugar.
 ----------------------------------------------------------*/
+/* ---------------------------------------------------------
+   Propietarios: agrupa a todos los pacientes por el nombre de
+   su propietario, para ver de un vistazo todas las mascotas de
+   un mismo dueño y contactarlo por WhatsApp.
+----------------------------------------------------------*/
+function PropietariosView({
+  patients,
+  config,
+  setActive,
+  setSelected
+}) {
+  const [query, setQuery] = useState("");
+  const grupos = {};
+  (patients || []).forEach(p => {
+    const nombre = (p.propietario || "").trim() || "Sin propietario";
+    const key = normalizeText(nombre);
+    if (!grupos[key]) grupos[key] = {
+      nombre,
+      telefono: "",
+      pacientes: []
+    };
+    grupos[key].pacientes.push(p);
+    if (!grupos[key].telefono && p.telefonoPropietario) grupos[key].telefono = p.telefonoPropietario;
+  });
+  const q = normalizeText(query);
+  const lista = Object.values(grupos).filter(g => !q || normalizeText(g.nombre).includes(q) || g.pacientes.some(p => normalizeText(p.nombre).includes(q))).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  const irAFicha = patient => {
+    setActive("pacientes");
+    setSelected(patient);
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "max-w-2xl"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "relative max-w-sm mb-5"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "absolute left-3 top-1/2 -translate-y-1/2 text-[#A6A08F]"
+  }, "🔍"), /*#__PURE__*/React.createElement("input", {
+    value: query,
+    onChange: e => setQuery(e.target.value),
+    placeholder: "Buscar propietario o mascota...",
+    className: "w-full bg-white border border-[#DDD5C4] rounded-md pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#3D6B5C]"
+  })), lista.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    title: "Sin propietarios registrados",
+    subtitle: "Los propietarios aparecerán aquí en cuanto registres pacientes con su nombre."
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-3"
+  }, lista.map(g => /*#__PURE__*/React.createElement("div", {
+    key: g.nombre,
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between gap-3 mb-3 flex-wrap"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium"
+  }, g.nombre), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72]"
+  }, g.pacientes.length, " mascota", g.pacientes.length === 1 ? "" : "s")), g.telefono && /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => window.open(whatsappLink(g.telefono, `Hola ${g.nombre}, le escribimos de ${config?.clinica || "la clínica"}. `), "_blank"),
+    icon: "💬"
+  }, "WhatsApp")), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-2"
+  }, g.pacientes.map(p => /*#__PURE__*/React.createElement("button", {
+    key: p.id,
+    onClick: () => irAFicha(p),
+    className: "flex items-center gap-2 bg-[#EAF0EC] hover:bg-[#DDE7E1] rounded-full pl-1.5 pr-3 py-1.5 transition"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-6 h-6 rounded-full bg-white overflow-hidden flex items-center justify-center shrink-0"
+  }, p.foto ? /*#__PURE__*/React.createElement("img", {
+    src: p.foto,
+    alt: "",
+    className: "w-full h-full object-cover"
+  }) : /*#__PURE__*/React.createElement("span", {
+    className: "text-xs"
+  }, "🐾")), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs font-medium"
+  }, p.nombre), p.especie && /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-[#6B7A72]"
+  }, "· ", p.especie))))))));
+}
 function TratamientosInyectablesGeneralView({
   patients,
   setActive,
@@ -7309,6 +7391,7 @@ function HomeScreen({
   const seccionesDeNavPermitidas = itemsNavPermitidos(config?.rol);
   const puedeVerAgenda = modoColaborador || !seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("agenda");
   const puedeVerBanos = modoColaborador || !seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("banos");
+  const puedeVerPropietarios = modoColaborador || !seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("propietarios");
   const puedeVerVacunas = !modoColaborador && (!seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("vacunas"));
   const puedeVerDesparasitacion = !modoColaborador && (!seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("desparasitacion"));
   const puedeVerTratamientos = !modoColaborador && (!seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("tratamientos"));
@@ -7406,7 +7489,7 @@ function HomeScreen({
     label: "Exámenes",
     value: examenes.length,
     onClick: () => setActive("examenes")
-  })), (puedeVerAgenda || puedeVerBanos || puedeVerVacunas || puedeVerDesparasitacion || puedeVerTratamientos || puedeVerReportes) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
+  })), (puedeVerAgenda || puedeVerBanos || puedeVerVacunas || puedeVerDesparasitacion || puedeVerTratamientos || puedeVerPropietarios || puedeVerReportes) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
     style: styles.mono
   }, "Accesos rápidos"), /*#__PURE__*/React.createElement("div", {
@@ -7416,6 +7499,11 @@ function HomeScreen({
     title: "Agenda",
     subtitle: esPeluquero ? "Calendario de próximos baños" : "Calendario de próximas visitas",
     onClick: () => setActive("agenda")
+  }), puedeVerPropietarios && /*#__PURE__*/React.createElement(ActionCard, {
+    icon: "📇",
+    title: "Propietarios",
+    subtitle: "Todas las mascotas de cada dueño, agrupadas",
+    onClick: () => setActive("propietarios")
   }), puedeVerBanos && /*#__PURE__*/React.createElement(ActionCard, {
     icon: "🛁",
     title: "Baños",
@@ -9010,7 +9098,15 @@ function VetApp() {
     config: config,
     setActive: setActive,
     setSelected: setSelected
-  }), active === "banos" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+  }), active === "propietarios" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    style: styles.display,
+    className: "text-2xl font-semibold mb-5"
+  }, "Propietarios"), /*#__PURE__*/React.createElement(PropietariosView, {
+    patients: patientsParaLista,
+    config: config,
+    setActive: setActive,
+    setSelected: setSelected
+  })), active === "banos" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold mb-5"
   }, "Baños"), /*#__PURE__*/React.createElement(BanosGeneralView, {
