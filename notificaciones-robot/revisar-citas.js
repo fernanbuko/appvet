@@ -111,6 +111,27 @@ async function configDeUid(uid) {
   return config;
 }
 
+// Baños/vacunas/desparasitaciones/tratamientos/cirugías guardan solo el
+// "patientId" del paciente, no su foto — hay que ir a buscarla a la
+// colección "patients" para que la notificación (y la campanita en la app)
+// puedan mostrarla. Se cachea por (parentRef + patientId) dentro de la
+// misma corrida del robot, para no repetir la misma lectura una y otra vez.
+const fotoCache = new Map();
+async function fotoDePaciente(parentRef, patientId) {
+  if (!patientId) return "";
+  const clave = parentRef.path + "/" + patientId;
+  if (fotoCache.has(clave)) return fotoCache.get(clave);
+  let foto = "";
+  try {
+    const doc = await parentRef.collection("patients").doc(patientId).get();
+    foto = doc.exists ? doc.data()?.foto || "" : "";
+  } catch (e) {
+    foto = "";
+  }
+  fotoCache.set(clave, foto);
+  return foto;
+}
+
 async function tokensDeUsuario(usuarioRef) {
   const config = await configDeUid(usuarioRef.id);
   return config?.fcmTokens || [];
@@ -390,6 +411,7 @@ async function revisarRecordatoriosPorFecha(tipoRecordatorio, hoy, manana, ayer)
         title: construirTitulo(registro),
         body: construirCuerpo(registro),
         patientId: String(registro.patientId || ""),
+        foto: await fotoDePaciente(parentRef, registro.patientId),
       };
       const seEnvio = await mandarNotificacion(tokens, dataPayload, etiqueta, registro.patientName || "(paciente)");
       await doc.ref.update({ recordatorioEnviadoPara: hoy });
@@ -406,6 +428,7 @@ async function revisarRecordatoriosPorFecha(tipoRecordatorio, hoy, manana, ayer)
         title: construirTituloManana(registro),
         body: construirCuerpo(registro),
         patientId: String(registro.patientId || ""),
+        foto: await fotoDePaciente(parentRef, registro.patientId),
       };
       const seEnvio = await mandarNotificacion(tokens, dataPayload, etiqueta, registro.patientName || "(paciente)");
       await doc.ref.update({ recordatorioAnticipadoEnviadoPara: manana });
@@ -424,6 +447,7 @@ async function revisarRecordatoriosPorFecha(tipoRecordatorio, hoy, manana, ayer)
         title: construirTituloVencido(registro),
         body: construirCuerpoVencido(registro),
         patientId: String(registro.patientId || ""),
+        foto: await fotoDePaciente(parentRef, registro.patientId),
       };
       const seEnvio = await mandarNotificacion(tokens, dataPayload, etiqueta, registro.patientName || "(paciente)");
       await doc.ref.update({ recordatorioVencidoEnviadoPara: ayer });
@@ -512,7 +536,7 @@ const TIPOS_CON_HORA = [
   },
 ];
 
-async function revisarUnoConHora(tipo, doc, hoy, manana, ayer, tokens, etiqueta) {
+async function revisarUnoConHora(tipo, doc, hoy, manana, ayer, tokens, etiqueta, foto) {
   const { campoFecha, campoHora, tituloHoyConHora, tituloHoySinHora, tituloManana, tituloVencido, cuerpoHoy, cuerpoManana, cuerpoVencido } = tipo;
   const r = doc.data();
   if (!r[campoFecha]) return 0;
@@ -528,6 +552,7 @@ async function revisarUnoConHora(tipo, doc, hoy, manana, ayer, tokens, etiqueta)
             title: tituloHoyConHora(r, minutosRestantes),
             body: cuerpoHoy(r),
             patientId: String(r.patientId || ""),
+            foto: foto || "",
           };
           const seEnvio = await mandarNotificacion(tokens, dataPayload, etiqueta, r.patientName || "(paciente)");
           await doc.ref.update({ recordatorioEnviadoPara: marcaDeEstaCita });
@@ -539,6 +564,7 @@ async function revisarUnoConHora(tipo, doc, hoy, manana, ayer, tokens, etiqueta)
         title: tituloHoySinHora(r),
         body: cuerpoHoy(r),
         patientId: String(r.patientId || ""),
+        foto: foto || "",
       };
       const seEnvio = await mandarNotificacion(tokens, dataPayload, etiqueta, r.patientName || "(paciente)");
       await doc.ref.update({ recordatorioEnviadoPara: hoy });
@@ -551,6 +577,7 @@ async function revisarUnoConHora(tipo, doc, hoy, manana, ayer, tokens, etiqueta)
       title: tituloManana(r),
       body: cuerpoManana(r),
       patientId: String(r.patientId || ""),
+      foto: foto || "",
     };
     const seEnvio = await mandarNotificacion(tokens, dataPayload, etiqueta, r.patientName || "(paciente)");
     await doc.ref.update({ recordatorioAnticipadoEnviadoPara: manana });
@@ -564,6 +591,7 @@ async function revisarUnoConHora(tipo, doc, hoy, manana, ayer, tokens, etiqueta)
       title: tituloVencido(r),
       body: cuerpoVencido(r),
       patientId: String(r.patientId || ""),
+      foto: foto || "",
     };
     const seEnvio = await mandarNotificacion(tokens, dataPayload, etiqueta, r.patientName || "(paciente)");
     await doc.ref.update({ recordatorioVencidoEnviadoPara: ayer });
@@ -589,7 +617,8 @@ async function revisarTipoConHora(tipo, hoy, manana, ayer) {
     for (const doc of [...snapHoy.docs, ...snapManana.docs, ...snapAyer.docs]) {
       if (vistos.has(doc.id)) continue;
       vistos.add(doc.id);
-      contador += await revisarUnoConHora(tipo, doc, hoy, manana, ayer, tokens, etiqueta);
+      const foto = await fotoDePaciente(parentRef, doc.data().patientId);
+      contador += await revisarUnoConHora(tipo, doc, hoy, manana, ayer, tokens, etiqueta, foto);
     }
     return contador;
   };
@@ -700,6 +729,7 @@ async function revisarAvisosClinica() {
         title: construirTitulo(aviso),
         body: aviso.detalle || "",
         patientId: String(aviso.patientId || ""),
+        foto: await fotoDePaciente(parentRef, aviso.patientId),
       };
       const seEnvio = await mandarNotificacion(tokens, dataPayload, etiqueta, aviso.patientName || "(paciente)");
       // Se borra siempre (haya o no dispositivos con notificaciones activadas)
@@ -760,6 +790,7 @@ async function revisarAvisosColaboradores() {
         title: construirTitulo(aviso),
         body: aviso.detalle || "",
         patientId: String(aviso.patientId || ""),
+        foto: await fotoDePaciente(usuarioRef, aviso.patientId),
       };
       const seEnvio = await mandarNotificacion(tokensArr, dataPayload, `users/${usuarioRef.id}`, aviso.patientName || "(paciente)");
       await doc.ref.delete();
