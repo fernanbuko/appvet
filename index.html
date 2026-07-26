@@ -2098,11 +2098,11 @@ function MobileTopBar({
     className: "text-base font-semibold text-white"
   }, config?.clinica || "VetData")), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement("button", {
+  }, hayNovedad && /*#__PURE__*/React.createElement("button", {
     onClick: onAbrirNovedades,
     title: "Novedades",
     className: "relative w-9 h-9 rounded-full flex items-center justify-center text-base transition bg-white/10 hover:bg-white/20"
-  }, "✨", hayNovedad && /*#__PURE__*/React.createElement("span", {
+  }, "✨", /*#__PURE__*/React.createElement("span", {
     className: "absolute -top-1 -right-1 bg-[#B14E1C] text-white text-[10px] leading-none rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center",
     style: styles.mono
   }, "1")), /*#__PURE__*/React.createElement(NotificationBell, {
@@ -11356,13 +11356,13 @@ function VetApp() {
       setSelected(p);
       setEditing(null);
     }
-  }), /*#__PURE__*/React.createElement("div", {
+  }), hayNovedad && /*#__PURE__*/React.createElement("div", {
     className: "hidden md:block"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setMostrarNovedades(true),
     title: "Novedades",
     className: "relative w-9 h-9 rounded-full flex items-center justify-center text-base transition hover:bg-[#EAF0EC]"
-  }, "✨", hayNovedad && /*#__PURE__*/React.createElement("span", {
+  }, "✨", /*#__PURE__*/React.createElement("span", {
     className: "absolute -top-1 -right-1 bg-[#B14E1C] text-white text-[10px] leading-none rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center",
     style: styles.mono
   }, "1"))), /*#__PURE__*/React.createElement("div", {
