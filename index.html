@@ -6738,9 +6738,44 @@ function AgendaView({
    vez de tener que entrar paciente por paciente). Disponible
    para veterinario/a y peluquero/a.
 ----------------------------------------------------------*/
+// Buscador rápido de paciente (por nombre o propietario), para agendar/
+// registrar algo directamente desde una vista general (Baños, Vacunas,
+// Desparasitación) sin tener que entrar primero a la ficha.
+function SelectorPacienteInline({
+  patients,
+  onSelect
+}) {
+  const [query, setQuery] = useState("");
+  const q = normalizeText(query);
+  const resultados = q ? (patients || []).filter(p => normalizeText(p.nombre).includes(q) || normalizeText(p.propietario || "").includes(q)).slice(0, 8) : [];
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "relative"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "absolute left-3 top-1/2 -translate-y-1/2 text-[#A6A08F]"
+  }, "🔍"), /*#__PURE__*/React.createElement("input", {
+    value: query,
+    onChange: e => setQuery(e.target.value),
+    placeholder: "Busca el paciente por nombre o propietario...",
+    autoFocus: true,
+    className: "w-full bg-white border border-[#DDD5C4] rounded-md pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#3D6B5C]"
+  })), resultados.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "mt-2 border border-[#DDD5C4] rounded-md overflow-hidden"
+  }, resultados.map(p => /*#__PURE__*/React.createElement("button", {
+    key: p.id,
+    onClick: () => onSelect(p),
+    className: "w-full text-left px-3 py-2 text-sm hover:bg-[#F7F4EC] flex items-center gap-2 border-b border-[#EFEAE0] last:border-0 bg-white"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-medium"
+  }, p.nombre), /*#__PURE__*/React.createElement("span", {
+    className: "text-[#6B7A72]"
+  }, "· ", p.propietario || "Sin propietario")))), q && resultados.length === 0 && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#A6A08F] mt-2"
+  }, "Sin resultados."));
+}
 function BanosGeneralView({
   banos,
   patients,
+  onAdd,
   onUpdate,
   config,
   setActive,
@@ -6749,6 +6784,37 @@ function BanosGeneralView({
   const [reprogramandoId, setReprogramandoId] = useState(null);
   const [nuevaFecha, setNuevaFecha] = useState("");
   const [nuevaHora, setNuevaHora] = useState("");
+  // Agendar/registrar un baño directamente desde aquí, sin tener que entrar
+  // primero a la ficha del paciente.
+  const [agregando, setAgregando] = useState(false);
+  const [pacienteNuevo, setPacienteNuevo] = useState(null);
+  const [tipoNuevo, setTipoNuevo] = useState("Baño");
+  const [fechaNueva, setFechaNueva] = useState(new Date().toISOString().slice(0, 10));
+  const [proximoBanoNuevo, setProximoBanoNuevo] = useState("");
+  const [proximoBanoHoraNuevo, setProximoBanoHoraNuevo] = useState("");
+  const cerrarAgregar = () => {
+    setAgregando(false);
+    setPacienteNuevo(null);
+    setTipoNuevo("Baño");
+    setFechaNueva(new Date().toISOString().slice(0, 10));
+    setProximoBanoNuevo("");
+    setProximoBanoHoraNuevo("");
+  };
+  const guardarNuevo = () => {
+    if (!pacienteNuevo) return;
+    onAdd({
+      id: uid(),
+      patientId: pacienteNuevo.id,
+      patientName: pacienteNuevo.nombre,
+      tipo: tipoNuevo,
+      fecha: fechaNueva,
+      producto: "",
+      notas: "",
+      proximoBano: proximoBanoNuevo,
+      proximoBanoHora: proximoBanoNuevo ? proximoBanoHoraNuevo : ""
+    });
+    cerrarAgregar();
+  };
   const hoy = new Date().toISOString().slice(0, 10);
   const proximoBanoVencido = b => b.proximoBano && b.proximoBano < hoy;
   const conPaciente = (banos || []).map(b => ({
@@ -6792,7 +6858,63 @@ function BanosGeneralView({
   };
   return /*#__PURE__*/React.createElement("div", {
     className: "max-w-2xl"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-3 flex-wrap gap-2"
   }, /*#__PURE__*/React.createElement("h3", {
+    style: styles.display,
+    className: "text-lg font-semibold"
+  }, "Agendar o registrar un baño"), !agregando && /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => setAgregando(true),
+    icon: "🛁"
+  }, "Registrar servicio")), agregando && /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-6 mb-6"
+  }, !pacienteNuevo ? /*#__PURE__*/React.createElement(SelectorPacienteInline, {
+    patients: patients,
+    onSelect: setPacienteNuevo
+  }) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-sm"
+  }, "Paciente: ", /*#__PURE__*/React.createElement("b", null, pacienteNuevo.nombre)), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPacienteNuevo(null),
+    className: "text-xs text-[#3D6B5C] hover:underline"
+  }, "Cambiar")), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-4"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Tipo de servicio"
+  }, /*#__PURE__*/React.createElement("select", {
+    value: tipoNuevo,
+    onChange: e => setTipoNuevo(e.target.value),
+    className: inputClass
+  }, /*#__PURE__*/React.createElement("option", null, "Baño"), /*#__PURE__*/React.createElement("option", null, "Corte de pelo"), /*#__PURE__*/React.createElement("option", null, "Baño y corte"), /*#__PURE__*/React.createElement("option", null, "Desenredado"), /*#__PURE__*/React.createElement("option", null, "Limpieza de oídos"), /*#__PURE__*/React.createElement("option", null, "Corte de uñas"), /*#__PURE__*/React.createElement("option", null, "Otro"))), /*#__PURE__*/React.createElement(Field, {
+    label: "Fecha de ingreso"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: fechaNueva,
+    onChange: e => setFechaNueva(e.target.value)
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-4"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Fecha separada para baño (opcional)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: proximoBanoNuevo,
+    onChange: e => setProximoBanoNuevo(e.target.value)
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Hora (opcional)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "time",
+    value: proximoBanoHoraNuevo,
+    onChange: e => setProximoBanoHoraNuevo(e.target.value),
+    disabled: !proximoBanoNuevo
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 mt-2"
+  }, /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: guardarNuevo,
+    icon: "✓"
+  }, "Guardar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: cerrarAgregar
+  }, "Cancelar")))), /*#__PURE__*/React.createElement("h3", {
     style: styles.display,
     className: "text-lg font-semibold mb-3"
   }, "🛁 Baños programados"), programados.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
@@ -6906,6 +7028,7 @@ function BanosGeneralView({
 function DesparasitacionesGeneralView({
   desparasitaciones,
   patients,
+  onAdd,
   config,
   setActive,
   setSelected
@@ -6922,9 +7045,95 @@ function DesparasitacionesGeneralView({
     setActive("pacientes");
     setSelected(patient);
   };
+  // Agendar/registrar una desparasitación directamente desde aquí, sin
+  // tener que entrar primero a la ficha del paciente.
+  const [agregando, setAgregando] = useState(false);
+  const [pacienteNuevo, setPacienteNuevo] = useState(null);
+  const [tipoNuevo, setTipoNuevo] = useState("Interna y externa");
+  const [productoNuevo, setProductoNuevo] = useState("");
+  const [fechaNueva, setFechaNueva] = useState(hoy);
+  const [proximaDosisNueva, setProximaDosisNueva] = useState("");
+  const cerrarAgregar = () => {
+    setAgregando(false);
+    setPacienteNuevo(null);
+    setTipoNuevo("Interna y externa");
+    setProductoNuevo("");
+    setFechaNueva(hoy);
+    setProximaDosisNueva("");
+  };
+  const guardarNuevo = () => {
+    if (!pacienteNuevo) return;
+    onAdd({
+      id: uid(),
+      patientId: pacienteNuevo.id,
+      patientName: pacienteNuevo.nombre,
+      tipo: tipoNuevo,
+      producto: productoNuevo,
+      fechaAplicada: fechaNueva,
+      proximaDosis: proximaDosisNueva,
+      notas: ""
+    });
+    cerrarAgregar();
+  };
   return /*#__PURE__*/React.createElement("div", {
     className: "max-w-2xl"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-3 flex-wrap gap-2"
   }, /*#__PURE__*/React.createElement("h3", {
+    style: styles.display,
+    className: "text-lg font-semibold"
+  }, "Agendar o registrar una desparasitación"), !agregando && /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => setAgregando(true),
+    icon: "🐛"
+  }, "Registrar desparasitación")), agregando && /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-6 mb-6"
+  }, !pacienteNuevo ? /*#__PURE__*/React.createElement(SelectorPacienteInline, {
+    patients: patients,
+    onSelect: setPacienteNuevo
+  }) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-sm"
+  }, "Paciente: ", /*#__PURE__*/React.createElement("b", null, pacienteNuevo.nombre)), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPacienteNuevo(null),
+    className: "text-xs text-[#3D6B5C] hover:underline"
+  }, "Cambiar")), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-4"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Tipo"
+  }, /*#__PURE__*/React.createElement("select", {
+    value: tipoNuevo,
+    onChange: e => setTipoNuevo(e.target.value),
+    className: inputClass
+  }, /*#__PURE__*/React.createElement("option", null, "Interna y externa"), /*#__PURE__*/React.createElement("option", null, "Interna"), /*#__PURE__*/React.createElement("option", null, "Externa"))), /*#__PURE__*/React.createElement(Field, {
+    label: "Producto usado"
+  }, /*#__PURE__*/React.createElement(SearchableSelect, {
+    options: PRODUCTOS_DESPARASITACION.filter(p => p !== "Otro"),
+    value: productoNuevo,
+    onChange: v => setProductoNuevo(v),
+    placeholder: "Ej. Drontal, Nexgard..."
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-4"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Fecha aplicada"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: fechaNueva,
+    onChange: e => setFechaNueva(e.target.value)
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Próxima dosis (opcional)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: proximaDosisNueva,
+    onChange: e => setProximaDosisNueva(e.target.value)
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 mt-2"
+  }, /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: guardarNuevo,
+    icon: "✓"
+  }, "Guardar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: cerrarAgregar
+  }, "Cancelar")))), /*#__PURE__*/React.createElement("h3", {
     style: styles.display,
     className: "text-lg font-semibold mb-3"
   }, "🐛 Próximas dosis"), proximas.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
@@ -6997,6 +7206,7 @@ function DesparasitacionesGeneralView({
 function VacunasGeneralView({
   vacunas,
   patients,
+  onAdd,
   config,
   setActive,
   setSelected
@@ -7013,9 +7223,85 @@ function VacunasGeneralView({
     setActive("pacientes");
     setSelected(patient);
   };
+  // Agendar/registrar una vacuna directamente desde aquí, sin tener que
+  // entrar primero a la ficha del paciente.
+  const [agregando, setAgregando] = useState(false);
+  const [pacienteNuevo, setPacienteNuevo] = useState(null);
+  const [nombreNuevo, setNombreNuevo] = useState("");
+  const [fechaNueva, setFechaNueva] = useState(hoy);
+  const [proximaDosisNueva, setProximaDosisNueva] = useState("");
+  const cerrarAgregar = () => {
+    setAgregando(false);
+    setPacienteNuevo(null);
+    setNombreNuevo("");
+    setFechaNueva(hoy);
+    setProximaDosisNueva("");
+  };
+  const guardarNuevo = () => {
+    if (!pacienteNuevo || !nombreNuevo.trim()) return;
+    onAdd({
+      id: uid(),
+      patientId: pacienteNuevo.id,
+      patientName: pacienteNuevo.nombre,
+      nombre: nombreNuevo,
+      fechaAplicada: fechaNueva,
+      proximaDosis: proximaDosisNueva,
+      notas: ""
+    });
+    cerrarAgregar();
+  };
   return /*#__PURE__*/React.createElement("div", {
     className: "max-w-2xl"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-3 flex-wrap gap-2"
   }, /*#__PURE__*/React.createElement("h3", {
+    style: styles.display,
+    className: "text-lg font-semibold"
+  }, "Agendar o registrar una vacuna"), !agregando && /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => setAgregando(true),
+    icon: "💉"
+  }, "Registrar vacuna")), agregando && /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-6 mb-6"
+  }, !pacienteNuevo ? /*#__PURE__*/React.createElement(SelectorPacienteInline, {
+    patients: patients,
+    onSelect: setPacienteNuevo
+  }) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-sm"
+  }, "Paciente: ", /*#__PURE__*/React.createElement("b", null, pacienteNuevo.nombre)), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPacienteNuevo(null),
+    className: "text-xs text-[#3D6B5C] hover:underline"
+  }, "Cambiar")), /*#__PURE__*/React.createElement(Field, {
+    label: "Nombre de la vacuna"
+  }, /*#__PURE__*/React.createElement(SearchableSelect, {
+    options: VACUNAS_COMUNES.filter(v => v !== "Otra"),
+    value: nombreNuevo,
+    onChange: v => setNombreNuevo(v),
+    placeholder: "Ej. Rabia, Séxtuple, Antirrábica..."
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-4"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Fecha aplicada"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: fechaNueva,
+    onChange: e => setFechaNueva(e.target.value)
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Próxima dosis (opcional)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: proximaDosisNueva,
+    onChange: e => setProximaDosisNueva(e.target.value)
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 mt-2"
+  }, /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: guardarNuevo,
+    disabled: !nombreNuevo.trim(),
+    icon: "✓"
+  }, "Guardar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: cerrarAgregar
+  }, "Cancelar")))), /*#__PURE__*/React.createElement("h3", {
     style: styles.display,
     className: "text-lg font-semibold mb-3"
   }, "💉 Próximas dosis"), proximas.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
@@ -9024,6 +9310,7 @@ function VetApp() {
   }, "Baños"), /*#__PURE__*/React.createElement(BanosGeneralView, {
     banos: banosCombinados,
     patients: activePatients,
+    onAdd: addBano,
     onUpdate: updateBano,
     config: config,
     setActive: setActive,
@@ -9034,6 +9321,7 @@ function VetApp() {
   }, "Vacunas"), /*#__PURE__*/React.createElement(VacunasGeneralView, {
     vacunas: vacunas,
     patients: activePatients,
+    onAdd: addVacuna,
     config: config,
     setActive: setActive,
     setSelected: setSelected
@@ -9043,6 +9331,7 @@ function VetApp() {
   }, "Desparasitación"), /*#__PURE__*/React.createElement(DesparasitacionesGeneralView, {
     desparasitaciones: desparasitaciones,
     patients: activePatients,
+    onAdd: addDesparasitacion,
     config: config,
     setActive: setActive,
     setSelected: setSelected
