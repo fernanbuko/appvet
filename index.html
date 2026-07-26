@@ -1464,12 +1464,8 @@ function GhostButton({
    la cuenta (no en este dispositivo), así que aparece una sola
    vez sin importar en cuántos celulares/computadoras entres.
 ----------------------------------------------------------*/
-const VERSION_NOVEDADES = "2026-07-27";
+const VERSION_NOVEDADES = "2026-07-26";
 const NOVEDADES = [{
-  icono: "📅",
-  titulo: "Agendar cita rápida",
-  descripcion: "Nueva tarjeta destacada en Inicio y botón \"＋ Agendar\" en la Agenda — elige paciente, fecha y hora sin abrir su ficha completa."
-}, {
   icono: "✅",
   titulo: "Nueva sección: Pendientes",
   descripcion: "Todo lo de hoy, mañana y pasado mañana en un solo lugar — citas, baños, vacunas, desparasitación y tratamientos juntos."
@@ -7440,8 +7436,7 @@ function AgendaView({
   config,
   setActive,
   setSelected,
-  onSetPestanaInicial,
-  onUpdateVisita
+  onSetPestanaInicial
 }) {
   const [mesActual, setMesActual] = useState(() => {
     const d = new Date();
@@ -7637,82 +7632,10 @@ function AgendaView({
   for (let d = 1; d <= diasEnMes; d++) celdas.push(d);
   const [diaSeleccionado, setDiaSeleccionado] = useState(null);
   const fechaISO = d => `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-  // "Agendar cita" rápida desde la Agenda: si ya tenías un día elegido en
-  // el calendario, se precarga esa fecha.
-  const [agendandoCita, setAgendandoCita] = useState(false);
-  const [pacienteAgendar, setPacienteAgendar] = useState(null);
-  const [fechaAgendar, setFechaAgendar] = useState("");
-  const [horaAgendar, setHoraAgendar] = useState("");
-  const abrirAgendarCita = () => {
-    setFechaAgendar(diaSeleccionado || new Date().toISOString().slice(0, 10));
-    setHoraAgendar("");
-    setPacienteAgendar(null);
-    setAgendandoCita(true);
-  };
-  const cerrarAgendarCita = () => {
-    setAgendandoCita(false);
-    setPacienteAgendar(null);
-    setFechaAgendar("");
-    setHoraAgendar("");
-  };
-  const guardarCitaRapida = () => {
-    if (!pacienteAgendar || !fechaAgendar || !onUpdateVisita) return;
-    onUpdateVisita(pacienteAgendar, {
-      proximaVisita: fechaAgendar,
-      proximaVisitaHora: horaAgendar
-    });
-    cerrarAgendarCita();
-  };
-  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between mb-5 max-w-xl"
-  }, /*#__PURE__*/React.createElement("h2", {
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
-    className: "text-2xl font-semibold"
-  }, "Agenda"), onUpdateVisita && /*#__PURE__*/React.createElement(PrimaryButton, {
-    onClick: abrirAgendarCita,
-    icon: "＋"
-  }, "Agendar")), agendandoCita && /*#__PURE__*/React.createElement("div", {
-    className: "bg-white border border-[#DDD5C4] rounded-lg p-4 max-w-xl mb-5"
-  }, /*#__PURE__*/React.createElement("h4", {
-    style: styles.display,
-    className: "text-sm font-semibold mb-3"
-  }, "Agendar cita"), !pacienteAgendar ? /*#__PURE__*/React.createElement(SelectorPacienteInline, {
-    patients: patients,
-    onSelect: setPacienteAgendar
-  }) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between mb-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-sm"
-  }, "Paciente: ", /*#__PURE__*/React.createElement("b", null, pacienteAgendar.nombre)), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setPacienteAgendar(null),
-    className: "text-xs text-[#3D6B5C] hover:underline"
-  }, "Cambiar")), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 gap-3"
-  }, /*#__PURE__*/React.createElement(Field, {
-    label: "Fecha"
-  }, /*#__PURE__*/React.createElement(TextInput, {
-    type: "date",
-    value: fechaAgendar,
-    onChange: e => setFechaAgendar(e.target.value)
-  })), /*#__PURE__*/React.createElement(Field, {
-    label: "Hora"
-  }, /*#__PURE__*/React.createElement(TextInput, {
-    type: "time",
-    value: horaAgendar,
-    onChange: e => setHoraAgendar(e.target.value)
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2 mt-3"
-  }, /*#__PURE__*/React.createElement(PrimaryButton, {
-    onClick: guardarCitaRapida,
-    disabled: !fechaAgendar,
-    icon: "✓"
-  }, "Agendar"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: cerrarAgendarCita
-  }, "Cancelar"))), !pacienteAgendar && /*#__PURE__*/React.createElement("div", {
-    className: "flex justify-end mt-2"
-  }, /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: cerrarAgendarCita
-  }, "Cancelar"))), /*#__PURE__*/React.createElement("div", {
+    className: "text-2xl font-semibold mb-5"
+  }, "Agenda"), /*#__PURE__*/React.createElement("div", {
     className: "bg-white border border-[#DDD5C4] rounded-lg p-4 max-w-xl"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-4"
@@ -9157,26 +9080,6 @@ function HomeScreen({
   const [reagendandoVisitaId, setReagendandoVisitaId] = useState(null);
   const [nuevaFechaVisitaSwipe, setNuevaFechaVisitaSwipe] = useState("");
   const [nuevaHoraVisitaSwipe, setNuevaHoraVisitaSwipe] = useState("");
-  // "Agendar cita" rápida desde Inicio: elegir paciente + fecha/hora sin
-  // tener que abrir su ficha completa.
-  const [agendandoCita, setAgendandoCita] = useState(false);
-  const [pacienteAgendar, setPacienteAgendar] = useState(null);
-  const [fechaAgendar, setFechaAgendar] = useState(() => new Date().toISOString().slice(0, 10));
-  const [horaAgendar, setHoraAgendar] = useState("");
-  const cerrarAgendarCita = () => {
-    setAgendandoCita(false);
-    setPacienteAgendar(null);
-    setFechaAgendar(new Date().toISOString().slice(0, 10));
-    setHoraAgendar("");
-  };
-  const guardarCitaRapida = () => {
-    if (!pacienteAgendar || !fechaAgendar) return;
-    onUpdateVisita(pacienteAgendar, {
-      proximaVisita: fechaAgendar,
-      proximaVisitaHora: horaAgendar
-    });
-    cerrarAgendarCita();
-  };
   // Para un peluquero/a, solo cuentan (y aparecen en "Próximas") los
   // pacientes que ya tienen al menos un servicio en "Baños" registrado —
   // un paciente nuevo de la clínica sin ningún baño todavía no le sirve.
@@ -9560,57 +9463,7 @@ function HomeScreen({
     style: styles.mono
   }, "Accesos rápidos"), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-3 mb-10 max-w-md"
-  }, !esPeluquero && !modoColaborador && /*#__PURE__*/React.createElement("button", {
-    onClick: () => setAgendandoCita(true),
-    className: "col-span-2 relative text-left rounded-lg p-4 flex items-center gap-3 border-2 border-[#3D6B5C] bg-[#EAF0EC] transition"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "w-10 h-10 rounded-full bg-[#3D6B5C] text-white flex items-center justify-center text-lg shrink-0"
-  }, "📅"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "font-semibold text-sm text-[#23342F]"
-  }, "Agendar cita"), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-[#6B7A72]"
-  }, "Elige paciente, fecha y hora"))), !esPeluquero && !modoColaborador && agendandoCita && /*#__PURE__*/React.createElement("div", {
-    className: "col-span-2 bg-white border border-[#DDD5C4] rounded-lg p-4"
-  }, /*#__PURE__*/React.createElement("h4", {
-    style: styles.display,
-    className: "text-sm font-semibold mb-3"
-  }, "Agendar cita"), !pacienteAgendar ? /*#__PURE__*/React.createElement(SelectorPacienteInline, {
-    patients: patients,
-    onSelect: setPacienteAgendar
-  }) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between mb-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-sm"
-  }, "Paciente: ", /*#__PURE__*/React.createElement("b", null, pacienteAgendar.nombre)), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setPacienteAgendar(null),
-    className: "text-xs text-[#3D6B5C] hover:underline"
-  }, "Cambiar")), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 gap-3"
-  }, /*#__PURE__*/React.createElement(Field, {
-    label: "Fecha"
-  }, /*#__PURE__*/React.createElement(TextInput, {
-    type: "date",
-    value: fechaAgendar,
-    onChange: e => setFechaAgendar(e.target.value)
-  })), /*#__PURE__*/React.createElement(Field, {
-    label: "Hora"
-  }, /*#__PURE__*/React.createElement(TextInput, {
-    type: "time",
-    value: horaAgendar,
-    onChange: e => setHoraAgendar(e.target.value)
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2 mt-3"
-  }, /*#__PURE__*/React.createElement(PrimaryButton, {
-    onClick: guardarCitaRapida,
-    disabled: !fechaAgendar,
-    icon: "✓"
-  }, "Agendar"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: cerrarAgendarCita
-  }, "Cancelar"))), !pacienteAgendar && /*#__PURE__*/React.createElement("div", {
-    className: "flex justify-end mt-2"
-  }, /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: cerrarAgendarCita
-  }, "Cancelar"))), puedeVerTareas && /*#__PURE__*/React.createElement(ActionCard, {
+  }, puedeVerTareas && /*#__PURE__*/React.createElement(ActionCard, {
     icon: "✅",
     title: "Pendientes",
     subtitle: "Todo lo de hoy, mañana y pasado mañana",
@@ -11678,8 +11531,7 @@ function VetApp() {
     config: config,
     setActive: setActive,
     setSelected: setSelected,
-    onSetPestanaInicial: setPestanaInicial,
-    onUpdateVisita: updatePatientVisita
+    onSetPestanaInicial: setPestanaInicial
   }), active === "banos" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold mb-5"
