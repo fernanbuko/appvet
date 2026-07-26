@@ -2952,17 +2952,26 @@ function PatientSecciones(props) {
   // ya se usó) — así, si después navegas a otro paciente por la vía
   // normal, no se queda pegada esta pestaña de la última vez.
   const contenedorRef = useRef(null);
-  // Referencias a cada botón de pestaña, para poder desplazar la barra
-  // horizontal sola hasta la pestaña activa (si no, cuando se salta a una
-  // pestaña que queda "fuera de vista" a la derecha, como Inyectables, se
-  // ve resaltada pero sigue cortada por el borde de la pantalla).
+  // Referencias a cada botón de pestaña y a la barra que las contiene, para
+  // poder desplazar la barra horizontal sola hasta la pestaña activa (si
+  // no, cuando se salta a una pestaña que queda "fuera de vista" a la
+  // derecha, como Inyectables, se ve resaltada pero sigue cortada por el
+  // borde de la pantalla). Se mueve el "scrollLeft" directamente en vez de
+  // usar scrollIntoView, para que esto NUNCA afecte el scroll vertical de
+  // la página (antes los dos scrolls —el de la página y el de la barra—
+  // se pisaban entre sí y la sección terminaba cortada).
+  const tabBarRef = useRef(null);
   const tabRefs = useRef({});
   useEffect(() => {
-    tabRefs.current[tab]?.scrollIntoView({
-      behavior: "smooth",
-      inline: "center",
-      block: "nearest"
-    });
+    const boton = tabRefs.current[tab];
+    const barra = tabBarRef.current;
+    if (boton && barra) {
+      const centro = boton.offsetLeft - (barra.clientWidth - boton.offsetWidth) / 2;
+      barra.scrollTo({
+        left: Math.max(0, centro),
+        behavior: "smooth"
+      });
+    }
   }, [tab]);
   useEffect(() => {
     if (props.pestanaInicial && TABS.some(t => t.key === props.pestanaInicial)) {
@@ -2981,6 +2990,7 @@ function PatientSecciones(props) {
     ref: contenedorRef,
     className: "max-w-2xl mt-6"
   }, /*#__PURE__*/React.createElement("div", {
+    ref: tabBarRef,
     className: "flex gap-1 overflow-x-auto border-b border-[#DDD5C4]"
   }, TABS.map(t => /*#__PURE__*/React.createElement("button", {
     key: t.key,
