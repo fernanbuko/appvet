@@ -2952,6 +2952,18 @@ function PatientSecciones(props) {
   // ya se usó) — así, si después navegas a otro paciente por la vía
   // normal, no se queda pegada esta pestaña de la última vez.
   const contenedorRef = useRef(null);
+  // Referencias a cada botón de pestaña, para poder desplazar la barra
+  // horizontal sola hasta la pestaña activa (si no, cuando se salta a una
+  // pestaña que queda "fuera de vista" a la derecha, como Inyectables, se
+  // ve resaltada pero sigue cortada por el borde de la pantalla).
+  const tabRefs = useRef({});
+  useEffect(() => {
+    tabRefs.current[tab]?.scrollIntoView({
+      behavior: "smooth",
+      inline: "center",
+      block: "nearest"
+    });
+  }, [tab]);
   useEffect(() => {
     if (props.pestanaInicial && TABS.some(t => t.key === props.pestanaInicial)) {
       setTab(props.pestanaInicial);
@@ -2972,6 +2984,9 @@ function PatientSecciones(props) {
     className: "flex gap-1 overflow-x-auto border-b border-[#DDD5C4]"
   }, TABS.map(t => /*#__PURE__*/React.createElement("button", {
     key: t.key,
+    ref: el => {
+      tabRefs.current[t.key] = el;
+    },
     onClick: () => setTab(t.key),
     className: "px-3 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition shrink-0 " + (tab === t.key ? "border-[#3D6B5C] text-[#23342F]" : "border-transparent text-[#6B7A72] hover:text-[#23342F]")
   }, /*#__PURE__*/React.createElement("span", {
