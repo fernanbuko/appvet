@@ -3979,7 +3979,7 @@ function VacunasSection({
     danger: true
   }, "Cancelar"))))))), confirmandoVacuna && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
-    message: `¿Ya se aplicó la vacuna "${(confirmandoVacuna.nombre || "").trim()}" a ${(confirmandoVacuna.patientName || "").trim()}?`,
+    message: `¿Ya se vacunó a ${(confirmandoVacuna.patientName || "").trim()}?`,
     confirmLabel: "Sí, confirmar",
     onConfirm: () => {
       marcarVacunaAplicada(confirmandoVacuna);
@@ -4241,7 +4241,7 @@ function DesparasitacionSection({
     danger: true
   }, "Cancelar"))))))), confirmandoDesparasitacion && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
-    message: `¿Ya se aplicó la desparasitación (${(confirmandoDesparasitacion.tipo || "").trim()}) a ${(confirmandoDesparasitacion.patientName || "").trim()}?`,
+    message: `¿Ya se desparasitó a ${(confirmandoDesparasitacion.patientName || "").trim()}?`,
     confirmLabel: "Sí, confirmar",
     onConfirm: () => {
       marcarDesparasitacionAplicada(confirmandoDesparasitacion);
@@ -4495,7 +4495,7 @@ function TratamientosInyectablesSection({
     danger: true
   }, "Cancelar"))))))), confirmandoTratamiento && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
-    message: `¿Ya se aplicó el tratamiento "${(confirmandoTratamiento.descripcion || "").trim()}" a ${(confirmandoTratamiento.patientName || "").trim()}?`,
+    message: `¿Ya se aplicó el tratamiento a ${(confirmandoTratamiento.patientName || "").trim()}?`,
     confirmLabel: "Sí, confirmar",
     onConfirm: () => {
       marcarTratamientoAplicado(confirmandoTratamiento);
@@ -4927,7 +4927,7 @@ function BanosSection({
     danger: true
   }, "Cancelar"))))))), confirmandoBano && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
-    message: `¿Ya se atendió el baño de ${(confirmandoBano.patientName || "").trim()}?`,
+    message: `¿Ya se bañó a ${(confirmandoBano.patientName || "").trim()}?`,
     confirmLabel: "Sí, confirmar",
     onConfirm: () => {
       marcarBanoAtendido(confirmandoBano);
@@ -7933,7 +7933,7 @@ function BanosGeneralView({
     style: styles.mono
   }, "Ingreso: ", formatDate(b.fecha, config?.dateFormat), b.fechaAtendido && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("br", null), "✅ ", formatDate(b.fechaAtendido, config?.dateFormat))))))), confirmandoBano && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
-    message: `¿Ya se atendió el baño de ${(confirmandoBano.patientName || "").trim()}?`,
+    message: `¿Ya se bañó a ${(confirmandoBano.patientName || "").trim()}?`,
     confirmLabel: "Sí, confirmar",
     onConfirm: () => {
       marcarAtendido(confirmandoBano);
@@ -8220,7 +8220,7 @@ function DesparasitacionesGeneralView({
     style: styles.mono
   }, "Aplicada: ", formatDate(d.fechaAplicada, config?.dateFormat)))))), confirmandoDesparasitacion && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
-    message: `¿Ya se aplicó la desparasitación (${(confirmandoDesparasitacion.tipo || "").trim()}) a ${(confirmandoDesparasitacion.patientName || "").trim()}?`,
+    message: `¿Ya se desparasitó a ${(confirmandoDesparasitacion.patientName || "").trim()}?`,
     confirmLabel: "Sí, confirmar",
     onConfirm: () => {
       marcarAplicada(confirmandoDesparasitacion);
@@ -8492,7 +8492,7 @@ function VacunasGeneralView({
     style: styles.mono
   }, "Aplicada: ", formatDate(v.fechaAplicada, config?.dateFormat)))))), confirmandoVacuna && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
-    message: `¿Ya se aplicó la vacuna "${(confirmandoVacuna.nombre || "").trim()}" a ${(confirmandoVacuna.patientName || "").trim()}?`,
+    message: `¿Ya se vacunó a ${(confirmandoVacuna.patientName || "").trim()}?`,
     confirmLabel: "Sí, confirmar",
     onConfirm: () => {
       marcarAplicada(confirmandoVacuna);
@@ -8774,7 +8774,7 @@ function TratamientosInyectablesGeneralView({
     style: styles.mono
   }, formatDate(t.fecha, config?.dateFormat))))))), confirmandoTratamiento && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
-    message: `¿Ya se aplicó el tratamiento "${(confirmandoTratamiento.descripcion || "").trim()}" a ${(confirmandoTratamiento.patientName || "").trim()}?`,
+    message: `¿Ya se aplicó el tratamiento a ${(confirmandoTratamiento.patientName || "").trim()}?`,
     confirmLabel: "Sí, confirmar",
     onConfirm: () => {
       marcarAplicado(confirmandoTratamiento);
@@ -9062,26 +9062,40 @@ function HomeScreen({
       campoFecha: "proximoBano",
       campoHora: "proximoBanoHora",
       campoConfirmado: "fechaAtendido",
-      onUpdate: onUpdateBano
+      onUpdate: onUpdateBano,
+      verbo: "bañó"
     },
     vacunas: {
       campoFecha: "proximaDosis",
       campoHora: "proximaDosisHora",
       campoConfirmado: "fechaAplicada",
-      onUpdate: onUpdateVacuna
+      onUpdate: onUpdateVacuna,
+      verbo: "vacunó"
     },
     desparasitacion: {
       campoFecha: "proximaDosis",
       campoHora: "proximaDosisHora",
       campoConfirmado: "fechaAplicada",
-      onUpdate: onUpdateDesparasitacion
+      onUpdate: onUpdateDesparasitacion,
+      verbo: "desparasitó"
     },
     tratamientos: {
       campoFecha: "proximaAplicacion",
       campoHora: "proximaAplicacionHora",
       campoConfirmado: "fecha",
-      onUpdate: onUpdateTratamiento
+      onUpdate: onUpdateTratamiento,
+      verbo: null // sin verbo corto propio; usa una frase distinta más abajo
     }
+  };
+  // Construye la pregunta de la ventana de confirmación con el verbo
+  // correcto según el tipo ("vacunó a", "desparasitó a", "bañó a"...), en
+  // vez de un genérico "atendió/aplicó de" que sonaba forzado.
+  const construirMensajeConfirmar = (tab, nombreCrudo) => {
+    const nombre = (nombreCrudo || "").trim();
+    if (tab === "tratamientos") return `¿Ya se aplicó el tratamiento a ${nombre}?`;
+    const verbo = tab && CONFIG_EVENTO_HOY[tab] ? CONFIG_EVENTO_HOY[tab].verbo : null;
+    if (verbo) return `¿Ya se ${verbo} a ${nombre}?`;
+    return `¿Ya se atendió a ${nombre}?`; // cita / caso genérico
   };
   const confirmarEventoHoy = ev => {
     if (!ev.tab) {
@@ -9236,8 +9250,7 @@ function HomeScreen({
   }, "Cancelar"))) : /*#__PURE__*/React.createElement(SwipeRow, {
     onConfirmar: () => setConfirmando({
       ejecutar: () => confirmarEventoHoy(ev),
-      nombre: ev.nombre,
-      detalle: ev.label
+      mensaje: construirMensajeConfirmar(ev.tab, ev.nombre)
     }),
     onReagendar: () => {
       setNuevaFechaHoy(hoy);
@@ -9278,8 +9291,7 @@ function HomeScreen({
       e.stopPropagation();
       setConfirmando({
         ejecutar: () => confirmarEventoHoy(ev),
-        nombre: ev.nombre,
-        detalle: ev.label
+        mensaje: construirMensajeConfirmar(ev.tab, ev.nombre)
       });
     },
     className: "w-7 h-7 rounded-full flex items-center justify-center text-sm hover:bg-[#EAF0EC] text-[#3D6B5C] transition"
@@ -9434,8 +9446,7 @@ function HomeScreen({
         proximaVisita: "",
         proximaVisitaHora: ""
       }),
-      nombre: p.nombre,
-      detalle: "cita"
+      mensaje: construirMensajeConfirmar(null, p.nombre)
     }) : null,
     onReagendar: onUpdateVisita ? () => {
       setNuevaFechaVisitaSwipe(p.proximaVisita || "");
@@ -9476,8 +9487,7 @@ function HomeScreen({
           proximaVisita: "",
           proximaVisitaHora: ""
         }),
-        nombre: p.nombre,
-        detalle: "cita"
+        mensaje: construirMensajeConfirmar(null, p.nombre)
       });
     },
     className: "w-7 h-7 rounded-full flex items-center justify-center text-sm hover:bg-[#EAF0EC] text-[#3D6B5C] transition"
@@ -9593,8 +9603,7 @@ function HomeScreen({
   }, "Cancelar"))) : /*#__PURE__*/React.createElement(SwipeRow, {
     onConfirmar: () => setConfirmando({
       ejecutar: () => confirmarProximo("vacunas", v),
-      nombre: v.patientName,
-      detalle: "vacuna"
+      mensaje: construirMensajeConfirmar("vacunas", v.patientName)
     }),
     onReagendar: () => {
       setNuevaFechaProximo(v.proximaDosis);
@@ -9639,8 +9648,7 @@ function HomeScreen({
       e.stopPropagation();
       setConfirmando({
         ejecutar: () => confirmarProximo("vacunas", v),
-        nombre: v.patientName,
-        detalle: "vacuna"
+        mensaje: construirMensajeConfirmar("vacunas", v.patientName)
       });
     },
     className: "w-7 h-7 rounded-full flex items-center justify-center text-sm hover:bg-[#EAF0EC] text-[#3D6B5C] transition"
@@ -9689,8 +9697,7 @@ function HomeScreen({
   }, "Cancelar"))) : /*#__PURE__*/React.createElement(SwipeRow, {
     onConfirmar: () => setConfirmando({
       ejecutar: () => confirmarProximo("desparasitacion", d),
-      nombre: d.patientName,
-      detalle: "desparasitación"
+      mensaje: construirMensajeConfirmar("desparasitacion", d.patientName)
     }),
     onReagendar: () => {
       setNuevaFechaProximo(d.proximaDosis);
@@ -9735,8 +9742,7 @@ function HomeScreen({
       e.stopPropagation();
       setConfirmando({
         ejecutar: () => confirmarProximo("desparasitacion", d),
-        nombre: d.patientName,
-        detalle: "desparasitación"
+        mensaje: construirMensajeConfirmar("desparasitacion", d.patientName)
       });
     },
     className: "w-7 h-7 rounded-full flex items-center justify-center text-sm hover:bg-[#EAF0EC] text-[#3D6B5C] transition"
@@ -9785,8 +9791,7 @@ function HomeScreen({
   }, "Cancelar"))) : /*#__PURE__*/React.createElement(SwipeRow, {
     onConfirmar: () => setConfirmando({
       ejecutar: () => confirmarProximo("tratamientos", t),
-      nombre: t.patientName,
-      detalle: "tratamiento"
+      mensaje: construirMensajeConfirmar("tratamientos", t.patientName)
     }),
     onReagendar: () => {
       setNuevaFechaProximo(t.proximaAplicacion);
@@ -9831,8 +9836,7 @@ function HomeScreen({
       e.stopPropagation();
       setConfirmando({
         ejecutar: () => confirmarProximo("tratamientos", t),
-        nombre: t.patientName,
-        detalle: "tratamiento"
+        mensaje: construirMensajeConfirmar("tratamientos", t.patientName)
       });
     },
     className: "w-7 h-7 rounded-full flex items-center justify-center text-sm hover:bg-[#EAF0EC] text-[#3D6B5C] transition"
@@ -9881,8 +9885,7 @@ function HomeScreen({
   }, "Cancelar"))) : /*#__PURE__*/React.createElement(SwipeRow, {
     onConfirmar: () => setConfirmando({
       ejecutar: () => confirmarProximo("banos", b),
-      nombre: b.patientName,
-      detalle: "baño"
+      mensaje: construirMensajeConfirmar("banos", b.patientName)
     }),
     onReagendar: () => {
       setNuevaFechaProximo(b.proximoBano);
@@ -9927,8 +9930,7 @@ function HomeScreen({
       e.stopPropagation();
       setConfirmando({
         ejecutar: () => confirmarProximo("banos", b),
-        nombre: b.patientName,
-        detalle: "baño"
+        mensaje: construirMensajeConfirmar("banos", b.patientName)
       });
     },
     className: "w-7 h-7 rounded-full flex items-center justify-center text-sm hover:bg-[#EAF0EC] text-[#3D6B5C] transition"
@@ -9962,7 +9964,7 @@ function HomeScreen({
     }
   }, "🎂 ", p.diasParaCumple === 0 ? "¡Hoy!" : `en ${p.diasParaCumple} día${p.diasParaCumple === 1 ? "" : "s"}`))))))), confirmando && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
-    message: `¿Ya se atendió/aplicó ${confirmando.detalle} de ${(confirmando.nombre || "").trim()}?`,
+    message: confirmando.mensaje,
     confirmLabel: "Sí, confirmar",
     onConfirm: () => {
       confirmando.ejecutar();
