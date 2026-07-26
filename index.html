@@ -9560,16 +9560,12 @@ function HomeScreen({
     style: styles.mono
   }, "Accesos rápidos"), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-3 mb-10 max-w-md"
-  }, !esPeluquero && !modoColaborador && /*#__PURE__*/React.createElement("button", {
-    onClick: () => setAgendandoCita(true),
-    className: "col-span-2 relative text-left rounded-lg p-4 flex items-center gap-3 border-2 border-[#3D6B5C] bg-[#EAF0EC] transition"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "w-10 h-10 rounded-full bg-[#3D6B5C] text-white flex items-center justify-center text-lg shrink-0"
-  }, "📅"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "font-semibold text-sm text-[#23342F]"
-  }, "Agendar cita"), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-[#6B7A72]"
-  }, "Elige paciente, fecha y hora"))), !esPeluquero && !modoColaborador && agendandoCita && /*#__PURE__*/React.createElement("div", {
+  }, !esPeluquero && !modoColaborador && /*#__PURE__*/React.createElement(ActionCard, {
+    icon: "📅",
+    title: "Agendar cita",
+    subtitle: "Elige paciente, fecha y hora",
+    onClick: () => setAgendandoCita(true)
+  }), !esPeluquero && !modoColaborador && agendandoCita && /*#__PURE__*/React.createElement("div", {
     className: "col-span-2 bg-white border border-[#DDD5C4] rounded-lg p-4"
   }, /*#__PURE__*/React.createElement("h4", {
     style: styles.display,
