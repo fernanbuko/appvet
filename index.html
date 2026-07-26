@@ -2940,6 +2940,18 @@ function PatientSecciones(props) {
   // "seccionesColaborador" trae las claves permitidas (ej. ["banos"]).
   const TABS = props.modoColaborador ? TODAS_LAS_TABS.filter(t => (props.seccionesColaborador || []).includes(t.key)) : tabsPermitidasPorRol ? TODAS_LAS_TABS.filter(t => tabsPermitidasPorRol.includes(t.key)) : TODAS_LAS_TABS;
   const [tab, setTab] = useState(TABS[0]?.key || "historial");
+  // Si se entró aquí desde una vista general (ej. "Baños", "Inyectables")
+  // pidiendo abrir directamente esa pestaña, la aplicamos y la "consumimos"
+  // de inmediato (avisando al padre que ya se usó) — así, si después
+  // navegas a otro paciente por la vía normal, no se queda pegada esta
+  // pestaña de la última vez.
+  useEffect(() => {
+    if (props.pestanaInicial && TABS.some(t => t.key === props.pestanaInicial)) {
+      setTab(props.pestanaInicial);
+      props.onPestanaInicialConsumida && props.onPestanaInicialConsumida();
+    }
+    // eslint-disable-next-line
+  }, [props.patient?.id, props.pestanaInicial]);
   return /*#__PURE__*/React.createElement("div", {
     className: "max-w-2xl mt-6"
   }, /*#__PURE__*/React.createElement("div", {
@@ -7896,6 +7908,7 @@ function HomeScreen({
   banos,
   setActive,
   setSelected,
+  onSetPestanaInicial,
   config,
   modoColaborador,
   onUpdateVisita
@@ -8159,6 +8172,7 @@ function HomeScreen({
     onClick: () => {
       setActive("pacientes");
       setSelected(patient);
+      onSetPestanaInicial && onSetPestanaInicial("banos");
     },
     className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#3D6B5C] transition"
   }, /*#__PURE__*/React.createElement("div", {
@@ -8193,6 +8207,7 @@ function HomeScreen({
         if (paciente) {
           setActive("pacientes");
           setSelected(paciente);
+          onSetPestanaInicial && onSetPestanaInicial("hospitalizacion");
         }
       },
       className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between hover:border-[#3D6B5C] transition"
@@ -8362,6 +8377,10 @@ function VetApp() {
   const [showGreeting, setShowGreeting] = useState(true);
   const [editing, setEditing] = useState(null);
   const [selected, setSelected] = useState(null);
+  // Para "saltar" directo a una pestaña específica de la ficha del
+  // paciente (ej. "banos", "tratamientos") cuando se entra desde una vista
+  // general — ver PatientSecciones, que la aplica y la limpia sola.
+  const [pestanaInicial, setPestanaInicial] = useState(null);
   const [toast, setToast] = useState("");
   const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
   useEffect(() => {
@@ -9559,6 +9578,7 @@ function VetApp() {
     banos: banosCombinados,
     setActive: setActive,
     setSelected: setSelected,
+    onSetPestanaInicial: setPestanaInicial,
     config: config,
     modoColaborador: modoColaborador,
     onUpdateVisita: updatePatientVisita
@@ -9608,6 +9628,8 @@ function VetApp() {
     config: config,
     modoColaborador: modoColaborador,
     seccionesColaborador: seccionesColaborador,
+    pestanaInicial: pestanaInicial,
+    onPestanaInicialConsumida: () => setPestanaInicial(null),
     vacunas: vacunas,
     addVacuna: addVacuna,
     updateVacuna: updateVacuna,
@@ -9680,7 +9702,10 @@ function VetApp() {
     onUpdate: updateBano,
     config: config,
     setActive: setActive,
-    setSelected: setSelected
+    setSelected: p => {
+      setSelected(p);
+      setPestanaInicial("banos");
+    }
   })), active === "vacunas" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold mb-5"
@@ -9690,7 +9715,10 @@ function VetApp() {
     onAdd: addVacuna,
     config: config,
     setActive: setActive,
-    setSelected: setSelected
+    setSelected: p => {
+      setSelected(p);
+      setPestanaInicial("vacunas");
+    }
   })), active === "desparasitacion" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold mb-5"
@@ -9700,7 +9728,10 @@ function VetApp() {
     onAdd: addDesparasitacion,
     config: config,
     setActive: setActive,
-    setSelected: setSelected
+    setSelected: p => {
+      setSelected(p);
+      setPestanaInicial("desparasitacion");
+    }
   })), active === "tratamientos" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold mb-5"
@@ -9710,7 +9741,10 @@ function VetApp() {
     config: config,
     onAdd: addTratamiento,
     setActive: setActive,
-    setSelected: setSelected
+    setSelected: p => {
+      setSelected(p);
+      setPestanaInicial("tratamientos");
+    }
   })), active === "reportes" && /*#__PURE__*/React.createElement(ReportesView, {
     cobros: cobros,
     patients: activePatients,
