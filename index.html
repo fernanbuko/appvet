@@ -7043,10 +7043,10 @@ function AgendaView({
   const esPeluquero = config?.rol === "peluquero";
   const porFecha = useMemo(() => {
     const map = {};
-    const agregar = (fecha, hora, entrada) => {
+    const agregar = (fecha, hora, entrada, claveExtra) => {
       if (!fecha) return;
       if (!map[fecha]) map[fecha] = {};
-      const clave = entrada.tab + ":" + entrada.patientId;
+      const clave = entrada.tab + ":" + entrada.patientId + (claveExtra ? ":" + claveExtra : "");
       const existente = map[fecha][clave];
       if (!existente || (hora || "") < (existente.hora || "")) {
         map[fecha][clave] = {
@@ -7056,23 +7056,35 @@ function AgendaView({
       }
     };
     if (esPeluquero) {
-      // Para un peluquero/a, la agenda se arma únicamente con la "fecha
-      // separada para baño" de cada registro (no con la fecha de ingreso,
-      // que es solo un dato de cuándo se anotó el servicio, ni con
-      // "Próxima visita", que es una cita médica y no le corresponde).
+      // Para un peluquero/a, la agenda se arma únicamente con la sección
+      // Baños: la "fecha separada para baño" (programado) Y también la
+      // "fecha de ingreso" (ya realizado) — así, aunque ya haya pasado el
+      // día, el registro se queda visible en la Agenda como control.
       (banos || []).forEach(b => {
-        if (!b.proximoBano) return;
         const patient = patients.find(p => p.id === b.patientId);
         if (!patient) return;
-        agregar(b.proximoBano, b.proximoBanoHora, {
-          patientId: patient.id,
-          nombre: patient.nombre,
-          propietario: patient.propietario,
-          foto: patient.foto,
-          icon: "🛁",
-          label: "Baño",
-          tab: "banos"
-        });
+        if (b.proximoBano) {
+          agregar(b.proximoBano, b.proximoBanoHora, {
+            patientId: patient.id,
+            nombre: patient.nombre,
+            propietario: patient.propietario,
+            foto: patient.foto,
+            icon: "🛁",
+            label: "Baño programado",
+            tab: "banos"
+          }, "prog");
+        }
+        if (b.fecha) {
+          agregar(b.fecha, "", {
+            patientId: patient.id,
+            nombre: patient.nombre,
+            propietario: patient.propietario,
+            foto: patient.foto,
+            icon: "✅",
+            label: "Baño realizado",
+            tab: "banos"
+          }, "hecho");
+        }
       });
     } else {
       patients.forEach(p => {
@@ -7085,50 +7097,112 @@ function AgendaView({
             icon: "📅",
             label: "Cita",
             tab: null
-          });
+          }, "prog");
+        }
+      });
+      (banos || []).forEach(b => {
+        const patient = patients.find(p => p.id === b.patientId);
+        if (!patient) return;
+        if (b.proximoBano) {
+          agregar(b.proximoBano, b.proximoBanoHora, {
+            patientId: patient.id,
+            nombre: patient.nombre,
+            propietario: patient.propietario,
+            foto: patient.foto,
+            icon: "🛁",
+            label: "Baño programado",
+            tab: "banos"
+          }, "prog");
+        }
+        if (b.fecha) {
+          agregar(b.fecha, "", {
+            patientId: patient.id,
+            nombre: patient.nombre,
+            propietario: patient.propietario,
+            foto: patient.foto,
+            icon: "✅",
+            label: "Baño realizado",
+            tab: "banos"
+          }, "hecho");
         }
       });
       (vacunas || []).forEach(v => {
-        if (!v.proximaDosis) return;
         const patient = patients.find(p => p.id === v.patientId);
         if (!patient) return;
-        agregar(v.proximaDosis, v.proximaDosisHora, {
-          patientId: patient.id,
-          nombre: patient.nombre,
-          propietario: patient.propietario,
-          foto: patient.foto,
-          icon: "💉",
-          label: "Vacuna",
-          tab: "vacunas"
-        });
+        if (v.proximaDosis) {
+          agregar(v.proximaDosis, v.proximaDosisHora, {
+            patientId: patient.id,
+            nombre: patient.nombre,
+            propietario: patient.propietario,
+            foto: patient.foto,
+            icon: "💉",
+            label: "Vacuna programada",
+            tab: "vacunas"
+          }, "prog");
+        }
+        if (v.fechaAplicada) {
+          agregar(v.fechaAplicada, "", {
+            patientId: patient.id,
+            nombre: patient.nombre,
+            propietario: patient.propietario,
+            foto: patient.foto,
+            icon: "✅",
+            label: "Vacuna aplicada",
+            tab: "vacunas"
+          }, "hecho");
+        }
       });
       (desparasitaciones || []).forEach(d => {
-        if (!d.proximaDosis) return;
         const patient = patients.find(p => p.id === d.patientId);
         if (!patient) return;
-        agregar(d.proximaDosis, d.proximaDosisHora, {
-          patientId: patient.id,
-          nombre: patient.nombre,
-          propietario: patient.propietario,
-          foto: patient.foto,
-          icon: "🐛",
-          label: "Desparasitación",
-          tab: "desparasitacion"
-        });
+        if (d.proximaDosis) {
+          agregar(d.proximaDosis, d.proximaDosisHora, {
+            patientId: patient.id,
+            nombre: patient.nombre,
+            propietario: patient.propietario,
+            foto: patient.foto,
+            icon: "🐛",
+            label: "Desparasitación programada",
+            tab: "desparasitacion"
+          }, "prog");
+        }
+        if (d.fechaAplicada) {
+          agregar(d.fechaAplicada, "", {
+            patientId: patient.id,
+            nombre: patient.nombre,
+            propietario: patient.propietario,
+            foto: patient.foto,
+            icon: "✅",
+            label: "Desparasitación aplicada",
+            tab: "desparasitacion"
+          }, "hecho");
+        }
       });
       (tratamientos || []).forEach(t => {
-        if (!t.proximaAplicacion) return;
         const patient = patients.find(p => p.id === t.patientId);
         if (!patient) return;
-        agregar(t.proximaAplicacion, t.proximaAplicacionHora, {
-          patientId: patient.id,
-          nombre: patient.nombre,
-          propietario: patient.propietario,
-          foto: patient.foto,
-          icon: "🩹",
-          label: "Tratamiento",
-          tab: "tratamientos"
-        });
+        if (t.proximaAplicacion) {
+          agregar(t.proximaAplicacion, t.proximaAplicacionHora, {
+            patientId: patient.id,
+            nombre: patient.nombre,
+            propietario: patient.propietario,
+            foto: patient.foto,
+            icon: "🩹",
+            label: "Tratamiento programado",
+            tab: "tratamientos"
+          }, "prog");
+        }
+        if (t.fecha) {
+          agregar(t.fecha, "", {
+            patientId: patient.id,
+            nombre: patient.nombre,
+            propietario: patient.propietario,
+            foto: patient.foto,
+            icon: "✅",
+            label: "Tratamiento aplicado",
+            tab: "tratamientos"
+          }, "hecho");
+        }
       });
     }
     const mapArrays = {};
@@ -8310,6 +8384,49 @@ function HomeScreen({
   const puedeVerReportes = !modoColaborador && (!seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("reportes"));
   const hoy = new Date().toISOString().slice(0, 10);
   const en30dias = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  // Todo lo que toca justo HOY, de cualquier sección — para la sección
+  // "Hoy" que va arriba de "Próximas visitas".
+  const eventosHoy = useMemo(() => {
+    const lista = [];
+    const agregar = (patientId, hora, icon, label, detalle, tab) => {
+      const patient = patients.find(p => p.id === patientId);
+      if (!patient) return;
+      lista.push({
+        id: tab + ":" + patientId + ":" + label,
+        patientId: patient.id,
+        nombre: patient.nombre,
+        propietario: patient.propietario,
+        foto: patient.foto,
+        hora: hora || "",
+        icon,
+        label,
+        detalle: detalle || "",
+        tab
+      });
+    };
+    if (esPeluquero) {
+      (banos || []).forEach(b => {
+        if (b.proximoBano === hoy) agregar(b.patientId, b.proximoBanoHora, "🛁", "Baño", b.tipo, "banos");
+      });
+    } else {
+      patients.forEach(p => {
+        if (p.proximaVisita === hoy) agregar(p.id, p.proximaVisitaHora, "📅", "Cita", "", null);
+      });
+      (banos || []).forEach(b => {
+        if (b.proximoBano === hoy) agregar(b.patientId, b.proximoBanoHora, "🛁", "Baño", b.tipo, "banos");
+      });
+      (vacunas || []).forEach(v => {
+        if (v.proximaDosis === hoy) agregar(v.patientId, v.proximaDosisHora, "💉", "Vacuna", v.nombre, "vacunas");
+      });
+      (desparasitaciones || []).forEach(d => {
+        if (d.proximaDosis === hoy) agregar(d.patientId, d.proximaDosisHora, "🐛", "Desparasitación", d.tipo, "desparasitacion");
+      });
+      (tratamientos || []).forEach(t => {
+        if (t.proximaAplicacion === hoy) agregar(t.patientId, t.proximaAplicacionHora, "🩹", "Tratamiento", t.descripcion, "tratamientos");
+      });
+    }
+    return lista.sort((a, b) => (a.hora || "99:99") < (b.hora || "99:99") ? -1 : 1);
+  }, [patients, banos, vacunas, desparasitaciones, tratamientos, esPeluquero, hoy]);
   const proximas = patients.filter(p => p.proximaVisita && p.proximaVisita <= en30dias).sort((a, b) => a.proximaVisita > b.proximaVisita ? 1 : -1).slice(0, 3);
   // Para el peluquero/a, "Próximas" se arma con la sección Baños (misma
   // lógica que en la Agenda): fecha del servicio si todavía no pasó, y/o la
@@ -8447,7 +8564,41 @@ function HomeScreen({
     onClick: () => setActive("reportes")
   })))), /*#__PURE__*/React.createElement("div", {
     className: "mt-8 lg:mt-0 lg:w-80 lg:shrink-0 lg:sticky lg:top-8"
-  }, proximas.length > 0 && !esPeluquero && /*#__PURE__*/React.createElement("div", {
+  }, eventosHoy.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "mb-8"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
+    style: styles.mono
+  }, "Hoy"), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2 max-w-md"
+  }, eventosHoy.map(ev => /*#__PURE__*/React.createElement("button", {
+    key: ev.id,
+    onClick: () => {
+      const paciente = patients.find(p => p.id === ev.patientId);
+      if (!paciente) return;
+      setActive("pacientes");
+      setSelected(paciente);
+      if (ev.tab) onSetPestanaInicial && onSetPestanaInicial(ev.tab);
+    },
+    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#3D6B5C] transition"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
+  }, ev.foto ? /*#__PURE__*/React.createElement("img", {
+    src: ev.foto,
+    alt: "",
+    className: "w-full h-full object-cover"
+  }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-sm truncate"
+  }, ev.icon, " ", ev.label, ": ", ev.nombre), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72] truncate"
+  }, ev.detalle || ev.propietario || "Sin propietario"))), ev.hora && /*#__PURE__*/React.createElement("div", {
+    className: "text-xs font-semibold text-[#3D6B5C] shrink-0",
+    style: styles.mono
+  }, ev.hora))))), proximas.length > 0 && !esPeluquero && /*#__PURE__*/React.createElement("div", {
     className: "mb-8"
   }, /*#__PURE__*/React.createElement("h2", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
