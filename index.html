@@ -9405,11 +9405,21 @@ function HomeScreen({
       onSetPestanaInicial && onSetPestanaInicial("vacunas");
     },
     className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
+  }, patients.find(p => p.id === v.patientId)?.foto ? /*#__PURE__*/React.createElement("img", {
+    src: patients.find(p => p.id === v.patientId)?.foto,
+    alt: "",
+    className: "w-full h-full object-cover"
+  }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-sm truncate"
   }, v.patientName), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-[#6B7A72]"
-  }, v.nombre)), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72] truncate"
+  }, v.nombre))), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-1.5 shrink-0"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-xs px-2 py-1 rounded whitespace-nowrap text-right",
@@ -9483,11 +9493,21 @@ function HomeScreen({
       onSetPestanaInicial && onSetPestanaInicial("desparasitacion");
     },
     className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
+  }, patients.find(p => p.id === d.patientId)?.foto ? /*#__PURE__*/React.createElement("img", {
+    src: patients.find(p => p.id === d.patientId)?.foto,
+    alt: "",
+    className: "w-full h-full object-cover"
+  }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-sm truncate"
   }, d.patientName), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-[#6B7A72]"
-  }, d.producto, " · ", d.tipo)), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72] truncate"
+  }, d.producto, " · ", d.tipo))), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-1.5 shrink-0"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-xs px-2 py-1 rounded whitespace-nowrap text-right",
@@ -9561,11 +9581,21 @@ function HomeScreen({
       onSetPestanaInicial && onSetPestanaInicial("tratamientos");
     },
     className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
+  }, patients.find(p => p.id === t.patientId)?.foto ? /*#__PURE__*/React.createElement("img", {
+    src: patients.find(p => p.id === t.patientId)?.foto,
+    alt: "",
+    className: "w-full h-full object-cover"
+  }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-sm truncate"
   }, t.patientName), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-[#6B7A72]"
-  }, t.descripcion)), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72] truncate"
+  }, t.descripcion))), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-1.5 shrink-0"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-xs px-2 py-1 rounded whitespace-nowrap text-right",
@@ -9639,11 +9669,21 @@ function HomeScreen({
       onSetPestanaInicial && onSetPestanaInicial("banos");
     },
     className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
+  }, patients.find(p => p.id === b.patientId)?.foto ? /*#__PURE__*/React.createElement("img", {
+    src: patients.find(p => p.id === b.patientId)?.foto,
+    alt: "",
+    className: "w-full h-full object-cover"
+  }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-sm truncate"
   }, b.patientName), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-[#6B7A72]"
-  }, b.tipo)), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72] truncate"
+  }, b.tipo))), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-1.5 shrink-0"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-xs px-2 py-1 rounded whitespace-nowrap text-right",
