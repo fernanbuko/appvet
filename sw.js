@@ -28,12 +28,35 @@ self.addEventListener("activate", (event) => {
 // Service Worker) devuelva una copia intermedia guardada por su cuenta —
 // así, cada vez que hay internet, se pide SIEMPRE la versión más nueva al
 // servidor, sin atajos por el camino.
+// Con conexiones "raras" (por ejemplo, planes de datos que solo dejan
+// pasar WhatsApp y bloquean todo lo demás en silencio, sin rechazar la
+// conexión de una vez), el fetch() de arriba puede quedarse esperando una
+// respuesta que nunca llega — y como nunca "falla", tampoco cae nunca al
+// .catch() que usa la copia guardada. Por eso se le pone un límite de
+// tiempo: si a los 4 segundos no hay respuesta, se da por vencido y usa
+// la caché de una vez, en vez de dejar la app cargando sin abrir.
+function fetchConLimiteDeTiempo(request, milisegundos) {
+  return new Promise((resolve, reject) => {
+    const vencido = setTimeout(() => reject(new Error("tiempo de espera agotado")), milisegundos);
+    fetch(request, { cache: "no-store" }).then(
+      (respuesta) => {
+        clearTimeout(vencido);
+        resolve(respuesta);
+      },
+      (error) => {
+        clearTimeout(vencido);
+        reject(error);
+      }
+    );
+  });
+}
+
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   if (!event.request.url.startsWith(self.location.origin)) return;
 
   event.respondWith(
-    fetch(event.request, { cache: "no-store" })
+    fetchConLimiteDeTiempo(event.request, 4000)
       .then((response) => {
         const copy = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
