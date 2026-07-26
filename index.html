@@ -9607,10 +9607,10 @@ function HomeScreen({
     subtitle: "Todo lo de hoy, mañana y pasado mañana",
     onClick: () => setActive("tareas")
   }), puedeVerAgenda && /*#__PURE__*/React.createElement("div", {
-    className: "relative bg-white border border-[#DDD5C4] rounded-lg p-5 hover:border-[#3D6B5C] hover:shadow-sm transition flex items-start gap-4"
+    className: "bg-white border border-[#DDD5C4] rounded-lg overflow-hidden hover:border-[#3D6B5C] hover:shadow-sm transition"
   }, /*#__PURE__*/React.createElement("div", {
     onClick: () => setActive("agenda"),
-    className: "flex items-start gap-4 flex-1 min-w-0 cursor-pointer"
+    className: "p-5 flex items-start gap-4 cursor-pointer"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-11 h-11 rounded-full bg-[#EAF0EC] flex items-center justify-center text-xl shrink-0"
   }, "📅"), /*#__PURE__*/React.createElement("div", {
@@ -9620,13 +9620,9 @@ function HomeScreen({
   }, "Agenda"), /*#__PURE__*/React.createElement("div", {
     className: "text-sm text-[#6B7A72] mt-0.5"
   }, esPeluquero ? "Calendario de próximos baños" : "Calendario de próximas visitas"))), !esPeluquero && !modoColaborador && /*#__PURE__*/React.createElement("button", {
-    onClick: e => {
-      e.stopPropagation();
-      setAgendandoCita(true);
-    },
-    title: "Agendar cita rápida",
-    className: "absolute top-2 right-2 w-7 h-7 rounded-full bg-[#3D6B5C] text-white flex items-center justify-center text-sm hover:bg-[#2f5347] transition"
-  }, "＋")), puedeVerBanos && /*#__PURE__*/React.createElement(ActionCard, {
+    onClick: () => setAgendandoCita(true),
+    className: "w-full text-left border-t border-[#DDD5C4] px-5 py-2.5 text-xs font-medium text-[#3D6B5C] hover:bg-[#EAF0EC] transition flex items-center gap-1.5"
+  }, "＋ Agendar cita rápida")), puedeVerBanos && /*#__PURE__*/React.createElement(ActionCard, {
     icon: "🛁",
     title: "Baños",
     subtitle: "Todos los baños programados y su historial",
