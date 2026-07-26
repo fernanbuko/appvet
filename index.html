@@ -140,6 +140,8 @@
   @media (min-width:768px){
     .md\:flex{display:flex}.md\:flex-col{flex-direction:column}.md\:flex-row{flex-direction:row}
     .md\:w-60{width:15rem}.md\:min-h-screen{min-height:100vh}.md\:overflow-visible{overflow:visible}
+    .md\:h-screen{height:100vh}.md\:sticky{position:sticky}.md\:top-0{top:0}
+    .md\:self-start{align-self:flex-start}.md\:overflow-y-auto{overflow-y:auto}
   }
   @media (min-width:1024px){
     .lg\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -1815,7 +1817,7 @@ function Sidebar({
     label: item.key === "pacientes" ? "Clientes" : item.key === "nuevo" ? "Nuevo cliente" : item.label
   } : item);
   return /*#__PURE__*/React.createElement("div", {
-    className: "hidden md:flex md:w-60 md:min-h-screen bg-[#23342F] text-white md:flex-col"
+    className: "hidden md:flex md:w-60 md:h-screen md:sticky md:top-0 md:self-start md:overflow-y-auto bg-[#23342F] text-white md:flex-col"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setActive("inicio"),
     className: "px-5 py-6 flex items-center gap-2 border-b border-white/10 text-left"
