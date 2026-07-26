@@ -415,6 +415,15 @@
     0%, 100% { transform: scale(1); opacity: 1; }
     50% { transform: scale(1.1); opacity: .8; }
   }
+  /* Pequeño rebote para llamar la atención hacia el ícono de "Novedades" —
+     se repite solo mientras haya algo nuevo sin ver (el botón entero
+     desaparece una vez que se confirma la ventana). */
+  @keyframes vd-brinco {
+    0%, 45%, 100% { transform: translateY(0); }
+    15% { transform: translateY(-5px); }
+    30% { transform: translateY(0); }
+  }
+  .animate-brinco { animation: vd-brinco 1.8s ease-in-out infinite; }
 
   [data-theme="dark"] #boot-msg { color: #ECEDEE; }
 </style>
@@ -2102,7 +2111,9 @@ function MobileTopBar({
     onClick: onAbrirNovedades,
     title: "Novedades",
     className: "relative w-9 h-9 rounded-full flex items-center justify-center text-base transition bg-white/10 hover:bg-white/20"
-  }, "✨", /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "inline-block animate-brinco"
+  }, "✨"), /*#__PURE__*/React.createElement("span", {
     className: "absolute -top-1 -right-1 bg-[#B14E1C] text-white text-[10px] leading-none rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center",
     style: styles.mono
   }, "1")), /*#__PURE__*/React.createElement(NotificationBell, {
@@ -11362,7 +11373,9 @@ function VetApp() {
     onClick: () => setMostrarNovedades(true),
     title: "Novedades",
     className: "relative w-9 h-9 rounded-full flex items-center justify-center text-base transition hover:bg-[#EAF0EC]"
-  }, "✨", /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "inline-block animate-brinco"
+  }, "✨"), /*#__PURE__*/React.createElement("span", {
     className: "absolute -top-1 -right-1 bg-[#B14E1C] text-white text-[10px] leading-none rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center",
     style: styles.mono
   }, "1"))), /*#__PURE__*/React.createElement("div", {
