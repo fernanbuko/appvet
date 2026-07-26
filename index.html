@@ -1921,6 +1921,7 @@ function NotificationBell({
   onSelect,
   onMarkRead,
   onMarkAllRead,
+  onDelete,
   oscuro
 }) {
   const [abierto, setAbierto] = useState(false);
@@ -1949,14 +1950,14 @@ function NotificationBell({
     className: "text-xs text-[#3D6B5C] hover:underline"
   }, "Marcar todas leídas")), lista.length === 0 ? /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-[#6B7A72] p-5 text-center"
-  }, "Sin notificaciones por ahora.") : lista.map(n => /*#__PURE__*/React.createElement("button", {
+  }, "Sin notificaciones por ahora.") : lista.map(n => /*#__PURE__*/React.createElement("div", {
     key: n.id,
+    className: "relative w-full text-left px-4 py-3 border-b border-[#EFEAE0] last:border-0 hover:bg-[#F7F4EC] flex gap-3 items-start cursor-pointer " + (n.leida ? "opacity-60" : ""),
     onClick: () => {
       if (!n.leida) onMarkRead(n);
       onSelect(n);
       setAbierto(false);
-    },
-    className: "w-full text-left px-4 py-3 border-b border-[#EFEAE0] last:border-0 hover:bg-[#F7F4EC] flex gap-3 items-start " + (n.leida ? "opacity-60" : "")
+    }
   }, n.foto ? /*#__PURE__*/React.createElement("img", {
     src: n.foto,
     alt: "",
@@ -1964,7 +1965,7 @@ function NotificationBell({
   }) : /*#__PURE__*/React.createElement("span", {
     className: "text-lg shrink-0"
   }, "🔔"), /*#__PURE__*/React.createElement("div", {
-    className: "min-w-0 flex-1"
+    className: "min-w-0 flex-1 pr-4"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-sm font-medium truncate"
   }, n.title), /*#__PURE__*/React.createElement("div", {
@@ -1974,7 +1975,14 @@ function NotificationBell({
     style: styles.mono
   }, tiempoRelativo(n.creadoEn))), !n.leida && /*#__PURE__*/React.createElement("span", {
     className: "w-2 h-2 rounded-full bg-[#3D6B5C] mt-1.5 shrink-0"
-  }))))));
+  }), onDelete && /*#__PURE__*/React.createElement("button", {
+    title: "Eliminar notificación",
+    onClick: e => {
+      e.stopPropagation();
+      onDelete(n);
+    },
+    className: "absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center text-xs text-[#A6A08F] hover:bg-[#EAF0EC] hover:text-[#B14E1C] transition"
+  }, "✕"))))));
 }
 
 function MobileTopBar({
@@ -1984,7 +1992,8 @@ function MobileTopBar({
   notificaciones,
   onSelectNotificacion,
   onMarkRead,
-  onMarkAllRead
+  onMarkAllRead,
+  onDelete
 }) {
   return /*#__PURE__*/React.createElement("div", {
     className: "md:hidden flex items-center justify-between bg-[#23342F] text-white px-4 py-3"
@@ -2007,6 +2016,7 @@ function MobileTopBar({
     onSelect: onSelectNotificacion,
     onMarkRead: onMarkRead,
     onMarkAllRead: onMarkAllRead,
+    onDelete: onDelete,
     oscuro: true
   }), /*#__PURE__*/React.createElement("button", {
     onClick: () => setActive("config"),
@@ -8993,6 +9003,10 @@ function VetApp() {
       leida: true
     }));
   };
+  const borrarNotificacion = n => {
+    setNotificaciones(cur => cur.filter(x => x.id !== n.id));
+    ownCollectionStore.deleteOne("notificaciones", n.id);
+  };
   // Al tocar una notificación, si trae un paciente, abre su ficha directo.
   const seleccionarNotificacion = n => {
     if (!n.patientId) return;
@@ -9325,7 +9339,8 @@ function VetApp() {
     notificaciones: notificaciones,
     onSelectNotificacion: seleccionarNotificacion,
     onMarkRead: marcarNotificacionLeida,
-    onMarkAllRead: marcarTodasLasNotificacionesLeidas
+    onMarkAllRead: marcarTodasLasNotificacionesLeidas,
+    onDelete: borrarNotificacion
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex flex-col md:flex-row flex-1"
   }, /*#__PURE__*/React.createElement(Sidebar, {
@@ -9357,7 +9372,8 @@ function VetApp() {
     notificaciones: notificaciones,
     onSelect: seleccionarNotificacion,
     onMarkRead: marcarNotificacionLeida,
-    onMarkAllRead: marcarTodasLasNotificacionesLeidas
+    onMarkAllRead: marcarTodasLasNotificacionesLeidas,
+    onDelete: borrarNotificacion
   }))), active === "inicio" && /*#__PURE__*/React.createElement(HomeScreen, {
     patients: activePatients,
     recetas: recetas,
