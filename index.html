@@ -9370,9 +9370,9 @@ function HomeScreen({
   }, v.patientName), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72]"
   }, v.nombre)), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-1.5"
+    className: "flex items-center gap-1.5 shrink-0"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs px-2 py-1 rounded",
+    className: "text-xs px-2 py-1 rounded whitespace-nowrap",
     style: {
       ...styles.mono,
       color: v.proximaDosis < hoy ? "var(--accent-orange)" : "var(--accent-green)",
@@ -9438,9 +9438,9 @@ function HomeScreen({
   }, d.patientName), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72]"
   }, d.producto, " · ", d.tipo)), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-1.5"
+    className: "flex items-center gap-1.5 shrink-0"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs px-2 py-1 rounded",
+    className: "text-xs px-2 py-1 rounded whitespace-nowrap",
     style: {
       ...styles.mono,
       color: d.proximaDosis < hoy ? "var(--accent-orange)" : "var(--accent-green)",
@@ -9506,9 +9506,9 @@ function HomeScreen({
   }, t.patientName), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72]"
   }, t.descripcion)), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-1.5"
+    className: "flex items-center gap-1.5 shrink-0"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs px-2 py-1 rounded",
+    className: "text-xs px-2 py-1 rounded whitespace-nowrap",
     style: {
       ...styles.mono,
       color: t.proximaAplicacion < hoy ? "var(--accent-orange)" : "var(--accent-green)",
@@ -9574,9 +9574,9 @@ function HomeScreen({
   }, b.patientName), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72]"
   }, b.tipo)), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-1.5"
+    className: "flex items-center gap-1.5 shrink-0"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs px-2 py-1 rounded",
+    className: "text-xs px-2 py-1 rounded whitespace-nowrap",
     style: {
       ...styles.mono,
       color: b.proximoBano < hoy ? "var(--accent-orange)" : "var(--accent-green)",
@@ -9631,7 +9631,7 @@ function HomeScreen({
   }, p.nombre), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72]"
   }, p.propietario || "Sin propietario")), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs px-2 py-1 rounded",
+    className: "text-xs px-2 py-1 rounded whitespace-nowrap",
     style: {
       ...styles.mono,
       color: "var(--accent-green)",
