@@ -1443,6 +1443,76 @@ function GhostButton({
 // que en el navegador siempre muestra el nombre del sitio (ej.
 // "fernanbuko.github.io dice"), algo que ningún sitio puede quitar ni
 // personalizar por ser una medida de seguridad del propio navegador.
+/* ---------------------------------------------------------
+   "¿Qué hay de nuevo?": aviso automático (una sola vez por
+   cuenta) que resume las mejoras más recientes de la app. Para
+   agregar novedades en el futuro, basta con:
+     1) Agregar entradas nuevas AL PRINCIPIO del arreglo NOVEDADES.
+     2) Cambiar VERSION_NOVEDADES a una fecha/texto distinto.
+   Eso hace que a todos los usuarios les vuelva a aparecer la
+   ventana (con lo nuevo Y lo viejo, así no se pierde nada si
+   alguien no la había visto). Se guarda en la configuración de
+   la cuenta (no en este dispositivo), así que aparece una sola
+   vez sin importar en cuántos celulares/computadoras entres.
+----------------------------------------------------------*/
+const VERSION_NOVEDADES = "2026-07-26";
+const NOVEDADES = [{
+  icono: "✅",
+  titulo: "Nueva sección: Pendientes",
+  descripcion: "Todo lo de hoy, mañana y pasado mañana en un solo lugar — citas, baños, vacunas, desparasitación y tratamientos juntos."
+}, {
+  icono: "🔔",
+  titulo: "Notificaciones más completas",
+  descripcion: "Ahora Baños, Vacunas, Desparasitación y Tratamientos también avisan un día antes, el mismo día, y preguntan \"¿qué pasó?\" si no se confirman — con la foto del paciente incluida."
+}, {
+  icono: "✓",
+  titulo: "Confirmar o reagendar sin entrar a la ficha",
+  descripcion: "Desde Inicio puedes deslizar o tocar los botones ✓/📅 para confirmar o reagendar al instante — con una ventana de confirmación para evitar toques accidentales."
+}, {
+  icono: "🩹",
+  titulo: "Tratamientos inyectables con historial",
+  descripcion: "Ahora se guarda cada aplicación por separado (día 1, día 2, día 3...), con su propia próxima fecha y hora."
+}, {
+  icono: "📅",
+  titulo: "Agenda mejorada",
+  descripcion: "Ahora muestra tanto lo programado como lo que ya se hizo, y salta directo a la sección correcta al tocar un paciente."
+}];
+function NovedadesModal({
+  onCerrar
+}) {
+  useCerrarConAtras(true, onCerrar);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 flex items-center justify-center p-4",
+    style: {
+      background: "rgba(0,0,0,.5)"
+    },
+    onClick: onCerrar
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-lg p-6 max-w-md w-full max-h-[80vh] overflow-y-auto",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: styles.display,
+    className: "text-xl font-semibold text-[#23342F] mb-1"
+  }, "✨ Novedades"), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-[#6B7A72] mb-5"
+  }, "Esto es lo más nuevo que agregamos a la app:"), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-4 mb-6"
+  }, NOVEDADES.map((n, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    className: "flex gap-3"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xl shrink-0"
+  }, n.icono), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "text-sm font-semibold text-[#23342F]"
+  }, n.titulo), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72] mt-0.5"
+  }, n.descripcion))))), /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-end"
+  }, /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: onCerrar
+  }, "Entendido"))));
+}
+
 function ConfirmModal({
   title,
   message,
@@ -10036,6 +10106,27 @@ function VetApp() {
   const [cirugias, setCirugias] = useState([]);
   const [cobros, setCobros] = useState([]);
   const [config, setConfig] = useState(null);
+  // Aviso de "¿Qué hay de nuevo?": aparece una sola vez por cuenta, cuando
+  // la versión guardada en la configuración no coincide con la actual (ver
+  // VERSION_NOVEDADES más arriba). Se guarda silenciosamente en el mismo
+  // documento de "config" sin usar saveConfig() a propósito, para no
+  // disparar sus efectos secundarios (recargar la página, cambiar de
+  // pantalla, etc.) solo por marcar esto como visto.
+  const [mostrarNovedades, setMostrarNovedades] = useState(false);
+  useEffect(() => {
+    if (config && config.versionNovedadesVista !== VERSION_NOVEDADES) {
+      setMostrarNovedades(true);
+    }
+  }, [config?.versionNovedadesVista]);
+  const cerrarNovedades = () => {
+    setMostrarNovedades(false);
+    const nuevaConfig = {
+      ...config,
+      versionNovedadesVista: VERSION_NOVEDADES
+    };
+    setConfig(nuevaConfig);
+    store.set("config", nuevaConfig);
+  };
   // Si esta cuenta trabaja como colaboradora de otra (por ejemplo, un
   // peluquero), aquí se guardan las secciones que esa otra cuenta le
   // permitió ver — se leen desde la configuración del DUEÑO, ya que ahí es
@@ -11593,6 +11684,8 @@ function VetApp() {
     danger: true,
     onCancel: () => setPendingBackupData(null),
     onConfirm: confirmarRestaurarBackup
+  }), mostrarNovedades && /*#__PURE__*/React.createElement(NovedadesModal, {
+    onCerrar: cerrarNovedades
   }));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(VetApp, null));
