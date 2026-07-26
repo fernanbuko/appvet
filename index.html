@@ -874,7 +874,7 @@ function placeholderNombreNegocio(rol) {
 // ni Reportes (son cosas veterinarias), así que se ocultan del menú. "otro"
 // se deja con el menú completo hasta tener más claridad de qué necesita.
 const NAV_POR_ROL = {
-  peluquero: ["inicio", "nuevo", "pacientes", "agenda", "banos", "config"],
+  peluquero: ["inicio", "nuevo", "pacientes", "tareas", "agenda", "banos", "config"],
   vendedor: ["inicio", "nuevo", "pacientes", "agenda", "config"]
 };
 function itemsNavPermitidos(rol) {
@@ -1821,6 +1821,10 @@ const NAV = [{
   label: "Exámenes",
   icon: "🧪"
 }, {
+  key: "tareas",
+  label: "Pendientes",
+  icon: "✅"
+}, {
   key: "agenda",
   label: "Agenda",
   icon: "📅"
@@ -1862,7 +1866,7 @@ function Sidebar({
   // permiso de verlas. Si no es colaborador, el rol de la propia cuenta
   // decide qué secciones aplican (ej. un peluquero no usa Recetas).
   const keysPermitidosPorRol = itemsNavPermitidos(config?.rol);
-  const itemsMenu = (modoColaborador ? NAV.filter(item => ["inicio", "nuevo", "pacientes", "agenda", "banos", "config"].includes(item.key)) : keysPermitidosPorRol ? NAV.filter(item => keysPermitidosPorRol.includes(item.key)) : NAV).map(item => config?.rol === "peluquero" ? {
+  const itemsMenu = (modoColaborador ? NAV.filter(item => ["inicio", "nuevo", "pacientes", "tareas", "agenda", "banos", "config"].includes(item.key)) : keysPermitidosPorRol ? NAV.filter(item => keysPermitidosPorRol.includes(item.key)) : NAV).map(item => config?.rol === "peluquero" ? {
     ...item,
     label: item.key === "pacientes" ? "Clientes" : item.key === "nuevo" ? "Nuevo cliente" : item.label
   } : item);
@@ -6857,6 +6861,132 @@ function ActionCard({
 /* ---------------------------------------------------------
    Agenda: vista de calendario mensual con las próximas visitas
 ----------------------------------------------------------*/
+/* ---------------------------------------------------------
+   Pendientes: todo lo que hay que hacer HOY, MAÑANA y PASADO
+   MAÑANA, juntando en un solo lugar próximas visitas, baños,
+   vacunas, desparasitación y tratamientos inyectables — para
+   ver de un vistazo qué toca sin entrar sección por sección.
+----------------------------------------------------------*/
+function TareasView({
+  patients,
+  banos,
+  vacunas,
+  desparasitaciones,
+  tratamientos,
+  config,
+  setActive,
+  setSelected,
+  onSetPestanaInicial
+}) {
+  const esPeluquero = config?.rol === "peluquero";
+  const fechaISO = offset => {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    return d.toISOString().slice(0, 10);
+  };
+  const dias = [{
+    key: "hoy",
+    label: "Hoy",
+    fecha: fechaISO(0)
+  }, {
+    key: "manana",
+    label: "Mañana",
+    fecha: fechaISO(1)
+  }, {
+    key: "pasado",
+    label: "Pasado mañana",
+    fecha: fechaISO(2)
+  }];
+  const eventosDe = fecha => {
+    const lista = [];
+    const agregar = (patientId, hora, icon, label, detalle, tab) => {
+      const patient = patients.find(p => p.id === patientId);
+      if (!patient) return;
+      lista.push({
+        id: tab + ":" + patientId + ":" + label,
+        patientId: patient.id,
+        nombre: patient.nombre,
+        propietario: patient.propietario,
+        foto: patient.foto,
+        hora: hora || "",
+        icon,
+        label,
+        detalle: detalle || "",
+        tab
+      });
+    };
+    if (esPeluquero) {
+      (banos || []).forEach(b => {
+        if (b.proximoBano === fecha) agregar(b.patientId, b.proximoBanoHora, "🛁", "Baño", b.tipo, "banos");
+      });
+    } else {
+      patients.forEach(p => {
+        if (p.proximaVisita === fecha) agregar(p.id, p.proximaVisitaHora, "📅", "Cita", "", null);
+      });
+      (banos || []).forEach(b => {
+        if (b.proximoBano === fecha) agregar(b.patientId, b.proximoBanoHora, "🛁", "Baño", b.tipo, "banos");
+      });
+      (vacunas || []).forEach(v => {
+        if (v.proximaDosis === fecha) agregar(v.patientId, v.proximaDosisHora, "💉", "Vacuna", v.nombre, "vacunas");
+      });
+      (desparasitaciones || []).forEach(d => {
+        if (d.proximaDosis === fecha) agregar(d.patientId, d.proximaDosisHora, "🐛", "Desparasitación", d.tipo, "desparasitacion");
+      });
+      (tratamientos || []).forEach(t => {
+        if (t.proximaAplicacion === fecha) agregar(t.patientId, t.proximaAplicacionHora, "🩹", "Tratamiento", t.descripcion, "tratamientos");
+      });
+    }
+    return lista.sort((a, b) => (a.hora || "99:99") < (b.hora || "99:99") ? -1 : 1);
+  };
+  const irAFicha = ev => {
+    const patient = patients.find(p => p.id === ev.patientId);
+    if (!patient) return;
+    setActive("pacientes");
+    setSelected(patient);
+    if (ev.tab) onSetPestanaInicial && onSetPestanaInicial(ev.tab);
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "max-w-2xl"
+  }, dias.map(dia => {
+    const eventos = eventosDe(dia.fecha);
+    return /*#__PURE__*/React.createElement("div", {
+      key: dia.key,
+      className: "mb-8"
+    }, /*#__PURE__*/React.createElement("h3", {
+      style: styles.display,
+      className: "text-lg font-semibold mb-1"
+    }, dia.label), /*#__PURE__*/React.createElement("p", {
+      className: "text-xs text-[#6B7A72] mb-3",
+      style: styles.mono
+    }, formatDate(dia.fecha, config?.dateFormat)), eventos.length === 0 ? /*#__PURE__*/React.createElement("p", {
+      className: "text-sm text-[#A6A08F]"
+    }, esPeluquero ? "Sin baños programados." : "Nada pendiente este día.") : /*#__PURE__*/React.createElement("div", {
+      className: "space-y-2"
+    }, eventos.map(ev => /*#__PURE__*/React.createElement("button", {
+      key: ev.id,
+      onClick: () => irAFicha(ev),
+      className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#3D6B5C] transition"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-3 min-w-0"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
+    }, ev.foto ? /*#__PURE__*/React.createElement("img", {
+      src: ev.foto,
+      alt: "",
+      className: "w-full h-full object-cover"
+    }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
+      className: "min-w-0"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "font-medium text-sm truncate"
+    }, ev.icon, " ", ev.label, ": ", ev.nombre), /*#__PURE__*/React.createElement("div", {
+      className: "text-xs text-[#6B7A72] truncate"
+    }, ev.detalle || ev.propietario || "Sin propietario"))), ev.hora && /*#__PURE__*/React.createElement("div", {
+      className: "text-xs font-semibold text-[#3D6B5C] shrink-0",
+      style: styles.mono
+    }, ev.hora)))));
+  }));
+}
+
 function AgendaView({
   patients,
   banos,
@@ -8136,6 +8266,7 @@ function HomeScreen({
   // modo colaborador, ya que la Agenda ahora se arma con sus propios datos
   // de Baños); "Reportes" sigue siendo exclusivo de quien administra cobros.
   const seccionesDeNavPermitidas = itemsNavPermitidos(config?.rol);
+  const puedeVerTareas = modoColaborador || !seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("tareas");
   const puedeVerAgenda = modoColaborador || !seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("agenda");
   const puedeVerBanos = modoColaborador || !seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("banos");
   const puedeVerVacunas = !modoColaborador && (!seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("vacunas"));
@@ -8269,12 +8400,17 @@ function HomeScreen({
     label: "Exámenes",
     value: examenes.length,
     onClick: () => setActive("examenes")
-  })), (puedeVerAgenda || puedeVerBanos || puedeVerVacunas || puedeVerDesparasitacion || puedeVerTratamientos || puedeVerReportes) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
+  })), (puedeVerTareas || puedeVerAgenda || puedeVerBanos || puedeVerVacunas || puedeVerDesparasitacion || puedeVerTratamientos || puedeVerReportes) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
     style: styles.mono
   }, "Accesos rápidos"), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-3 mb-10 max-w-md"
-  }, puedeVerAgenda && /*#__PURE__*/React.createElement(ActionCard, {
+  }, puedeVerTareas && /*#__PURE__*/React.createElement(ActionCard, {
+    icon: "✅",
+    title: "Pendientes",
+    subtitle: "Todo lo de hoy, mañana y pasado mañana",
+    onClick: () => setActive("tareas")
+  }), puedeVerAgenda && /*#__PURE__*/React.createElement(ActionCard, {
     icon: "📅",
     title: "Agenda",
     subtitle: esPeluquero ? "Calendario de próximos baños" : "Calendario de próximas visitas",
@@ -9965,7 +10101,20 @@ function VetApp() {
     onUpdate: updateExamen,
     onDelete: deleteExamen,
     config: config
-  }), active === "agenda" && /*#__PURE__*/React.createElement(AgendaView, {
+  }), active === "tareas" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    style: styles.display,
+    className: "text-2xl font-semibold mb-5"
+  }, "Pendientes"), /*#__PURE__*/React.createElement(TareasView, {
+    patients: activePatients,
+    banos: banosCombinados,
+    vacunas: vacunas,
+    desparasitaciones: desparasitaciones,
+    tratamientos: tratamientos,
+    config: config,
+    setActive: setActive,
+    setSelected: setSelected,
+    onSetPestanaInicial: setPestanaInicial
+  })), active === "agenda" && /*#__PURE__*/React.createElement(AgendaView, {
     patients: activePatients,
     banos: banosCombinados,
     vacunas: vacunas,
