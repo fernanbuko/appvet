@@ -2915,6 +2915,10 @@ function PatientSecciones(props) {
     label: "Cirugías",
     icon: "🔪"
   }, {
+    key: "tratamientos",
+    label: "Inyectables",
+    icon: "🩹"
+  }, {
     key: "banos",
     label: "Baños",
     icon: "🛁"
@@ -2980,6 +2984,13 @@ function PatientSecciones(props) {
     onAdd: props.addCirugia,
     onUpdate: props.updateCirugia,
     onDelete: props.deleteCirugia,
+    config: props.config
+  }), tab === "tratamientos" && /*#__PURE__*/React.createElement(TratamientosInyectablesSection, {
+    patient: props.patient,
+    tratamientos: props.tratamientos,
+    onAdd: props.addTratamiento,
+    onUpdate: props.updateTratamiento,
+    onDelete: props.deleteTratamiento,
     config: props.config
   }), tab === "banos" && /*#__PURE__*/React.createElement(BanosSection, {
     patient: props.patient,
@@ -3984,6 +3995,125 @@ function DesparasitacionSection({
     },
     className: "text-[11px] text-[#3D6B5C] font-medium hover:underline"
   }, "📲 Recordar por WhatsApp"))))));
+}
+
+/* ---------------------------------------------------------
+   Tratamientos inyectables: a diferencia del campo de texto
+   suelto que había antes (que se sobreescribía cada vez), esto
+   es un historial de verdad — cada aplicación queda como su
+   propio registro con su fecha, para poder llevar por ejemplo
+   "día 1, día 2, día 3..." de un mismo tratamiento sin perder
+   lo anterior.
+----------------------------------------------------------*/
+function TratamientosInyectablesSection({
+  patient,
+  tratamientos,
+  onAdd,
+  onUpdate,
+  onDelete,
+  config
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
+  const [descripcion, setDescripcion] = useState("");
+  const [notas, setNotas] = useState("");
+  const entries = tratamientos.filter(t => t.patientId === patient.id).sort((a, b) => a.fecha < b.fecha ? 1 : -1);
+  const reset = () => {
+    setFecha(new Date().toISOString().slice(0, 10));
+    setDescripcion("");
+    setNotas("");
+    setShowForm(false);
+    setEditingId(null);
+  };
+  const startEdit = t => {
+    setEditingId(t.id);
+    setFecha(t.fecha);
+    setDescripcion(t.descripcion || "");
+    setNotas(t.notas || "");
+    setShowForm(true);
+  };
+  const save = () => {
+    if (!descripcion.trim()) return;
+    const data = {
+      id: editingId || uid(),
+      patientId: patient.id,
+      patientName: patient.nombre,
+      fecha,
+      descripcion,
+      notas
+    };
+    if (editingId) onUpdate(data);else onAdd(data);
+    reset();
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "max-w-2xl mt-6"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-3 flex-wrap gap-2"
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: styles.display,
+    className: "text-lg font-semibold"
+  }, "Tratamientos inyectables"), !showForm && /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => setShowForm(true),
+    icon: "🩹"
+  }, "Registrar aplicación")), showForm && /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-6 mb-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-4"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Fecha"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: fecha,
+    onChange: e => setFecha(e.target.value)
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Tratamiento aplicado"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    value: descripcion,
+    onChange: e => setDescripcion(e.target.value),
+    placeholder: "Ej. Dexametasona 1ml IM — día 1",
+    autoFocus: true
+  }))), /*#__PURE__*/React.createElement(Field, {
+    label: "Notas (opcional)"
+  }, /*#__PURE__*/React.createElement(TextArea, {
+    rows: 2,
+    value: notas,
+    onChange: e => setNotas(e.target.value),
+    placeholder: "Reacciones, observaciones..."
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 mt-2"
+  }, /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: save,
+    disabled: !descripcion.trim(),
+    icon: "✓"
+  }, editingId ? "Guardar cambios" : "Registrar aplicación"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: reset
+  }, "Cancelar"))), entries.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    title: "Sin tratamientos inyectables registrados",
+    subtitle: "Cada aplicación que registres (ej. día 1, día 2, día 3...) va a aparecer aquí, con su propia fecha."
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-3"
+  }, entries.map(t => /*#__PURE__*/React.createElement("div", {
+    key: t.id,
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-start justify-between"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium"
+  }, t.descripcion), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72]",
+    style: styles.mono
+  }, formatDate(t.fecha, config?.dateFormat))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => startEdit(t),
+    className: "text-[#A6A08F] hover:text-[#3D6B5C]"
+  }, "✏️"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onDelete(t.id),
+    className: "text-[#A6A08F] hover:text-[#B14E1C]"
+  }, "🗑️"))), t.notas && /*#__PURE__*/React.createElement("p", {
+    className: "text-sm mt-2 text-[#6B7A72] whitespace-pre-wrap"
+  }, t.notas)))));
 }
 
 /* ---------------------------------------------------------
@@ -7473,35 +7603,46 @@ function VacunasGeneralView({
    de la ficha), en un solo lugar.
 ----------------------------------------------------------*/
 function TratamientosInyectablesGeneralView({
+  tratamientos,
   patients,
-  onSave,
+  config,
+  onAdd,
   setActive,
   setSelected
 }) {
-  const conTratamiento = (patients || []).filter(p => !p.eliminadoEn && p.tratamientoInyectable && p.tratamientoInyectable.trim()).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  const conPaciente = (tratamientos || []).map(t => ({
+    ...t,
+    _patient: patients.find(p => p.id === t.patientId)
+  })).filter(t => t._patient && !t._patient.eliminadoEn);
+  const historial = conPaciente.slice().sort((a, b) => a.fecha < b.fecha ? 1 : -1).slice(0, 30);
   const irAFicha = patient => {
     setActive("pacientes");
     setSelected(patient);
   };
-  // Agregar/editar el tratamiento inyectable directamente desde aquí, sin
-  // tener que entrar primero a la ficha del paciente.
+  // Agregar una aplicación directamente desde aquí, sin tener que entrar
+  // primero a la ficha del paciente — queda como un registro más de su
+  // historial (no reemplaza nada de lo que ya había).
   const [agregando, setAgregando] = useState(false);
   const [pacienteNuevo, setPacienteNuevo] = useState(null);
-  const [textoNuevo, setTextoNuevo] = useState("");
-  const elegirPaciente = p => {
-    setPacienteNuevo(p);
-    setTextoNuevo(p.tratamientoInyectable || "");
-  };
+  const [fechaNueva, setFechaNueva] = useState(new Date().toISOString().slice(0, 10));
+  const [descripcionNueva, setDescripcionNueva] = useState("");
+  const [notasNuevas, setNotasNuevas] = useState("");
   const cerrarAgregar = () => {
     setAgregando(false);
     setPacienteNuevo(null);
-    setTextoNuevo("");
+    setFechaNueva(new Date().toISOString().slice(0, 10));
+    setDescripcionNueva("");
+    setNotasNuevas("");
   };
   const guardarNuevo = () => {
-    if (!pacienteNuevo) return;
-    onSave({
-      ...pacienteNuevo,
-      tratamientoInyectable: textoNuevo
+    if (!pacienteNuevo || !descripcionNueva.trim()) return;
+    onAdd({
+      id: uid(),
+      patientId: pacienteNuevo.id,
+      patientName: pacienteNuevo.nombre,
+      fecha: fechaNueva,
+      descripcion: descripcionNueva,
+      notas: notasNuevas
     });
     cerrarAgregar();
   };
@@ -7512,63 +7653,75 @@ function TratamientosInyectablesGeneralView({
   }, /*#__PURE__*/React.createElement("h3", {
     style: styles.display,
     className: "text-lg font-semibold"
-  }, "Agregar o editar un tratamiento"), !agregando && /*#__PURE__*/React.createElement(GhostButton, {
+  }, "Registrar una aplicación"), !agregando && /*#__PURE__*/React.createElement(GhostButton, {
     onClick: () => setAgregando(true),
     icon: "🩹"
-  }, "Registrar tratamiento")), agregando && /*#__PURE__*/React.createElement("div", {
+  }, "Registrar aplicación")), agregando && /*#__PURE__*/React.createElement("div", {
     className: "bg-white border border-[#DDD5C4] rounded-lg p-6 mb-6"
   }, !pacienteNuevo ? /*#__PURE__*/React.createElement(SelectorPacienteInline, {
     patients: patients,
-    onSelect: elegirPaciente
+    onSelect: setPacienteNuevo
   }) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-4"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-sm"
-  }, "Paciente: ", /*#__PURE__*/React.createElement("b", null, pacienteNuevo.nombre), pacienteNuevo.tratamientoInyectable && /*#__PURE__*/React.createElement("span", {
-    className: "text-xs text-[#6B7A72]"
-  }, " (ya tenía uno registrado, se va a reemplazar)")), /*#__PURE__*/React.createElement("button", {
+  }, "Paciente: ", /*#__PURE__*/React.createElement("b", null, pacienteNuevo.nombre)), /*#__PURE__*/React.createElement("button", {
     onClick: () => setPacienteNuevo(null),
     className: "text-xs text-[#3D6B5C] hover:underline"
-  }, "Cambiar")), /*#__PURE__*/React.createElement(Field, {
-    label: "Tratamiento inyectable"
-  }, /*#__PURE__*/React.createElement("textarea", {
-    value: textoNuevo,
-    onChange: e => setTextoNuevo(e.target.value),
-    rows: 3,
-    placeholder: "Ej. Dexametasona 1ml IM cada 24h por 3 días...",
-    className: inputClass
+  }, "Cambiar")), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-4"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Fecha"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: fechaNueva,
+    onChange: e => setFechaNueva(e.target.value)
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Tratamiento aplicado"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    value: descripcionNueva,
+    onChange: e => setDescripcionNueva(e.target.value),
+    placeholder: "Ej. Dexametasona 1ml IM — día 1"
+  }))), /*#__PURE__*/React.createElement(Field, {
+    label: "Notas (opcional)"
+  }, /*#__PURE__*/React.createElement(TextArea, {
+    rows: 2,
+    value: notasNuevas,
+    onChange: e => setNotasNuevas(e.target.value),
+    placeholder: "Reacciones, observaciones..."
   })), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2 mt-2"
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: guardarNuevo,
-    disabled: !textoNuevo.trim(),
+    disabled: !descripcionNueva.trim(),
     icon: "✓"
   }, "Guardar"), /*#__PURE__*/React.createElement(GhostButton, {
     onClick: cerrarAgregar
-  }, "Cancelar")))), conTratamiento.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+  }, "Cancelar")))), historial.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
     title: "Sin tratamientos inyectables registrados",
-    subtitle: "Los pacientes con algo puesto en \"Tratamiento inyectable\" (hoja Consulta de su ficha) aparecerán aquí."
+    subtitle: "Cada aplicación que registres en cualquier paciente (ej. día 1, día 2, día 3...) aparecerá aquí, con su propia fecha."
   }) : /*#__PURE__*/React.createElement("div", {
     className: "space-y-2"
-  }, conTratamiento.map(p => /*#__PURE__*/React.createElement("button", {
-    key: p.id,
-    onClick: () => irAFicha(p),
+  }, historial.map(t => /*#__PURE__*/React.createElement("button", {
+    key: t.id,
+    onClick: () => irAFicha(t._patient),
     className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-start gap-3 hover:border-[#3D6B5C] transition"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
-  }, p.foto ? /*#__PURE__*/React.createElement("img", {
-    src: p.foto,
+  }, t._patient.foto ? /*#__PURE__*/React.createElement("img", {
+    src: t._patient.foto,
     alt: "",
     className: "w-full h-full object-cover"
   }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0 flex-1"
   }, /*#__PURE__*/React.createElement("div", {
     className: "font-medium text-sm"
-  }, p.nombre, " ", /*#__PURE__*/React.createElement("span", {
+  }, t._patient.nombre, " ", /*#__PURE__*/React.createElement("span", {
     className: "text-[#6B7A72] font-normal"
-  }, "· ", p.propietario || "Sin propietario")), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-[#6B7A72] mt-1 whitespace-pre-wrap"
-  }, p.tratamientoInyectable))))));
+  }, "· ", t.descripcion)), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72] mt-1",
+    style: styles.mono
+  }, formatDate(t.fecha, config?.dateFormat)))))));
 }
 function ReportesView({
   cobros,
@@ -8168,6 +8321,7 @@ function VetApp() {
   const [historial, setHistorial] = useState([]);
   const [vacunas, setVacunas] = useState([]);
   const [desparasitaciones, setDesparasitaciones] = useState([]);
+  const [tratamientos, setTratamientos] = useState([]);
   const [hospitalizaciones, setHospitalizaciones] = useState([]);
   const [banos, setBanos] = useState([]);
   // Baños de los pacientes PROPIOS de un colaborador (ver patientsPropios):
@@ -8308,7 +8462,7 @@ function VetApp() {
       // pacientes compartidos por la clínica, se traen sus propios clientes
       // (guardados en su propia cuenta, nunca en la del dueño).
       const trayendoPropios = !!(c?.colaboradorDe?.uid && c?.rol === "peluquero");
-      const [p, r, e, h, v, cb, dw, hp, bn, cg, pp, bnp, nt, sc] = await Promise.all([collectionStore.getAll("patients"), puedeVer("recetas") ? collectionStore.getAll("recetas") : Promise.resolve([]), puedeVer("examenes") ? collectionStore.getAll("examenes") : Promise.resolve([]), puedeVer("historial") ? collectionStore.getAll("historial") : Promise.resolve([]), puedeVer("vacunas") ? collectionStore.getAll("vacunas") : Promise.resolve([]), puedeVer("cobros") ? collectionStore.getAll("cobros") : Promise.resolve([]), puedeVer("desparasitaciones") ? collectionStore.getAll("desparasitaciones") : Promise.resolve([]), puedeVer("hospitalizaciones") ? collectionStore.getAll("hospitalizaciones") : Promise.resolve([]), puedeVer("banos") ? collectionStore.getAll("banos") : Promise.resolve([]), puedeVer("cirugias") ? collectionStore.getAll("cirugias") : Promise.resolve([]), trayendoPropios ? ownCollectionStore.getAll("patients") : Promise.resolve([]), trayendoPropios ? ownCollectionStore.getAll("banos") : Promise.resolve([]), ownCollectionStore.getAll("notificaciones"), ownCollectionStore.getAll("solicitudesColaborador")]);
+      const [p, r, e, h, v, cb, dw, hp, bn, cg, tr, pp, bnp, nt, sc] = await Promise.all([collectionStore.getAll("patients"), puedeVer("recetas") ? collectionStore.getAll("recetas") : Promise.resolve([]), puedeVer("examenes") ? collectionStore.getAll("examenes") : Promise.resolve([]), puedeVer("historial") ? collectionStore.getAll("historial") : Promise.resolve([]), puedeVer("vacunas") ? collectionStore.getAll("vacunas") : Promise.resolve([]), puedeVer("cobros") ? collectionStore.getAll("cobros") : Promise.resolve([]), puedeVer("desparasitaciones") ? collectionStore.getAll("desparasitaciones") : Promise.resolve([]), puedeVer("hospitalizaciones") ? collectionStore.getAll("hospitalizaciones") : Promise.resolve([]), puedeVer("banos") ? collectionStore.getAll("banos") : Promise.resolve([]), puedeVer("cirugias") ? collectionStore.getAll("cirugias") : Promise.resolve([]), puedeVer("tratamientos") ? collectionStore.getAll("tratamientos") : Promise.resolve([]), trayendoPropios ? ownCollectionStore.getAll("patients") : Promise.resolve([]), trayendoPropios ? ownCollectionStore.getAll("banos") : Promise.resolve([]), ownCollectionStore.getAll("notificaciones"), ownCollectionStore.getAll("solicitudesColaborador")]);
       if (cancelled) return;
       setPatients(p || []);
       setPatientsPropios(pp || []);
@@ -8318,6 +8472,7 @@ function VetApp() {
       setVacunas(v || []);
       setCobros(cb || []);
       setDesparasitaciones(dw || []);
+      setTratamientos(tr || []);
       setHospitalizaciones(hp || []);
       setBanos(bn || []);
       setBanosPropios(bnp || []);
@@ -8375,6 +8530,7 @@ function VetApp() {
     const unsubVacunas = puedeEscuchar("vacunas") ? collectionStore.listen("vacunas", setVacunas) : () => {};
     const unsubCobros = puedeEscuchar("cobros") ? collectionStore.listen("cobros", setCobros) : () => {};
     const unsubDesparasitaciones = puedeEscuchar("desparasitaciones") ? collectionStore.listen("desparasitaciones", setDesparasitaciones) : () => {};
+    const unsubTratamientos = puedeEscuchar("tratamientos") ? collectionStore.listen("tratamientos", setTratamientos) : () => {};
     const unsubHospitalizaciones = puedeEscuchar("hospitalizaciones") ? collectionStore.listen("hospitalizaciones", setHospitalizaciones) : () => {};
     const unsubBanos = puedeEscuchar("banos") ? collectionStore.listen("banos", setBanos) : () => {};
     const unsubCirugias = puedeEscuchar("cirugias") ? collectionStore.listen("cirugias", setCirugias) : () => {};
@@ -8402,6 +8558,7 @@ function VetApp() {
       unsubVacunas();
       unsubCobros();
       unsubDesparasitaciones();
+      unsubTratamientos();
       unsubHospitalizaciones();
       unsubBanos();
       unsubCirugias();
@@ -8961,6 +9118,23 @@ function VetApp() {
     setDesparasitaciones(next);
     collectionStore.deleteOne("desparasitaciones", id);
   };
+  const addTratamiento = t => {
+    const next = [...tratamientos, t];
+    setTratamientos(next);
+    collectionStore.setOne("tratamientos", t.id, t);
+    showToast("Tratamiento registrado");
+  };
+  const updateTratamiento = t => {
+    const next = tratamientos.map(x => x.id === t.id ? t : x);
+    setTratamientos(next);
+    collectionStore.setOne("tratamientos", t.id, t);
+    showToast("Tratamiento actualizado");
+  };
+  const deleteTratamiento = id => {
+    const next = tratamientos.filter(t => t.id !== id);
+    setTratamientos(next);
+    collectionStore.deleteOne("tratamientos", id);
+  };
   const addHospitalizacion = h => {
     const next = [...hospitalizaciones, h];
     setHospitalizaciones(next);
@@ -9450,6 +9624,10 @@ function VetApp() {
     addCirugia: addCirugia,
     updateCirugia: updateCirugia,
     deleteCirugia: deleteCirugia,
+    tratamientos: tratamientos,
+    addTratamiento: addTratamiento,
+    updateTratamiento: updateTratamiento,
+    deleteTratamiento: deleteTratamiento,
     banos: banosCombinados,
     addBano: addBano,
     updateBano: updateBano,
@@ -9527,8 +9705,10 @@ function VetApp() {
     style: styles.display,
     className: "text-2xl font-semibold mb-5"
   }, "Tratamientos inyectables"), /*#__PURE__*/React.createElement(TratamientosInyectablesGeneralView, {
+    tratamientos: tratamientos,
     patients: activePatients,
-    onSave: savePatient,
+    config: config,
+    onAdd: addTratamiento,
     setActive: setActive,
     setSelected: setSelected
   })), active === "reportes" && /*#__PURE__*/React.createElement(ReportesView, {
