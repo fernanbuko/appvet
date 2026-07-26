@@ -3979,7 +3979,7 @@ function VacunasSection({
     danger: true
   }, "Cancelar"))))))), confirmandoVacuna && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
-    message: `¿Ya se aplicó la vacuna "${confirmandoVacuna.nombre}" a ${confirmandoVacuna.patientName}?`,
+    message: `¿Ya se aplicó la vacuna "${(confirmandoVacuna.nombre || "").trim()}" a ${(confirmandoVacuna.patientName || "").trim()}?`,
     confirmLabel: "Sí, confirmar",
     onConfirm: () => {
       marcarVacunaAplicada(confirmandoVacuna);
@@ -3988,7 +3988,7 @@ function VacunasSection({
     onCancel: () => setConfirmandoVacuna(null)
   }), cancelandoVacuna && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Cancelar este aviso?",
-    message: `Se va a quitar el aviso de próxima dosis de ${cancelandoVacuna.patientName}, sin registrar que se aplicó. ¿Continuar?`,
+    message: `Se va a quitar el aviso de próxima dosis de ${(cancelandoVacuna.patientName || "").trim()}, sin registrar que se aplicó. ¿Continuar?`,
     confirmLabel: "Sí, cancelar aviso",
     danger: true,
     onConfirm: () => {
@@ -4241,7 +4241,7 @@ function DesparasitacionSection({
     danger: true
   }, "Cancelar"))))))), confirmandoDesparasitacion && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
-    message: `¿Ya se aplicó la desparasitación (${confirmandoDesparasitacion.tipo}) a ${confirmandoDesparasitacion.patientName}?`,
+    message: `¿Ya se aplicó la desparasitación (${(confirmandoDesparasitacion.tipo || "").trim()}) a ${(confirmandoDesparasitacion.patientName || "").trim()}?`,
     confirmLabel: "Sí, confirmar",
     onConfirm: () => {
       marcarDesparasitacionAplicada(confirmandoDesparasitacion);
@@ -4250,7 +4250,7 @@ function DesparasitacionSection({
     onCancel: () => setConfirmandoDesparasitacion(null)
   }), cancelandoDesparasitacion && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Cancelar este aviso?",
-    message: `Se va a quitar el aviso de próxima dosis de ${cancelandoDesparasitacion.patientName}, sin registrar que se aplicó. ¿Continuar?`,
+    message: `Se va a quitar el aviso de próxima dosis de ${(cancelandoDesparasitacion.patientName || "").trim()}, sin registrar que se aplicó. ¿Continuar?`,
     confirmLabel: "Sí, cancelar aviso",
     danger: true,
     onConfirm: () => {
@@ -4495,7 +4495,7 @@ function TratamientosInyectablesSection({
     danger: true
   }, "Cancelar"))))))), confirmandoTratamiento && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
-    message: `¿Ya se aplicó el tratamiento "${confirmandoTratamiento.descripcion}" a ${confirmandoTratamiento.patientName}?`,
+    message: `¿Ya se aplicó el tratamiento "${(confirmandoTratamiento.descripcion || "").trim()}" a ${(confirmandoTratamiento.patientName || "").trim()}?`,
     confirmLabel: "Sí, confirmar",
     onConfirm: () => {
       marcarTratamientoAplicado(confirmandoTratamiento);
@@ -4504,7 +4504,7 @@ function TratamientosInyectablesSection({
     onCancel: () => setConfirmandoTratamiento(null)
   }), cancelandoTratamiento && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Cancelar este aviso?",
-    message: `Se va a quitar el aviso de próxima aplicación de ${cancelandoTratamiento.patientName}, sin registrar que se aplicó. ¿Continuar?`,
+    message: `Se va a quitar el aviso de próxima aplicación de ${(cancelandoTratamiento.patientName || "").trim()}, sin registrar que se aplicó. ¿Continuar?`,
     confirmLabel: "Sí, cancelar aviso",
     danger: true,
     onConfirm: () => {
@@ -4927,7 +4927,7 @@ function BanosSection({
     danger: true
   }, "Cancelar"))))))), confirmandoBano && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
-    message: `¿Ya se atendió el baño de ${confirmandoBano.patientName}?`,
+    message: `¿Ya se atendió el baño de ${(confirmandoBano.patientName || "").trim()}?`,
     confirmLabel: "Sí, confirmar",
     onConfirm: () => {
       marcarBanoAtendido(confirmandoBano);
@@ -4936,7 +4936,7 @@ function BanosSection({
     onCancel: () => setConfirmandoBano(null)
   }), cancelandoBano && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Cancelar este aviso?",
-    message: `Se va a quitar el aviso de próximo baño de ${cancelandoBano.patientName}, sin registrar que se atendió. ¿Continuar?`,
+    message: `Se va a quitar el aviso de próximo baño de ${(cancelandoBano.patientName || "").trim()}, sin registrar que se atendió. ¿Continuar?`,
     confirmLabel: "Sí, cancelar aviso",
     danger: true,
     onConfirm: () => {
@@ -7933,7 +7933,7 @@ function BanosGeneralView({
     style: styles.mono
   }, "Ingreso: ", formatDate(b.fecha, config?.dateFormat), b.fechaAtendido && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("br", null), "✅ ", formatDate(b.fechaAtendido, config?.dateFormat))))))), confirmandoBano && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
-    message: `¿Ya se atendió el baño de ${confirmandoBano.patientName}?`,
+    message: `¿Ya se atendió el baño de ${(confirmandoBano.patientName || "").trim()}?`,
     confirmLabel: "Sí, confirmar",
     onConfirm: () => {
       marcarAtendido(confirmandoBano);
@@ -7942,7 +7942,7 @@ function BanosGeneralView({
     onCancel: () => setConfirmandoBano(null)
   }), cancelandoBano && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Cancelar este aviso?",
-    message: `Se va a quitar el aviso de próximo baño de ${cancelandoBano.patientName}, sin registrar que se atendió. ¿Continuar?`,
+    message: `Se va a quitar el aviso de próximo baño de ${(cancelandoBano.patientName || "").trim()}, sin registrar que se atendió. ¿Continuar?`,
     confirmLabel: "Sí, cancelar aviso",
     danger: true,
     onConfirm: () => {
@@ -8220,7 +8220,7 @@ function DesparasitacionesGeneralView({
     style: styles.mono
   }, "Aplicada: ", formatDate(d.fechaAplicada, config?.dateFormat)))))), confirmandoDesparasitacion && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
-    message: `¿Ya se aplicó la desparasitación (${confirmandoDesparasitacion.tipo}) a ${confirmandoDesparasitacion.patientName}?`,
+    message: `¿Ya se aplicó la desparasitación (${(confirmandoDesparasitacion.tipo || "").trim()}) a ${(confirmandoDesparasitacion.patientName || "").trim()}?`,
     confirmLabel: "Sí, confirmar",
     onConfirm: () => {
       marcarAplicada(confirmandoDesparasitacion);
@@ -8229,7 +8229,7 @@ function DesparasitacionesGeneralView({
     onCancel: () => setConfirmandoDesparasitacion(null)
   }), cancelandoDesparasitacion && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Cancelar este aviso?",
-    message: `Se va a quitar el aviso de próxima dosis de ${cancelandoDesparasitacion.patientName}, sin registrar que se aplicó. ¿Continuar?`,
+    message: `Se va a quitar el aviso de próxima dosis de ${(cancelandoDesparasitacion.patientName || "").trim()}, sin registrar que se aplicó. ¿Continuar?`,
     confirmLabel: "Sí, cancelar aviso",
     danger: true,
     onConfirm: () => {
@@ -8492,7 +8492,7 @@ function VacunasGeneralView({
     style: styles.mono
   }, "Aplicada: ", formatDate(v.fechaAplicada, config?.dateFormat)))))), confirmandoVacuna && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
-    message: `¿Ya se aplicó la vacuna "${confirmandoVacuna.nombre}" a ${confirmandoVacuna.patientName}?`,
+    message: `¿Ya se aplicó la vacuna "${(confirmandoVacuna.nombre || "").trim()}" a ${(confirmandoVacuna.patientName || "").trim()}?`,
     confirmLabel: "Sí, confirmar",
     onConfirm: () => {
       marcarAplicada(confirmandoVacuna);
@@ -8501,7 +8501,7 @@ function VacunasGeneralView({
     onCancel: () => setConfirmandoVacuna(null)
   }), cancelandoVacuna && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Cancelar este aviso?",
-    message: `Se va a quitar el aviso de próxima dosis de ${cancelandoVacuna.patientName}, sin registrar que se aplicó. ¿Continuar?`,
+    message: `Se va a quitar el aviso de próxima dosis de ${(cancelandoVacuna.patientName || "").trim()}, sin registrar que se aplicó. ¿Continuar?`,
     confirmLabel: "Sí, cancelar aviso",
     danger: true,
     onConfirm: () => {
@@ -8774,7 +8774,7 @@ function TratamientosInyectablesGeneralView({
     style: styles.mono
   }, formatDate(t.fecha, config?.dateFormat))))))), confirmandoTratamiento && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
-    message: `¿Ya se aplicó el tratamiento "${confirmandoTratamiento.descripcion}" a ${confirmandoTratamiento.patientName}?`,
+    message: `¿Ya se aplicó el tratamiento "${(confirmandoTratamiento.descripcion || "").trim()}" a ${(confirmandoTratamiento.patientName || "").trim()}?`,
     confirmLabel: "Sí, confirmar",
     onConfirm: () => {
       marcarAplicado(confirmandoTratamiento);
@@ -8783,7 +8783,7 @@ function TratamientosInyectablesGeneralView({
     onCancel: () => setConfirmandoTratamiento(null)
   }), cancelandoTratamiento && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Cancelar este aviso?",
-    message: `Se va a quitar el aviso de próxima aplicación de ${cancelandoTratamiento.patientName}, sin registrar que se aplicó. ¿Continuar?`,
+    message: `Se va a quitar el aviso de próxima aplicación de ${(cancelandoTratamiento.patientName || "").trim()}, sin registrar que se aplicó. ¿Continuar?`,
     confirmLabel: "Sí, cancelar aviso",
     danger: true,
     onConfirm: () => {
@@ -9962,7 +9962,7 @@ function HomeScreen({
     }
   }, "🎂 ", p.diasParaCumple === 0 ? "¡Hoy!" : `en ${p.diasParaCumple} día${p.diasParaCumple === 1 ? "" : "s"}`))))))), confirmando && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
-    message: `¿Ya se atendió/aplicó ${confirmando.detalle} de ${confirmando.nombre}?`,
+    message: `¿Ya se atendió/aplicó ${confirmando.detalle} de ${(confirmando.nombre || "").trim()}?`,
     confirmLabel: "Sí, confirmar",
     onConfirm: () => {
       confirmando.ejecutar();
