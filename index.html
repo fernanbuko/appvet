@@ -3716,12 +3716,14 @@ function VacunasSection({
   const [nombre, setNombre] = useState("");
   const [fechaAplicada, setFechaAplicada] = useState(new Date().toISOString().slice(0, 10));
   const [proximaDosis, setProximaDosis] = useState("");
+  const [proximaDosisHora, setProximaDosisHora] = useState("");
   const [notas, setNotas] = useState("");
   const entries = vacunas.filter(v => v.patientId === patient.id).sort((a, b) => a.fechaAplicada < b.fechaAplicada ? 1 : -1);
   const reset = () => {
     setNombre("");
     setFechaAplicada(new Date().toISOString().slice(0, 10));
     setProximaDosis("");
+    setProximaDosisHora("");
     setNotas("");
     setShowForm(false);
     setEditingId(null);
@@ -3731,6 +3733,7 @@ function VacunasSection({
     setNombre(v.nombre);
     setFechaAplicada(v.fechaAplicada);
     setProximaDosis(v.proximaDosis || "");
+    setProximaDosisHora(v.proximaDosisHora || "");
     setNotas(v.notas || "");
     setShowForm(true);
   };
@@ -3743,6 +3746,7 @@ function VacunasSection({
       nombre,
       fechaAplicada,
       proximaDosis,
+      proximaDosisHora: proximaDosis ? proximaDosisHora : "",
       notas
     };
     if (editingId) onUpdate(data);else onAdd(data);
@@ -3793,6 +3797,13 @@ function VacunasSection({
     value: proximaDosis,
     onChange: e => setProximaDosis(e.target.value)
   }))), /*#__PURE__*/React.createElement(Field, {
+    label: "Hora de la próxima dosis (opcional)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "time",
+    value: proximaDosisHora,
+    onChange: e => setProximaDosisHora(e.target.value),
+    disabled: !proximaDosis
+  })), /*#__PURE__*/React.createElement(Field, {
     label: "Notas"
   }, /*#__PURE__*/React.createElement(TextArea, {
     rows: 2,
@@ -3841,7 +3852,7 @@ function VacunasSection({
       color: vencida(v) ? "var(--accent-orange)" : "var(--accent-green)",
       background: vencida(v) ? "var(--accent-orange-bg)" : "var(--accent-green-bg)"
     }
-  }, vencida(v) ? "⚠ Próxima dosis vencida: " : "📅 Próxima dosis: ", formatDate(v.proximaDosis, config?.dateFormat)), patient.telefonoPropietario && /*#__PURE__*/React.createElement("button", {
+  }, vencida(v) ? "⚠ Próxima dosis vencida: " : "📅 Próxima dosis: ", formatDate(v.proximaDosis, config?.dateFormat), v.proximaDosisHora && ` — ${v.proximaDosisHora}`), patient.telefonoPropietario && /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       const df = config?.dateFormat;
       const mensaje = `Hola${patient.propietario ? " " + patient.propietario : ""}, le escribimos de ${config?.clinica || "la clínica"} ` + `para recordarle que a ${patient.nombre} le corresponde la vacuna "${v.nombre}" el ${formatDate(v.proximaDosis, df)}. ` + `Le esperamos para coordinar la cita. ¡Gracias!`;
@@ -3870,6 +3881,7 @@ function DesparasitacionSection({
   const [producto, setProducto] = useState("");
   const [fechaAplicada, setFechaAplicada] = useState(new Date().toISOString().slice(0, 10));
   const [proximaDosis, setProximaDosis] = useState("");
+  const [proximaDosisHora, setProximaDosisHora] = useState("");
   const [notas, setNotas] = useState("");
   const entries = desparasitaciones.filter(d => d.patientId === patient.id).sort((a, b) => a.fechaAplicada < b.fechaAplicada ? 1 : -1);
   const reset = () => {
@@ -3877,6 +3889,7 @@ function DesparasitacionSection({
     setProducto("");
     setFechaAplicada(new Date().toISOString().slice(0, 10));
     setProximaDosis("");
+    setProximaDosisHora("");
     setNotas("");
     setShowForm(false);
     setEditingId(null);
@@ -3887,6 +3900,7 @@ function DesparasitacionSection({
     setProducto(d.producto || "");
     setFechaAplicada(d.fechaAplicada);
     setProximaDosis(d.proximaDosis || "");
+    setProximaDosisHora(d.proximaDosisHora || "");
     setNotas(d.notas || "");
     setShowForm(true);
   };
@@ -3900,6 +3914,7 @@ function DesparasitacionSection({
       producto,
       fechaAplicada,
       proximaDosis,
+      proximaDosisHora: proximaDosis ? proximaDosisHora : "",
       notas
     };
     if (editingId) onUpdate(data);else onAdd(data);
@@ -3949,6 +3964,13 @@ function DesparasitacionSection({
     value: proximaDosis,
     onChange: e => setProximaDosis(e.target.value)
   }))), /*#__PURE__*/React.createElement(Field, {
+    label: "Hora de la próxima dosis (opcional)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "time",
+    value: proximaDosisHora,
+    onChange: e => setProximaDosisHora(e.target.value),
+    disabled: !proximaDosis
+  })), /*#__PURE__*/React.createElement(Field, {
     label: "Notas"
   }, /*#__PURE__*/React.createElement(TextArea, {
     rows: 2,
@@ -3999,7 +4021,7 @@ function DesparasitacionSection({
       color: vencida(d) ? "var(--accent-orange)" : "var(--accent-green)",
       background: vencida(d) ? "var(--accent-orange-bg)" : "var(--accent-green-bg)"
     }
-  }, vencida(d) ? "⚠ Próxima dosis vencida: " : "📅 Próxima dosis: ", formatDate(d.proximaDosis, config?.dateFormat)), patient.telefonoPropietario && /*#__PURE__*/React.createElement("button", {
+  }, vencida(d) ? "⚠ Próxima dosis vencida: " : "📅 Próxima dosis: ", formatDate(d.proximaDosis, config?.dateFormat), d.proximaDosisHora && ` — ${d.proximaDosisHora}`), patient.telefonoPropietario && /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       const df = config?.dateFormat;
       const mensaje = `Hola${patient.propietario ? " " + patient.propietario : ""}, le escribimos de ${config?.clinica || "la clínica"} ` + `para recordarle que a ${patient.nombre} le corresponde su desparasitación (${d.tipo}) el ${formatDate(d.proximaDosis, df)}. ` + `Le esperamos para coordinar la cita. ¡Gracias!`;
@@ -4029,11 +4051,15 @@ function TratamientosInyectablesSection({
   const [editingId, setEditingId] = useState(null);
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [descripcion, setDescripcion] = useState("");
+  const [proximaAplicacion, setProximaAplicacion] = useState("");
+  const [proximaAplicacionHora, setProximaAplicacionHora] = useState("");
   const [notas, setNotas] = useState("");
   const entries = tratamientos.filter(t => t.patientId === patient.id).sort((a, b) => a.fecha < b.fecha ? 1 : -1);
   const reset = () => {
     setFecha(new Date().toISOString().slice(0, 10));
     setDescripcion("");
+    setProximaAplicacion("");
+    setProximaAplicacionHora("");
     setNotas("");
     setShowForm(false);
     setEditingId(null);
@@ -4042,6 +4068,8 @@ function TratamientosInyectablesSection({
     setEditingId(t.id);
     setFecha(t.fecha);
     setDescripcion(t.descripcion || "");
+    setProximaAplicacion(t.proximaAplicacion || "");
+    setProximaAplicacionHora(t.proximaAplicacionHora || "");
     setNotas(t.notas || "");
     setShowForm(true);
   };
@@ -4053,11 +4081,15 @@ function TratamientosInyectablesSection({
       patientName: patient.nombre,
       fecha,
       descripcion,
+      proximaAplicacion,
+      proximaAplicacionHora: proximaAplicacion ? proximaAplicacionHora : "",
       notas
     };
     if (editingId) onUpdate(data);else onAdd(data);
     reset();
   };
+  const hoy = new Date().toISOString().slice(0, 10);
+  const vencida = t => t.proximaAplicacion && t.proximaAplicacion < hoy;
   return /*#__PURE__*/React.createElement("div", {
     className: "max-w-2xl mt-6"
   }, /*#__PURE__*/React.createElement("div", {
@@ -4085,6 +4117,21 @@ function TratamientosInyectablesSection({
     onChange: e => setDescripcion(e.target.value),
     placeholder: "Ej. Dexametasona 1ml IM — día 1",
     autoFocus: true
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-4"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Próxima aplicación (opcional)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: proximaAplicacion,
+    onChange: e => setProximaAplicacion(e.target.value)
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Hora (opcional)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "time",
+    value: proximaAplicacionHora,
+    onChange: e => setProximaAplicacionHora(e.target.value),
+    disabled: !proximaAplicacion
   }))), /*#__PURE__*/React.createElement(Field, {
     label: "Notas (opcional)"
   }, /*#__PURE__*/React.createElement(TextArea, {
@@ -4125,7 +4172,23 @@ function TratamientosInyectablesSection({
     className: "text-[#A6A08F] hover:text-[#B14E1C]"
   }, "🗑️"))), t.notas && /*#__PURE__*/React.createElement("p", {
     className: "text-sm mt-2 text-[#6B7A72] whitespace-pre-wrap"
-  }, t.notas)))));
+  }, t.notas), t.proximaAplicacion && /*#__PURE__*/React.createElement("div", {
+    className: "mt-2 flex items-center gap-2 flex-wrap"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded",
+    style: {
+      ...styles.mono,
+      color: vencida(t) ? "var(--accent-orange)" : "var(--accent-green)",
+      background: vencida(t) ? "var(--accent-orange-bg)" : "var(--accent-green-bg)"
+    }
+  }, vencida(t) ? "⚠ Próxima aplicación vencida: " : "📅 Próxima aplicación: ", formatDate(t.proximaAplicacion, config?.dateFormat), t.proximaAplicacionHora && ` — ${t.proximaAplicacionHora}`), patient.telefonoPropietario && /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      const df = config?.dateFormat;
+      const mensaje = `Hola${patient.propietario ? " " + patient.propietario : ""}, le escribimos de ${config?.clinica || "la clínica"} ` + `para recordarle que a ${patient.nombre} le corresponde su próximo tratamiento inyectable el ${formatDate(t.proximaAplicacion, df)}. ` + `Le esperamos para coordinar la cita. ¡Gracias!`;
+      window.open(whatsappLink(patient.telefonoPropietario, mensaje), "_blank");
+    },
+    className: "text-[11px] text-[#3D6B5C] font-medium hover:underline"
+  }, "📲 Recordar por WhatsApp"))))));
 }
 
 /* ---------------------------------------------------------
@@ -6797,9 +6860,13 @@ function ActionCard({
 function AgendaView({
   patients,
   banos,
+  vacunas,
+  desparasitaciones,
+  tratamientos,
   config,
   setActive,
-  setSelected
+  setSelected,
+  onSetPestanaInicial
 }) {
   const [mesActual, setMesActual] = useState(() => {
     const d = new Date();
@@ -6811,6 +6878,18 @@ function AgendaView({
   const esPeluquero = config?.rol === "peluquero";
   const porFecha = useMemo(() => {
     const map = {};
+    const agregar = (fecha, hora, entrada) => {
+      if (!fecha) return;
+      if (!map[fecha]) map[fecha] = {};
+      const clave = entrada.tab + ":" + entrada.patientId;
+      const existente = map[fecha][clave];
+      if (!existente || (hora || "") < (existente.hora || "")) {
+        map[fecha][clave] = {
+          ...entrada,
+          hora: hora || ""
+        };
+      }
+    };
     if (esPeluquero) {
       // Para un peluquero/a, la agenda se arma únicamente con la "fecha
       // separada para baño" de cada registro (no con la fecha de ingreso,
@@ -6820,36 +6899,79 @@ function AgendaView({
         if (!b.proximoBano) return;
         const patient = patients.find(p => p.id === b.patientId);
         if (!patient) return;
-        if (!map[b.proximoBano]) map[b.proximoBano] = {};
-        const existente = map[b.proximoBano][patient.id];
-        if (!existente || (b.proximoBanoHora || "") < (existente.hora || "")) {
-          map[b.proximoBano][patient.id] = {
-            patient,
-            hora: b.proximoBanoHora || ""
-          };
+        agregar(b.proximoBano, b.proximoBanoHora, {
+          patientId: patient.id,
+          nombre: patient.nombre,
+          propietario: patient.propietario,
+          foto: patient.foto,
+          icon: "🛁",
+          label: "Baño",
+          tab: "banos"
+        });
+      });
+    } else {
+      patients.forEach(p => {
+        if (p.proximaVisita) {
+          agregar(p.proximaVisita, p.proximaVisitaHora, {
+            patientId: p.id,
+            nombre: p.nombre,
+            propietario: p.propietario,
+            foto: p.foto,
+            icon: "📅",
+            label: "Cita",
+            tab: null
+          });
         }
       });
-      const mapArrays = {};
-      Object.entries(map).forEach(([fecha, porId]) => {
-        mapArrays[fecha] = Object.values(porId).sort((a, b) => (a.hora || "99:99") < (b.hora || "99:99") ? -1 : 1).map(({
-          patient,
-          hora
-        }) => ({
-          ...patient,
-          proximaVisitaHora: hora
-        }));
+      (vacunas || []).forEach(v => {
+        if (!v.proximaDosis) return;
+        const patient = patients.find(p => p.id === v.patientId);
+        if (!patient) return;
+        agregar(v.proximaDosis, v.proximaDosisHora, {
+          patientId: patient.id,
+          nombre: patient.nombre,
+          propietario: patient.propietario,
+          foto: patient.foto,
+          icon: "💉",
+          label: "Vacuna",
+          tab: "vacunas"
+        });
       });
-      return mapArrays;
+      (desparasitaciones || []).forEach(d => {
+        if (!d.proximaDosis) return;
+        const patient = patients.find(p => p.id === d.patientId);
+        if (!patient) return;
+        agregar(d.proximaDosis, d.proximaDosisHora, {
+          patientId: patient.id,
+          nombre: patient.nombre,
+          propietario: patient.propietario,
+          foto: patient.foto,
+          icon: "🐛",
+          label: "Desparasitación",
+          tab: "desparasitacion"
+        });
+      });
+      (tratamientos || []).forEach(t => {
+        if (!t.proximaAplicacion) return;
+        const patient = patients.find(p => p.id === t.patientId);
+        if (!patient) return;
+        agregar(t.proximaAplicacion, t.proximaAplicacionHora, {
+          patientId: patient.id,
+          nombre: patient.nombre,
+          propietario: patient.propietario,
+          foto: patient.foto,
+          icon: "🩹",
+          label: "Tratamiento",
+          tab: "tratamientos"
+        });
+      });
     }
-    patients.forEach(p => {
-      if (p.proximaVisita) {
-        if (!map[p.proximaVisita]) map[p.proximaVisita] = [];
-        map[p.proximaVisita].push(p);
-      }
+    const mapArrays = {};
+    Object.entries(map).forEach(([fecha, porClave]) => {
+      mapArrays[fecha] = Object.values(porClave).sort((a, b) => (a.hora || "99:99") < (b.hora || "99:99") ? -1 : 1);
     });
-    Object.values(map).forEach(list => list.sort((a, b) => (a.proximaVisitaHora || "99:99") < (b.proximaVisitaHora || "99:99") ? -1 : 1));
-    return map;
-  }, [patients, banos, esPeluquero]);
+    return mapArrays;
+  }, [patients, banos, vacunas, desparasitaciones, tratamientos, esPeluquero]);
   const {
     year,
     month
@@ -6927,31 +7049,34 @@ function AgendaView({
     className: "text-sm font-semibold mb-2"
   }, formatDate(diaSeleccionado)), (porFecha[diaSeleccionado] || []).length === 0 ? /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-[#6B7A72]"
-  }, esPeluquero ? "Sin baños programados este día." : "Sin visitas programadas este día.") : /*#__PURE__*/React.createElement("div", {
+  }, esPeluquero ? "Sin baños programados este día." : "Sin eventos programados este día.") : /*#__PURE__*/React.createElement("div", {
     className: "space-y-2"
-  }, porFecha[diaSeleccionado].map(p => /*#__PURE__*/React.createElement("button", {
-    key: p.id,
+  }, porFecha[diaSeleccionado].map(ev => /*#__PURE__*/React.createElement("button", {
+    key: ev.tab + ":" + ev.patientId,
     onClick: () => {
+      const patient = patients.find(p => p.id === ev.patientId);
+      if (!patient) return;
       setActive("pacientes");
-      setSelected(p);
+      setSelected(patient);
+      if (ev.tab) onSetPestanaInicial && onSetPestanaInicial(ev.tab);
     },
     className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 hover:border-[#3D6B5C] transition flex items-center gap-3"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
-  }, p.foto ? /*#__PURE__*/React.createElement("img", {
-    src: p.foto,
+  }, ev.foto ? /*#__PURE__*/React.createElement("img", {
+    src: ev.foto,
     alt: "",
     className: "w-full h-full object-cover"
   }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0 flex-1"
   }, /*#__PURE__*/React.createElement("div", {
     className: "font-medium text-sm"
-  }, p.nombre), /*#__PURE__*/React.createElement("div", {
+  }, ev.icon, " ", ev.label, ": ", ev.nombre), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72]"
-  }, p.propietario || "Sin propietario")), p.proximaVisitaHora && /*#__PURE__*/React.createElement("span", {
+  }, ev.propietario || "Sin propietario")), ev.hora && /*#__PURE__*/React.createElement("span", {
     className: "text-xs font-semibold text-[#3D6B5C] shrink-0",
     style: styles.mono
-  }, p.proximaVisitaHora))))));
+  }, ev.hora))))));
 }
 
 /* ---------------------------------------------------------
@@ -7295,6 +7420,7 @@ function DesparasitacionesGeneralView({
   const [productoNuevo, setProductoNuevo] = useState("");
   const [fechaNueva, setFechaNueva] = useState(hoy);
   const [proximaDosisNueva, setProximaDosisNueva] = useState("");
+  const [proximaDosisHoraNueva, setProximaDosisHoraNueva] = useState("");
   const cerrarAgregar = () => {
     setAgregando(false);
     setPacienteNuevo(null);
@@ -7302,6 +7428,7 @@ function DesparasitacionesGeneralView({
     setProductoNuevo("");
     setFechaNueva(hoy);
     setProximaDosisNueva("");
+    setProximaDosisHoraNueva("");
   };
   const guardarNuevo = () => {
     if (!pacienteNuevo) return;
@@ -7313,6 +7440,7 @@ function DesparasitacionesGeneralView({
       producto: productoNuevo,
       fechaAplicada: fechaNueva,
       proximaDosis: proximaDosisNueva,
+      proximaDosisHora: proximaDosisNueva ? proximaDosisHoraNueva : "",
       notas: ""
     });
     cerrarAgregar();
@@ -7368,7 +7496,14 @@ function DesparasitacionesGeneralView({
     type: "date",
     value: proximaDosisNueva,
     onChange: e => setProximaDosisNueva(e.target.value)
-  }))), /*#__PURE__*/React.createElement("div", {
+  }))), /*#__PURE__*/React.createElement(Field, {
+    label: "Hora de la próxima dosis (opcional)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "time",
+    value: proximaDosisHoraNueva,
+    onChange: e => setProximaDosisHoraNueva(e.target.value),
+    disabled: !proximaDosisNueva
+  })), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2 mt-2"
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: guardarNuevo,
@@ -7472,12 +7607,14 @@ function VacunasGeneralView({
   const [nombreNuevo, setNombreNuevo] = useState("");
   const [fechaNueva, setFechaNueva] = useState(hoy);
   const [proximaDosisNueva, setProximaDosisNueva] = useState("");
+  const [proximaDosisHoraNueva, setProximaDosisHoraNueva] = useState("");
   const cerrarAgregar = () => {
     setAgregando(false);
     setPacienteNuevo(null);
     setNombreNuevo("");
     setFechaNueva(hoy);
     setProximaDosisNueva("");
+    setProximaDosisHoraNueva("");
   };
   const guardarNuevo = () => {
     if (!pacienteNuevo || !nombreNuevo.trim()) return;
@@ -7488,6 +7625,7 @@ function VacunasGeneralView({
       nombre: nombreNuevo,
       fechaAplicada: fechaNueva,
       proximaDosis: proximaDosisNueva,
+      proximaDosisHora: proximaDosisNueva ? proximaDosisHoraNueva : "",
       notas: ""
     });
     cerrarAgregar();
@@ -7535,7 +7673,14 @@ function VacunasGeneralView({
     type: "date",
     value: proximaDosisNueva,
     onChange: e => setProximaDosisNueva(e.target.value)
-  }))), /*#__PURE__*/React.createElement("div", {
+  }))), /*#__PURE__*/React.createElement(Field, {
+    label: "Hora de la próxima dosis (opcional)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "time",
+    value: proximaDosisHoraNueva,
+    onChange: e => setProximaDosisHoraNueva(e.target.value),
+    disabled: !proximaDosisNueva
+  })), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2 mt-2"
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: guardarNuevo,
@@ -7622,10 +7767,13 @@ function TratamientosInyectablesGeneralView({
   setActive,
   setSelected
 }) {
+  const hoy = new Date().toISOString().slice(0, 10);
+  const vencida = t => t.proximaAplicacion && t.proximaAplicacion < hoy;
   const conPaciente = (tratamientos || []).map(t => ({
     ...t,
     _patient: patients.find(p => p.id === t.patientId)
   })).filter(t => t._patient && !t._patient.eliminadoEn);
+  const proximas = conPaciente.filter(t => t.proximaAplicacion).sort((a, b) => a.proximaAplicacion < b.proximaAplicacion ? -1 : 1);
   const historial = conPaciente.slice().sort((a, b) => a.fecha < b.fecha ? 1 : -1).slice(0, 30);
   const irAFicha = patient => {
     setActive("pacientes");
@@ -7636,14 +7784,18 @@ function TratamientosInyectablesGeneralView({
   // historial (no reemplaza nada de lo que ya había).
   const [agregando, setAgregando] = useState(false);
   const [pacienteNuevo, setPacienteNuevo] = useState(null);
-  const [fechaNueva, setFechaNueva] = useState(new Date().toISOString().slice(0, 10));
+  const [fechaNueva, setFechaNueva] = useState(hoy);
   const [descripcionNueva, setDescripcionNueva] = useState("");
+  const [proximaAplicacionNueva, setProximaAplicacionNueva] = useState("");
+  const [proximaAplicacionHoraNueva, setProximaAplicacionHoraNueva] = useState("");
   const [notasNuevas, setNotasNuevas] = useState("");
   const cerrarAgregar = () => {
     setAgregando(false);
     setPacienteNuevo(null);
-    setFechaNueva(new Date().toISOString().slice(0, 10));
+    setFechaNueva(hoy);
     setDescripcionNueva("");
+    setProximaAplicacionNueva("");
+    setProximaAplicacionHoraNueva("");
     setNotasNuevas("");
   };
   const guardarNuevo = () => {
@@ -7654,6 +7806,8 @@ function TratamientosInyectablesGeneralView({
       patientName: pacienteNuevo.nombre,
       fecha: fechaNueva,
       descripcion: descripcionNueva,
+      proximaAplicacion: proximaAplicacionNueva,
+      proximaAplicacionHora: proximaAplicacionNueva ? proximaAplicacionHoraNueva : "",
       notas: notasNuevas
     });
     cerrarAgregar();
@@ -7694,6 +7848,21 @@ function TratamientosInyectablesGeneralView({
     value: descripcionNueva,
     onChange: e => setDescripcionNueva(e.target.value),
     placeholder: "Ej. Dexametasona 1ml IM — día 1"
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-4"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Próxima aplicación (opcional)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: proximaAplicacionNueva,
+    onChange: e => setProximaAplicacionNueva(e.target.value)
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Hora (opcional)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "time",
+    value: proximaAplicacionHoraNueva,
+    onChange: e => setProximaAplicacionHoraNueva(e.target.value),
+    disabled: !proximaAplicacionNueva
   }))), /*#__PURE__*/React.createElement(Field, {
     label: "Notas (opcional)"
   }, /*#__PURE__*/React.createElement(TextArea, {
@@ -7709,7 +7878,45 @@ function TratamientosInyectablesGeneralView({
     icon: "✓"
   }, "Guardar"), /*#__PURE__*/React.createElement(GhostButton, {
     onClick: cerrarAgregar
-  }, "Cancelar")))), historial.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+  }, "Cancelar")))), /*#__PURE__*/React.createElement("h3", {
+    style: styles.display,
+    className: "text-lg font-semibold mb-3"
+  }, "🩹 Próximas aplicaciones"), proximas.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    title: "Sin aplicaciones programadas",
+    subtitle: "Los tratamientos con \"Próxima aplicación\" que registres en cualquier paciente aparecerán aquí."
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2 mb-10"
+  }, proximas.map(t => /*#__PURE__*/React.createElement("button", {
+    key: t.id,
+    onClick: () => irAFicha(t._patient),
+    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#3D6B5C] transition"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
+  }, t._patient.foto ? /*#__PURE__*/React.createElement("img", {
+    src: t._patient.foto,
+    alt: "",
+    className: "w-full h-full object-cover"
+  }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-sm truncate"
+  }, t._patient.nombre, " ", /*#__PURE__*/React.createElement("span", {
+    className: "text-[#6B7A72] font-normal"
+  }, "· ", t.descripcion)), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72] truncate"
+  }, t._patient.propietario || "Sin propietario"))), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs px-2 py-1 rounded shrink-0",
+    style: {
+      ...styles.mono,
+      color: vencida(t) ? "var(--accent-orange)" : "var(--accent-green)",
+      background: vencida(t) ? "var(--accent-orange-bg)" : "var(--accent-green-bg)"
+    }
+  }, vencida(t) ? "⚠ " : "🩹 ", formatDate(t.proximaAplicacion, config?.dateFormat), t.proximaAplicacionHora && ` — ${t.proximaAplicacionHora}`)))), /*#__PURE__*/React.createElement("h3", {
+    style: styles.display,
+    className: "text-lg font-semibold mb-3"
+  }, "Historial reciente"), historial.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
     title: "Sin tratamientos inyectables registrados",
     subtitle: "Cada aplicación que registres en cualquier paciente (ej. día 1, día 2, día 3...) aparecerá aquí, con su propia fecha."
   }) : /*#__PURE__*/React.createElement("div", {
@@ -7904,6 +8111,7 @@ function HomeScreen({
   examenes,
   vacunas,
   desparasitaciones,
+  tratamientos,
   hospitalizaciones,
   banos,
   setActive,
@@ -7935,6 +8143,40 @@ function HomeScreen({
   const puedeVerTratamientos = !modoColaborador && (!seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("tratamientos"));
   const puedeVerReportes = !modoColaborador && (!seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("reportes"));
   const proximas = patients.filter(p => p.proximaVisita).sort((a, b) => a.proximaVisita > b.proximaVisita ? 1 : -1).slice(0, 3);
+  // Vacunas, desparasitación y tratamientos con fecha futura, juntos en una
+  // sola lista (cada uno con su propio ícono/etiqueta) — para que se vean
+  // en Inicio sin tener que entrar a cada sección por separado.
+  const proximosEventosClinicos = !esPeluquero && !modoColaborador ? [...(vacunas || []).filter(v => v.proximaDosis).map(v => ({
+    id: "vac-" + v.id,
+    patientId: v.patientId,
+    patientName: v.patientName,
+    fecha: v.proximaDosis,
+    hora: v.proximaDosisHora || "",
+    icon: "💉",
+    label: "Vacuna",
+    detalle: v.nombre || "",
+    tab: "vacunas"
+  })), ...(desparasitaciones || []).filter(d => d.proximaDosis).map(d => ({
+    id: "desp-" + d.id,
+    patientId: d.patientId,
+    patientName: d.patientName,
+    fecha: d.proximaDosis,
+    hora: d.proximaDosisHora || "",
+    icon: "🐛",
+    label: "Desparasitación",
+    detalle: d.tipo || "",
+    tab: "desparasitacion"
+  })), ...(tratamientos || []).filter(t => t.proximaAplicacion).map(t => ({
+    id: "trat-" + t.id,
+    patientId: t.patientId,
+    patientName: t.patientName,
+    fecha: t.proximaAplicacion,
+    hora: t.proximaAplicacionHora || "",
+    icon: "🩹",
+    label: "Tratamiento",
+    detalle: t.descripcion || "",
+    tab: "tratamientos"
+  }))].sort((a, b) => a.fecha !== b.fecha ? a.fecha < b.fecha ? -1 : 1 : (a.hora || "99:99") < (b.hora || "99:99") ? -1 : 1).slice(0, 5) : [];
   const hoy = new Date().toISOString().slice(0, 10);
   const en30dias = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   // Para el peluquero/a, "Próximas" se arma con la sección Baños (misma
@@ -8156,7 +8398,43 @@ function HomeScreen({
       setReagendandoVisitaId(p.id);
     },
     className: "w-7 h-7 rounded-full flex items-center justify-center text-sm hover:bg-[#EAF0EC] text-[#B14E1C] transition"
-  }, "📅")))))))), proximosBanos.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "📅")))))))), proximosEventosClinicos.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "mb-8"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
+    style: styles.mono
+  }, "Próximos eventos"), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2 max-w-md"
+  }, proximosEventosClinicos.map(ev => {
+    const paciente = patients.find(p => p.id === ev.patientId);
+    return /*#__PURE__*/React.createElement("button", {
+      key: ev.id,
+      onClick: () => {
+        if (!paciente) return;
+        setActive("pacientes");
+        setSelected(paciente);
+        onSetPestanaInicial && onSetPestanaInicial(ev.tab);
+      },
+      className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#3D6B5C] transition"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-3 min-w-0"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
+    }, paciente?.foto ? /*#__PURE__*/React.createElement("img", {
+      src: paciente.foto,
+      alt: "",
+      className: "w-full h-full object-cover"
+    }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
+      className: "min-w-0"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "font-medium text-sm truncate"
+    }, ev.icon, " ", ev.label, ": ", ev.patientName), /*#__PURE__*/React.createElement("div", {
+      className: "text-xs text-[#6B7A72] truncate"
+    }, ev.detalle || (paciente?.propietario || "Sin propietario")))), /*#__PURE__*/React.createElement("div", {
+      className: "text-xs text-[#B14E1C] bg-[#E08A3E]/10 px-2 py-1 rounded text-right shrink-0",
+      style: styles.mono
+    }, "📅 ", formatDate(ev.fecha, config?.dateFormat), ev.hora && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("br", null), ev.hora)));
+  }))), proximosBanos.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "mb-8"
   }, /*#__PURE__*/React.createElement("h2", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
@@ -9574,6 +9852,7 @@ function VetApp() {
     examenes: examenes,
     vacunas: vacunas,
     desparasitaciones: desparasitaciones,
+    tratamientos: tratamientos,
     hospitalizaciones: hospitalizaciones,
     banos: banosCombinados,
     setActive: setActive,
@@ -9689,9 +9968,13 @@ function VetApp() {
   }), active === "agenda" && /*#__PURE__*/React.createElement(AgendaView, {
     patients: activePatients,
     banos: banosCombinados,
+    vacunas: vacunas,
+    desparasitaciones: desparasitaciones,
+    tratamientos: tratamientos,
     config: config,
     setActive: setActive,
-    setSelected: setSelected
+    setSelected: setSelected,
+    onSetPestanaInicial: setPestanaInicial
   }), active === "banos" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold mb-5"
