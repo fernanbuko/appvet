@@ -8273,43 +8273,9 @@ function HomeScreen({
   const puedeVerDesparasitacion = !modoColaborador && (!seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("desparasitacion"));
   const puedeVerTratamientos = !modoColaborador && (!seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("tratamientos"));
   const puedeVerReportes = !modoColaborador && (!seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("reportes"));
-  const proximas = patients.filter(p => p.proximaVisita).sort((a, b) => a.proximaVisita > b.proximaVisita ? 1 : -1).slice(0, 3);
-  // Vacunas, desparasitación y tratamientos con fecha futura, juntos en una
-  // sola lista (cada uno con su propio ícono/etiqueta) — para que se vean
-  // en Inicio sin tener que entrar a cada sección por separado.
-  const proximosEventosClinicos = !esPeluquero && !modoColaborador ? [...(vacunas || []).filter(v => v.proximaDosis).map(v => ({
-    id: "vac-" + v.id,
-    patientId: v.patientId,
-    patientName: v.patientName,
-    fecha: v.proximaDosis,
-    hora: v.proximaDosisHora || "",
-    icon: "💉",
-    label: "Vacuna",
-    detalle: v.nombre || "",
-    tab: "vacunas"
-  })), ...(desparasitaciones || []).filter(d => d.proximaDosis).map(d => ({
-    id: "desp-" + d.id,
-    patientId: d.patientId,
-    patientName: d.patientName,
-    fecha: d.proximaDosis,
-    hora: d.proximaDosisHora || "",
-    icon: "🐛",
-    label: "Desparasitación",
-    detalle: d.tipo || "",
-    tab: "desparasitacion"
-  })), ...(tratamientos || []).filter(t => t.proximaAplicacion).map(t => ({
-    id: "trat-" + t.id,
-    patientId: t.patientId,
-    patientName: t.patientName,
-    fecha: t.proximaAplicacion,
-    hora: t.proximaAplicacionHora || "",
-    icon: "🩹",
-    label: "Tratamiento",
-    detalle: t.descripcion || "",
-    tab: "tratamientos"
-  }))].sort((a, b) => a.fecha !== b.fecha ? a.fecha < b.fecha ? -1 : 1 : (a.hora || "99:99") < (b.hora || "99:99") ? -1 : 1).slice(0, 5) : [];
   const hoy = new Date().toISOString().slice(0, 10);
   const en30dias = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const proximas = patients.filter(p => p.proximaVisita && p.proximaVisita <= en30dias).sort((a, b) => a.proximaVisita > b.proximaVisita ? 1 : -1).slice(0, 3);
   // Para el peluquero/a, "Próximas" se arma con la sección Baños (misma
   // lógica que en la Agenda): fecha del servicio si todavía no pasó, y/o la
   // fecha de "próximo baño programado".
@@ -8332,6 +8298,10 @@ function HomeScreen({
   }, [banos, patients, esPeluquero, hoy]);
   const vacunasProximas = (vacunas || []).filter(v => v.proximaDosis && v.proximaDosis <= en30dias).sort((a, b) => a.proximaDosis < b.proximaDosis ? -1 : 1).slice(0, 3);
   const desparasitacionesProximas = (desparasitaciones || []).filter(d => d.proximaDosis && d.proximaDosis <= en30dias).sort((a, b) => a.proximaDosis < b.proximaDosis ? -1 : 1).slice(0, 3);
+  const tratamientosProximos = (tratamientos || []).filter(t => t.proximaAplicacion && t.proximaAplicacion <= en30dias).sort((a, b) => a.proximaAplicacion < b.proximaAplicacion ? -1 : 1).slice(0, 3);
+  // "Próximos baños" para veterinario/a u "otro" (el peluquero ya tiene su
+  // propia versión más arriba, con otra lógica de deduplicado).
+  const banosProximosGeneral = !esPeluquero ? (banos || []).filter(b => b.proximoBano && b.proximoBano <= en30dias).sort((a, b) => a.proximoBano < b.proximoBano ? -1 : 1).slice(0, 3) : [];
   const actualmenteHospitalizados = (hospitalizaciones || []).filter(h => !h.fechaAlta).sort((a, b) => a.fechaIngreso < b.fechaIngreso ? 1 : -1);
   const cumpleanosProximos = patients.filter(p => p.fechaNacimiento).map(p => {
     const [, mesStr, diaStr] = p.fechaNacimiento.split("-");
@@ -8534,43 +8504,7 @@ function HomeScreen({
       setReagendandoVisitaId(p.id);
     },
     className: "w-7 h-7 rounded-full flex items-center justify-center text-sm hover:bg-[#EAF0EC] text-[#B14E1C] transition"
-  }, "📅")))))))), proximosEventosClinicos.length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "mb-8"
-  }, /*#__PURE__*/React.createElement("h2", {
-    className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
-    style: styles.mono
-  }, "Próximos eventos"), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2 max-w-md"
-  }, proximosEventosClinicos.map(ev => {
-    const paciente = patients.find(p => p.id === ev.patientId);
-    return /*#__PURE__*/React.createElement("button", {
-      key: ev.id,
-      onClick: () => {
-        if (!paciente) return;
-        setActive("pacientes");
-        setSelected(paciente);
-        onSetPestanaInicial && onSetPestanaInicial(ev.tab);
-      },
-      className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#3D6B5C] transition"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-3 min-w-0"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
-    }, paciente?.foto ? /*#__PURE__*/React.createElement("img", {
-      src: paciente.foto,
-      alt: "",
-      className: "w-full h-full object-cover"
-    }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
-      className: "min-w-0"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "font-medium text-sm truncate"
-    }, ev.icon, " ", ev.label, ": ", ev.patientName), /*#__PURE__*/React.createElement("div", {
-      className: "text-xs text-[#6B7A72] truncate"
-    }, ev.detalle || (paciente?.propietario || "Sin propietario")))), /*#__PURE__*/React.createElement("div", {
-      className: "text-xs text-[#B14E1C] bg-[#E08A3E]/10 px-2 py-1 rounded text-right shrink-0",
-      style: styles.mono
-    }, "📅 ", formatDate(ev.fecha, config?.dateFormat), ev.hora && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("br", null), ev.hora)));
-  }))), proximosBanos.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "📅")))))))), proximosBanos.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "mb-8"
   }, /*#__PURE__*/React.createElement("h2", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
@@ -8642,11 +8576,18 @@ function HomeScreen({
   }, /*#__PURE__*/React.createElement("h2", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
     style: styles.mono
-  }, "Vacunas próximas o vencidas"), /*#__PURE__*/React.createElement("div", {
+  }, "💉 Próximas vacunaciones"), /*#__PURE__*/React.createElement("div", {
     className: "space-y-2 max-w-md"
-  }, vacunasProximas.map(v => /*#__PURE__*/React.createElement("div", {
+  }, vacunasProximas.map(v => /*#__PURE__*/React.createElement("button", {
     key: v.id,
-    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between"
+    onClick: () => {
+      const paciente = patients.find(p => p.id === v.patientId);
+      if (!paciente) return;
+      setActive("pacientes");
+      setSelected(paciente);
+      onSetPestanaInicial && onSetPestanaInicial("vacunas");
+    },
+    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between hover:border-[#3D6B5C] transition"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "font-medium text-sm"
   }, v.patientName), /*#__PURE__*/React.createElement("div", {
@@ -8658,16 +8599,23 @@ function HomeScreen({
       color: v.proximaDosis < hoy ? "var(--accent-orange)" : "var(--accent-green)",
       background: v.proximaDosis < hoy ? "var(--accent-orange-bg)" : "var(--accent-green-bg)"
     }
-  }, "💉 ", formatDate(v.proximaDosis, config?.dateFormat)))))), desparasitacionesProximas.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "💉 ", formatDate(v.proximaDosis, config?.dateFormat), v.proximaDosisHora && ` — ${v.proximaDosisHora}`))))), desparasitacionesProximas.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "mb-8"
   }, /*#__PURE__*/React.createElement("h2", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
     style: styles.mono
-  }, "Desparasitación próxima o vencida"), /*#__PURE__*/React.createElement("div", {
+  }, "🐛 Próximas desparasitaciones"), /*#__PURE__*/React.createElement("div", {
     className: "space-y-2 max-w-md"
-  }, desparasitacionesProximas.map(d => /*#__PURE__*/React.createElement("div", {
+  }, desparasitacionesProximas.map(d => /*#__PURE__*/React.createElement("button", {
     key: d.id,
-    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between"
+    onClick: () => {
+      const paciente = patients.find(p => p.id === d.patientId);
+      if (!paciente) return;
+      setActive("pacientes");
+      setSelected(paciente);
+      onSetPestanaInicial && onSetPestanaInicial("desparasitacion");
+    },
+    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between hover:border-[#3D6B5C] transition"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "font-medium text-sm"
   }, d.patientName), /*#__PURE__*/React.createElement("div", {
@@ -8679,7 +8627,63 @@ function HomeScreen({
       color: d.proximaDosis < hoy ? "var(--accent-orange)" : "var(--accent-green)",
       background: d.proximaDosis < hoy ? "var(--accent-orange-bg)" : "var(--accent-green-bg)"
     }
-  }, "🐛 ", formatDate(d.proximaDosis, config?.dateFormat)))))), cumpleanosProximos.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+  }, "🐛 ", formatDate(d.proximaDosis, config?.dateFormat), d.proximaDosisHora && ` — ${d.proximaDosisHora}`))))), tratamientosProximos.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "mb-8"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
+    style: styles.mono
+  }, "🩹 Próximos tratamientos"), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2 max-w-md"
+  }, tratamientosProximos.map(t => /*#__PURE__*/React.createElement("button", {
+    key: t.id,
+    onClick: () => {
+      const paciente = patients.find(p => p.id === t.patientId);
+      if (!paciente) return;
+      setActive("pacientes");
+      setSelected(paciente);
+      onSetPestanaInicial && onSetPestanaInicial("tratamientos");
+    },
+    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between hover:border-[#3D6B5C] transition"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-sm"
+  }, t.patientName), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72]"
+  }, t.descripcion)), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs px-2 py-1 rounded",
+    style: {
+      ...styles.mono,
+      color: t.proximaAplicacion < hoy ? "var(--accent-orange)" : "var(--accent-green)",
+      background: t.proximaAplicacion < hoy ? "var(--accent-orange-bg)" : "var(--accent-green-bg)"
+    }
+  }, "🩹 ", formatDate(t.proximaAplicacion, config?.dateFormat), t.proximaAplicacionHora && ` — ${t.proximaAplicacionHora}`))))), banosProximosGeneral.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "mb-8"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
+    style: styles.mono
+  }, "🛁 Próximos baños"), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2 max-w-md"
+  }, banosProximosGeneral.map(b => /*#__PURE__*/React.createElement("button", {
+    key: b.id,
+    onClick: () => {
+      const paciente = patients.find(p => p.id === b.patientId);
+      if (!paciente) return;
+      setActive("pacientes");
+      setSelected(paciente);
+      onSetPestanaInicial && onSetPestanaInicial("banos");
+    },
+    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between hover:border-[#3D6B5C] transition"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-sm"
+  }, b.patientName), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72]"
+  }, b.tipo)), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs px-2 py-1 rounded",
+    style: {
+      ...styles.mono,
+      color: b.proximoBano < hoy ? "var(--accent-orange)" : "var(--accent-green)",
+      background: b.proximoBano < hoy ? "var(--accent-orange-bg)" : "var(--accent-green-bg)"
+    }
+  }, "🛁 ", formatDate(b.proximoBano, config?.dateFormat), b.proximoBanoHora && ` — ${b.proximoBanoHora}`))))), cumpleanosProximos.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
     style: styles.mono
   }, "Cumpleaños próximos"), /*#__PURE__*/React.createElement("div", {
