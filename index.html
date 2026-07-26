@@ -2945,18 +2945,28 @@ function PatientSecciones(props) {
   const TABS = props.modoColaborador ? TODAS_LAS_TABS.filter(t => (props.seccionesColaborador || []).includes(t.key)) : tabsPermitidasPorRol ? TODAS_LAS_TABS.filter(t => tabsPermitidasPorRol.includes(t.key)) : TODAS_LAS_TABS;
   const [tab, setTab] = useState(TABS[0]?.key || "historial");
   // Si se entró aquí desde una vista general (ej. "Baños", "Inyectables")
-  // pidiendo abrir directamente esa pestaña, la aplicamos y la "consumimos"
-  // de inmediato (avisando al padre que ya se usó) — así, si después
-  // navegas a otro paciente por la vía normal, no se queda pegada esta
-  // pestaña de la última vez.
+  // pidiendo abrir directamente esa pestaña, la aplicamos, bajamos la
+  // pantalla sola hasta esta sección (si no, aunque la pestaña ya esté
+  // seleccionada, seguiría sin verse porque queda más abajo de los datos
+  // del paciente), y la "consumimos" de inmediato (avisando al padre que
+  // ya se usó) — así, si después navegas a otro paciente por la vía
+  // normal, no se queda pegada esta pestaña de la última vez.
+  const contenedorRef = useRef(null);
   useEffect(() => {
     if (props.pestanaInicial && TABS.some(t => t.key === props.pestanaInicial)) {
       setTab(props.pestanaInicial);
       props.onPestanaInicialConsumida && props.onPestanaInicialConsumida();
+      if (contenedorRef.current) {
+        contenedorRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "start"
+        });
+      }
     }
     // eslint-disable-next-line
   }, [props.patient?.id, props.pestanaInicial]);
   return /*#__PURE__*/React.createElement("div", {
+    ref: contenedorRef,
     className: "max-w-2xl mt-6"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex gap-1 overflow-x-auto border-b border-[#DDD5C4]"
