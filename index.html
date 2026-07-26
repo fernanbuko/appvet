@@ -2078,7 +2078,9 @@ function MobileTopBar({
   onSelectNotificacion,
   onMarkRead,
   onMarkAllRead,
-  onDelete
+  onDelete,
+  hayNovedad,
+  onAbrirNovedades
 }) {
   return /*#__PURE__*/React.createElement("div", {
     className: "md:hidden flex items-center justify-between bg-[#23342F] text-white px-4 py-3"
@@ -2096,7 +2098,14 @@ function MobileTopBar({
     className: "text-base font-semibold text-white"
   }, config?.clinica || "VetData")), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement(NotificationBell, {
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onAbrirNovedades,
+    title: "Novedades",
+    className: "relative w-9 h-9 rounded-full flex items-center justify-center text-base transition bg-white/10 hover:bg-white/20"
+  }, "✨", hayNovedad && /*#__PURE__*/React.createElement("span", {
+    className: "absolute -top-1 -right-1 bg-[#B14E1C] text-white text-[10px] leading-none rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center",
+    style: styles.mono
+  }, "1")), /*#__PURE__*/React.createElement(NotificationBell, {
     notificaciones: notificaciones,
     onSelect: onSelectNotificacion,
     onMarkRead: onMarkRead,
@@ -10114,18 +10123,17 @@ function VetApp() {
   const [cirugias, setCirugias] = useState([]);
   const [cobros, setCobros] = useState([]);
   const [config, setConfig] = useState(null);
-  // Aviso de "¿Qué hay de nuevo?": aparece una sola vez por cuenta, cuando
-  // la versión guardada en la configuración no coincide con la actual (ver
-  // VERSION_NOVEDADES más arriba). Se guarda silenciosamente en el mismo
-  // documento de "config" sin usar saveConfig() a propósito, para no
-  // disparar sus efectos secundarios (recargar la página, cambiar de
-  // pantalla, etc.) solo por marcar esto como visto.
+  // "¿Qué hay de nuevo?": en vez de una ventana automática al entrar, se
+  // muestra un ícono ✨ (al lado de la campanita) con un "1" cuando hay
+  // algo nuevo que no se ha visto — comparando con VERSION_NOVEDADES (ver
+  // más arriba). Al tocarlo se abre la ventana, y al cerrarla se guarda en
+  // la configuración de la cuenta que ya se vio (sin usar saveConfig() a
+  // propósito, para no disparar sus efectos secundarios de recargar la
+  // página o cambiar de pantalla solo por marcar esto como visto). La
+  // próxima vez que se agregue una novedad y cambie VERSION_NOVEDADES, el
+  // "1" vuelve a aparecer solo.
   const [mostrarNovedades, setMostrarNovedades] = useState(false);
-  useEffect(() => {
-    if (config && config.versionNovedadesVista !== VERSION_NOVEDADES) {
-      setMostrarNovedades(true);
-    }
-  }, [config?.versionNovedadesVista]);
+  const hayNovedad = !!config && config.versionNovedadesVista !== VERSION_NOVEDADES;
   const cerrarNovedades = () => {
     setMostrarNovedades(false);
     const nuevaConfig = {
@@ -11320,7 +11328,9 @@ function VetApp() {
     onSelectNotificacion: seleccionarNotificacion,
     onMarkRead: marcarNotificacionLeida,
     onMarkAllRead: marcarTodasLasNotificacionesLeidas,
-    onDelete: borrarNotificacion
+    onDelete: borrarNotificacion,
+    hayNovedad: hayNovedad,
+    onAbrirNovedades: () => setMostrarNovedades(true)
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex flex-col md:flex-row flex-1"
   }, /*#__PURE__*/React.createElement(Sidebar, {
@@ -11347,6 +11357,15 @@ function VetApp() {
       setEditing(null);
     }
   }), /*#__PURE__*/React.createElement("div", {
+    className: "hidden md:block"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setMostrarNovedades(true),
+    title: "Novedades",
+    className: "relative w-9 h-9 rounded-full flex items-center justify-center text-base transition hover:bg-[#EAF0EC]"
+  }, "✨", hayNovedad && /*#__PURE__*/React.createElement("span", {
+    className: "absolute -top-1 -right-1 bg-[#B14E1C] text-white text-[10px] leading-none rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center",
+    style: styles.mono
+  }, "1"))), /*#__PURE__*/React.createElement("div", {
     className: "hidden md:block"
   }, /*#__PURE__*/React.createElement(NotificationBell, {
     notificaciones: notificaciones,
