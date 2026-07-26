@@ -1450,6 +1450,25 @@ function ConfirmModal({
   onCancel
 }) {
   useCerrarConAtras(true, onCancel);
+  // Enter confirma, Escape cancela — igual que cualquier diálogo de
+  // escritorio.
+  const onConfirmRef = useRef(onConfirm);
+  const onCancelRef = useRef(onCancel);
+  onConfirmRef.current = onConfirm;
+  onCancelRef.current = onCancel;
+  useEffect(() => {
+    const onKeyDown = e => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        onConfirmRef.current();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        onCancelRef.current();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
   return /*#__PURE__*/React.createElement("div", {
     className: "fixed inset-0 z-50 flex items-center justify-center p-4",
     style: {
@@ -1490,6 +1509,7 @@ function SearchableSelect({
   placeholder
 }) {
   const [open, setOpen] = useState(false);
+  const [resaltado, setResaltado] = useState(0);
   const wrapperRef = useRef(null);
   useEffect(() => {
     function handleOutside(e) {
@@ -1507,6 +1527,31 @@ function SearchableSelect({
   // en cuanto se escribe, se filtra sin importar tildes ni mayúsculas.
   const visible = query.length === 0 ? options : options.filter(o => normalizeText(o).includes(query));
   const shown = visible.slice(0, 8);
+  // Navegación con teclado: flechas arriba/abajo mueven la opción resaltada,
+  // Enter la elige, Escape cierra el menú — igual que cualquier buscador de
+  // escritorio.
+  const handleKeyDown = e => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!open) {
+        setOpen(true);
+        setResaltado(0);
+      } else {
+        setResaltado(i => Math.min(i + 1, shown.length - 1));
+      }
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setResaltado(i => Math.max(i - 1, 0));
+    } else if (e.key === "Enter") {
+      if (open && shown[resaltado]) {
+        e.preventDefault();
+        onChange(shown[resaltado]);
+        setOpen(false);
+      }
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
+  };
   return /*#__PURE__*/React.createElement("div", {
     className: "relative",
     ref: wrapperRef
@@ -1516,8 +1561,10 @@ function SearchableSelect({
     onChange: e => {
       onChange(e.target.value);
       setOpen(true);
+      setResaltado(0);
     },
     onFocus: () => setOpen(true),
+    onKeyDown: handleKeyDown,
     placeholder: placeholder,
     className: inputClass,
     style: {
@@ -1539,15 +1586,16 @@ function SearchableSelect({
     strokeLinejoin: "round"
   }))), open && shown.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "absolute z-20 left-0 right-0 mt-1 bg-white border border-[#DDD5C4] rounded-md shadow-lg max-h-48 overflow-y-auto"
-  }, shown.map(opt => /*#__PURE__*/React.createElement("button", {
+  }, shown.map((opt, i) => /*#__PURE__*/React.createElement("button", {
     key: opt,
     type: "button",
     onMouseDown: e => e.preventDefault(),
+    onMouseEnter: () => setResaltado(i),
     onClick: () => {
       onChange(opt);
       setOpen(false);
     },
-    className: "block w-full text-left px-3 py-2 text-sm hover:bg-[#EAF0EC] transition"
+    className: "block w-full text-left px-3 py-2 text-sm transition " + (i === resaltado ? "bg-[#EAF0EC]" : "hover:bg-[#EAF0EC]")
   }, opt))));
 }
 
@@ -4884,6 +4932,7 @@ function GlobalSearch({
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [resaltado, setResaltado] = useState(0);
   const wrapperRef = useRef(null);
   useEffect(() => {
     function handleOutside(e) {
@@ -4898,6 +4947,27 @@ function GlobalSearch({
   }, []);
   const q = normalizeText(query);
   const results = q.length >= 2 ? patients.filter(p => normalizeText(p.nombre).includes(q) || normalizeText(p.propietario || "").includes(q)).slice(0, 6) : [];
+  const elegir = p => {
+    onSelect(p);
+    setQuery("");
+    setOpen(false);
+  };
+  const handleKeyDown = e => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setResaltado(i => Math.min(i + 1, results.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setResaltado(i => Math.max(i - 1, 0));
+    } else if (e.key === "Enter") {
+      if (open && results[resaltado]) {
+        e.preventDefault();
+        elegir(results[resaltado]);
+      }
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
+  };
   return /*#__PURE__*/React.createElement("div", {
     className: "relative max-w-sm mb-6",
     ref: wrapperRef
@@ -4907,23 +4977,22 @@ function GlobalSearch({
     onChange: e => {
       setQuery(e.target.value);
       setOpen(true);
+      setResaltado(0);
     },
     onFocus: () => setOpen(true),
+    onKeyDown: handleKeyDown,
     placeholder: "🔍 Buscar paciente o propietario...",
     className: inputClass,
     autoComplete: "off"
   }), open && results.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "absolute z-20 left-0 right-0 mt-1 bg-white border border-[#DDD5C4] rounded-md shadow-lg max-h-64 overflow-y-auto"
-  }, results.map(p => /*#__PURE__*/React.createElement("button", {
+  }, results.map((p, i) => /*#__PURE__*/React.createElement("button", {
     key: p.id,
     type: "button",
     onMouseDown: e => e.preventDefault(),
-    onClick: () => {
-      onSelect(p);
-      setQuery("");
-      setOpen(false);
-    },
-    className: "flex items-center gap-3 w-full text-left px-3 py-2 hover:bg-[#EAF0EC] transition"
+    onMouseEnter: () => setResaltado(i),
+    onClick: () => elegir(p),
+    className: "flex items-center gap-3 w-full text-left px-3 py-2 transition " + (i === resaltado ? "bg-[#EAF0EC]" : "hover:bg-[#EAF0EC]")
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-8 h-8 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
   }, p.foto ? /*#__PURE__*/React.createElement("img", {
@@ -6746,24 +6815,44 @@ function SelectorPacienteInline({
   onSelect
 }) {
   const [query, setQuery] = useState("");
+  const [resaltado, setResaltado] = useState(0);
   const q = normalizeText(query);
   const resultados = q ? (patients || []).filter(p => normalizeText(p.nombre).includes(q) || normalizeText(p.propietario || "").includes(q)).slice(0, 8) : [];
+  const handleKeyDown = e => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setResaltado(i => Math.min(i + 1, resultados.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setResaltado(i => Math.max(i - 1, 0));
+    } else if (e.key === "Enter") {
+      if (resultados[resaltado]) {
+        e.preventDefault();
+        onSelect(resultados[resaltado]);
+      }
+    }
+  };
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "relative"
   }, /*#__PURE__*/React.createElement("span", {
     className: "absolute left-3 top-1/2 -translate-y-1/2 text-[#A6A08F]"
   }, "🔍"), /*#__PURE__*/React.createElement("input", {
     value: query,
-    onChange: e => setQuery(e.target.value),
+    onChange: e => {
+      setQuery(e.target.value);
+      setResaltado(0);
+    },
+    onKeyDown: handleKeyDown,
     placeholder: "Busca el paciente por nombre o propietario...",
     autoFocus: true,
     className: "w-full bg-white border border-[#DDD5C4] rounded-md pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#3D6B5C]"
   })), resultados.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "mt-2 border border-[#DDD5C4] rounded-md overflow-hidden"
-  }, resultados.map(p => /*#__PURE__*/React.createElement("button", {
+  }, resultados.map((p, i) => /*#__PURE__*/React.createElement("button", {
     key: p.id,
     onClick: () => onSelect(p),
-    className: "w-full text-left px-3 py-2 text-sm hover:bg-[#F7F4EC] flex items-center gap-2 border-b border-[#EFEAE0] last:border-0 bg-white"
+    onMouseEnter: () => setResaltado(i),
+    className: "w-full text-left px-3 py-2 text-sm flex items-center gap-2 border-b border-[#EFEAE0] last:border-0 transition " + (i === resaltado ? "bg-[#F7F4EC]" : "bg-white hover:bg-[#F7F4EC]")
   }, /*#__PURE__*/React.createElement("span", {
     className: "font-medium"
   }, p.nombre), /*#__PURE__*/React.createElement("span", {
