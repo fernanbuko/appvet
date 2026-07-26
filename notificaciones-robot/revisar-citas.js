@@ -347,38 +347,17 @@ async function revisarVisitasDeClinicas(hoy, manana, ayer) {
 }
 
 /* ---------------------------------------------------------
-   Recordatorios por SOLO FECHA (sin hora): vacunas,
-   desparasitación y cirugías (próxima revisión). Se avisa una
-   vez el día exacto que corresponde, y otra vez un día antes.
-   El nombre de "coleccion" es también la clave de sección usada
-   en colaboradoresPermitidos (ej. "vacunas"), así que sirve
-   tanto para consultar los documentos como para saber a qué
-   colaboradores también avisarles.
+   Recordatorios por SOLO FECHA (sin hora): cirugías (próxima
+   revisión) — es la única de las 4 que nunca tiene hora exacta,
+   así que se queda con la lógica simple de "una vez el día
+   exacto, y otra vez un día antes". El nombre de "coleccion" es
+   también la clave de sección usada en colaboradoresPermitidos.
 
-   ("banos" ya NO está en esta lista: como sí puede tener hora
-   exacta, se revisa aparte en revisarBanos(), que combina el
-   aviso por minutos (si tiene hora) con el aviso de un día
-   antes — ver más abajo.)
+   (vacunas, desparasitaciones, tratamientos y baños ya NO están
+   en esta lista: como sí pueden tener hora exacta, se revisan
+   con revisarTipoConHora()/TIPOS_CON_HORA, más arriba.)
 ----------------------------------------------------------*/
 const TIPOS_DE_RECORDATORIO_POR_FECHA = [
-  {
-    coleccion: "vacunas",
-    campoFecha: "proximaDosis",
-    construirTitulo: (r) => `Vacuna hoy: ${r.patientName}`,
-    construirTituloManana: (r) => `Vacuna mañana: ${r.patientName}`,
-    construirTituloVencido: (r) => `¿Qué pasó con ${r.patientName}?`,
-    construirCuerpo: (r) => `Le corresponde la vacuna: ${r.nombre || "(sin especificar)"}`,
-    construirCuerpoVencido: (r) => `Tenía vacuna ayer (${r.nombre || "sin especificar"}) y no se registró. Revisa su ficha.`,
-  },
-  {
-    coleccion: "desparasitaciones",
-    campoFecha: "proximaDosis",
-    construirTitulo: (r) => `Desparasitación hoy: ${r.patientName}`,
-    construirTituloManana: (r) => `Desparasitación mañana: ${r.patientName}`,
-    construirTituloVencido: (r) => `¿Qué pasó con ${r.patientName}?`,
-    construirCuerpo: (r) => `Le corresponde desparasitación ${r.tipo ? "(" + r.tipo + ")" : ""}`.trim(),
-    construirCuerpoVencido: (r) => `Tenía desparasitación ayer y no se registró. Revisa su ficha.`,
-  },
   {
     coleccion: "cirugias",
     campoFecha: "proximaRevision",
@@ -469,102 +448,158 @@ async function revisarRecordatoriosPorFecha(tipoRecordatorio, hoy, manana, ayer)
 }
 
 /* ---------------------------------------------------------
-   Baños: a diferencia de vacunas/desparasitación/cirugías, un
-   baño SÍ puede tener hora exacta ("Fecha separada para baño" +
-   "Hora"). Por eso se revisa aparte de
-   revisarRecordatoriosPorFecha():
-     - Si tiene hora: avisa cuando falten 30 min o menos (igual
-       que las próximas visitas), y NO en cuanto amanece el día.
+   Recordatorios CON HORA opcional: baños, vacunas,
+   desparasitación y tratamientos inyectables pueden tener una
+   fecha futura CON o SIN hora exacta puesta. Esta única función
+   generaliza lo que antes solo hacía revisarUnBano():
+     - Si tiene hora: avisa cuando falten 30 min o menos.
      - Si no tiene hora: avisa una sola vez, el mismo día.
-     - En los dos casos, además avisa una vez el día antes.
+     - En los dos casos, además avisa un día antes.
+     - Y si se pasó un día completo sin que nadie lo tocara
+       (misma fecha que ayer), pregunta "¿qué pasó?".
+   ("cirugias" no está aquí porque su "próxima revisión" nunca
+   tiene hora — sigue en TIPOS_DE_RECORDATORIO_POR_FECHA, más
+   abajo.)
 ----------------------------------------------------------*/
-async function revisarUnBano(banoDoc, hoy, manana, ayer, tokens, etiqueta) {
-  const bano = banoDoc.data();
-  if (!bano.proximoBano) return 0;
+const TIPOS_CON_HORA = [
+  {
+    coleccion: "banos",
+    campoFecha: "proximoBano",
+    campoHora: "proximoBanoHora",
+    tituloHoyConHora: (r, min) => `Baño en ${min <= 1 ? "un momento" : min + " min"}: ${r.patientName}`,
+    tituloHoySinHora: (r) => `Baño programado hoy: ${r.patientName}`,
+    tituloManana: (r) => `Baño mañana: ${r.patientName}`,
+    tituloVencido: (r) => `¿Qué pasó con ${r.patientName}?`,
+    cuerpoHoy: (r) => r.tipo || "Servicio de estética programado",
+    cuerpoManana: (r) => `${r.tipo || "Servicio de estética programado"}${r.proximoBanoHora ? " — " + r.proximoBanoHora : ""}`,
+    cuerpoVencido: (r) => `Tenía baño ayer (${r.tipo || "servicio de estética"}) y sigue sin marcarse como atendido.`,
+  },
+  {
+    coleccion: "vacunas",
+    campoFecha: "proximaDosis",
+    campoHora: "proximaDosisHora",
+    tituloHoyConHora: (r, min) => `Vacuna en ${min <= 1 ? "un momento" : min + " min"}: ${r.patientName}`,
+    tituloHoySinHora: (r) => `Vacuna hoy: ${r.patientName}`,
+    tituloManana: (r) => `Vacuna mañana: ${r.patientName}`,
+    tituloVencido: (r) => `¿Qué pasó con ${r.patientName}?`,
+    cuerpoHoy: (r) => `Le corresponde la vacuna: ${r.nombre || "(sin especificar)"}`,
+    cuerpoManana: (r) => `Le corresponde la vacuna: ${r.nombre || "(sin especificar)"}${r.proximaDosisHora ? " — " + r.proximaDosisHora : ""}`,
+    cuerpoVencido: (r) => `Tenía vacuna ayer (${r.nombre || "sin especificar"}) y no se registró. Revisa su ficha.`,
+  },
+  {
+    coleccion: "desparasitaciones",
+    campoFecha: "proximaDosis",
+    campoHora: "proximaDosisHora",
+    tituloHoyConHora: (r, min) => `Desparasitación en ${min <= 1 ? "un momento" : min + " min"}: ${r.patientName}`,
+    tituloHoySinHora: (r) => `Desparasitación hoy: ${r.patientName}`,
+    tituloManana: (r) => `Desparasitación mañana: ${r.patientName}`,
+    tituloVencido: (r) => `¿Qué pasó con ${r.patientName}?`,
+    cuerpoHoy: (r) => `Le corresponde desparasitación ${r.tipo ? "(" + r.tipo + ")" : ""}`.trim(),
+    cuerpoManana: (r) => `Le corresponde desparasitación ${r.tipo ? "(" + r.tipo + ")" : ""}`.trim() + (r.proximaDosisHora ? ` — ${r.proximaDosisHora}` : ""),
+    cuerpoVencido: (r) => `Tenía desparasitación ayer y no se registró. Revisa su ficha.`,
+  },
+  {
+    coleccion: "tratamientos",
+    campoFecha: "proximaAplicacion",
+    campoHora: "proximaAplicacionHora",
+    tituloHoyConHora: (r, min) => `Tratamiento en ${min <= 1 ? "un momento" : min + " min"}: ${r.patientName}`,
+    tituloHoySinHora: (r) => `Tratamiento inyectable hoy: ${r.patientName}`,
+    tituloManana: (r) => `Tratamiento inyectable mañana: ${r.patientName}`,
+    tituloVencido: (r) => `¿Qué pasó con ${r.patientName}?`,
+    cuerpoHoy: (r) => r.descripcion || "Tratamiento inyectable programado",
+    cuerpoManana: (r) => `${r.descripcion || "Tratamiento inyectable programado"}${r.proximaAplicacionHora ? " — " + r.proximaAplicacionHora : ""}`,
+    cuerpoVencido: (r) => `Tenía tratamiento inyectable programado ayer (${r.descripcion || "sin especificar"}) y no se registró. Revisa su ficha.`,
+  },
+];
+
+async function revisarUnoConHora(tipo, doc, hoy, manana, ayer, tokens, etiqueta) {
+  const { campoFecha, campoHora, tituloHoyConHora, tituloHoySinHora, tituloManana, tituloVencido, cuerpoHoy, cuerpoManana, cuerpoVencido } = tipo;
+  const r = doc.data();
+  if (!r[campoFecha]) return 0;
   let contador = 0;
 
-  if (bano.proximoBano === hoy) {
-    if (bano.proximoBanoHora) {
-      const marcaDeEstaCita = `${bano.proximoBano} ${bano.proximoBanoHora}`;
-      if (bano.recordatorioEnviadoPara !== marcaDeEstaCita) {
-        const minutosRestantes = minutosHastaLaCita(bano.proximoBano, bano.proximoBanoHora);
+  if (r[campoFecha] === hoy) {
+    if (campoHora && r[campoHora]) {
+      const marcaDeEstaCita = `${r[campoFecha]} ${r[campoHora]}`;
+      if (r.recordatorioEnviadoPara !== marcaDeEstaCita) {
+        const minutosRestantes = minutosHastaLaCita(r[campoFecha], r[campoHora]);
         if (minutosRestantes >= 0 && minutosRestantes <= MINUTOS_VENTANA) {
           const dataPayload = {
-            title: `Baño en ${minutosRestantes <= 1 ? "un momento" : minutosRestantes + " min"}: ${bano.patientName}`,
-            body: bano.tipo || "Servicio de estética programado",
-            patientId: String(bano.patientId || ""),
+            title: tituloHoyConHora(r, minutosRestantes),
+            body: cuerpoHoy(r),
+            patientId: String(r.patientId || ""),
           };
-          const seEnvio = await mandarNotificacion(tokens, dataPayload, etiqueta, bano.patientName || "(paciente)");
-          await banoDoc.ref.update({ recordatorioEnviadoPara: marcaDeEstaCita });
+          const seEnvio = await mandarNotificacion(tokens, dataPayload, etiqueta, r.patientName || "(paciente)");
+          await doc.ref.update({ recordatorioEnviadoPara: marcaDeEstaCita });
           if (seEnvio) contador++;
         }
       }
-    } else if (bano.recordatorioEnviadoPara !== hoy) {
+    } else if (r.recordatorioEnviadoPara !== hoy) {
       const dataPayload = {
-        title: `Baño programado hoy: ${bano.patientName}`,
-        body: bano.tipo || "Servicio de estética programado",
-        patientId: String(bano.patientId || ""),
+        title: tituloHoySinHora(r),
+        body: cuerpoHoy(r),
+        patientId: String(r.patientId || ""),
       };
-      const seEnvio = await mandarNotificacion(tokens, dataPayload, etiqueta, bano.patientName || "(paciente)");
-      await banoDoc.ref.update({ recordatorioEnviadoPara: hoy });
+      const seEnvio = await mandarNotificacion(tokens, dataPayload, etiqueta, r.patientName || "(paciente)");
+      await doc.ref.update({ recordatorioEnviadoPara: hoy });
       if (seEnvio) contador++;
     }
   }
 
-  if (bano.proximoBano === manana && bano.recordatorioAnticipadoEnviadoPara !== manana) {
+  if (r[campoFecha] === manana && r.recordatorioAnticipadoEnviadoPara !== manana) {
     const dataPayload = {
-      title: `Baño mañana: ${bano.patientName}`,
-      body: `${bano.tipo || "Servicio de estética programado"}${bano.proximoBanoHora ? " — " + bano.proximoBanoHora : ""}`,
-      patientId: String(bano.patientId || ""),
+      title: tituloManana(r),
+      body: cuerpoManana(r),
+      patientId: String(r.patientId || ""),
     };
-    const seEnvio = await mandarNotificacion(tokens, dataPayload, etiqueta, bano.patientName || "(paciente)");
-    await banoDoc.ref.update({ recordatorioAnticipadoEnviadoPara: manana });
+    const seEnvio = await mandarNotificacion(tokens, dataPayload, etiqueta, r.patientName || "(paciente)");
+    await doc.ref.update({ recordatorioAnticipadoEnviadoPara: manana });
     if (seEnvio) contador++;
   }
 
   // "Se pasó la fecha" — si sigue con la misma fecha de ayer, es porque
-  // nadie lo marcó como atendido ni lo reagendó (esas acciones limpian o
-  // cambian "proximoBano").
-  if (bano.proximoBano === ayer && bano.recordatorioVencidoEnviadoPara !== ayer) {
+  // nadie lo tocó (registrar uno nuevo o editar este limpia/cambia el campo).
+  if (r[campoFecha] === ayer && r.recordatorioVencidoEnviadoPara !== ayer) {
     const dataPayload = {
-      title: `¿Qué pasó con ${bano.patientName}?`,
-      body: `Tenía baño ayer (${bano.tipo || "servicio de estética"}) y sigue sin marcarse como atendido.`,
-      patientId: String(bano.patientId || ""),
+      title: tituloVencido(r),
+      body: cuerpoVencido(r),
+      patientId: String(r.patientId || ""),
     };
-    const seEnvio = await mandarNotificacion(tokens, dataPayload, etiqueta, bano.patientName || "(paciente)");
-    await banoDoc.ref.update({ recordatorioVencidoEnviadoPara: ayer });
+    const seEnvio = await mandarNotificacion(tokens, dataPayload, etiqueta, r.patientName || "(paciente)");
+    await doc.ref.update({ recordatorioVencidoEnviadoPara: ayer });
     if (seEnvio) contador++;
   }
 
   return contador;
 }
 
-async function revisarBanos(hoy, manana, ayer) {
+async function revisarTipoConHora(tipo, hoy, manana, ayer) {
+  const { coleccion, campoFecha } = tipo;
   let avisos = 0;
   const usuarios = await db.collection("users").listDocuments();
   const clinicas = await db.collection("clinics").listDocuments();
-  console.log(`Revisando "banos" (con y sin hora, ayer/hoy/mañana) en ${usuarios.length} cuenta(s) y ${clinicas.length} clínica(s)...`);
+  console.log(`Revisando "${coleccion}" (con hora, ayer/hoy/mañana) en ${usuarios.length} cuenta(s) y ${clinicas.length} clínica(s)...`);
 
   const procesarColeccion = async (parentRef, tokens, etiqueta) => {
     let contador = 0;
-    const snapHoy = await parentRef.collection("banos").where("proximoBano", "==", hoy).get();
-    const snapManana = await parentRef.collection("banos").where("proximoBano", "==", manana).get();
-    const snapAyer = await parentRef.collection("banos").where("proximoBano", "==", ayer).get();
+    const snapHoy = await parentRef.collection(coleccion).where(campoFecha, "==", hoy).get();
+    const snapManana = await parentRef.collection(coleccion).where(campoFecha, "==", manana).get();
+    const snapAyer = await parentRef.collection(coleccion).where(campoFecha, "==", ayer).get();
     const vistos = new Set();
     for (const doc of [...snapHoy.docs, ...snapManana.docs, ...snapAyer.docs]) {
       if (vistos.has(doc.id)) continue;
       vistos.add(doc.id);
-      contador += await revisarUnBano(doc, hoy, manana, ayer, tokens, etiqueta);
+      contador += await revisarUnoConHora(tipo, doc, hoy, manana, ayer, tokens, etiqueta);
     }
     return contador;
   };
 
   for (const usuarioRef of usuarios) {
-    const tokens = await tokensDeUsuarioConSeccion(usuarioRef, "banos");
+    const tokens = await tokensDeUsuarioConSeccion(usuarioRef, coleccion);
     avisos += await procesarColeccion(usuarioRef, tokens, `users/${usuarioRef.id}`);
   }
   for (const clinicaRef of clinicas) {
-    const tokens = await tokensDeClinicaConSeccion(clinicaRef.id, usuarios, "banos");
+    const tokens = await tokensDeClinicaConSeccion(clinicaRef.id, usuarios, coleccion);
     avisos += await procesarColeccion(clinicaRef, tokens, `clinics/${clinicaRef.id}`);
   }
 
@@ -749,7 +784,9 @@ async function main() {
     totalAvisos += await revisarRecordatoriosPorFecha(tipoRecordatorio, hoy, manana, ayer);
   }
 
-  totalAvisos += await revisarBanos(hoy, manana, ayer);
+  for (const tipo of TIPOS_CON_HORA) {
+    totalAvisos += await revisarTipoConHora(tipo, hoy, manana, ayer);
+  }
 
   totalAvisos += await revisarClientesNuevos();
   totalAvisos += await revisarAvisosClinica();
