@@ -7015,13 +7015,22 @@ function ConfigForm({
     className: "bg-[#EAF0EC] rounded-lg p-4 mb-4"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-sm mb-2"
-  }, /*#__PURE__*/React.createElement("b", null, "La forma más fácil:"), " comparte este link — quien lo abra solo tiene que iniciar sesión y confirmar, sin copiar ningún ID."), /*#__PURE__*/React.createElement(GhostButton, {
+  }, /*#__PURE__*/React.createElement("b", null, "La forma más fácil:"), " comparte este link — quien lo abra solo tiene que iniciar sesión y confirmar, sin copiar ningún ID."), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 flex-wrap"
+  }, /*#__PURE__*/React.createElement(GhostButton, {
     onClick: () => {
       const link = `${window.location.origin}${window.location.pathname}#invitar=${currentUid}&nombre=${encodeURIComponent(data.clinica || "esta clínica")}`;
       navigator.clipboard?.writeText(link);
     },
     icon: "🔗"
-  }, "Copiar link de invitación"), /*#__PURE__*/React.createElement("p", {
+  }, "Copiar link de invitación"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => {
+      const link = `${window.location.origin}${window.location.pathname}#invitar=${currentUid}&nombre=${encodeURIComponent(data.clinica || "esta clínica")}`;
+      const mensaje = `Te invito a colaborar conmigo en ${data.clinica || "mi clínica"} desde VetData. Abre este link para conectarte: ${link}`;
+      window.open(`https://wa.me/?text=${encodeURIComponent(mensaje)}`, "_blank");
+    },
+    icon: "📲"
+  }, "Compartir por WhatsApp")), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#6B7A72] mt-2"
   }, "Después de que confirme, su solicitud te va a aparecer aquí abajo para que elijas qué secciones darle.")), (solicitudesColaborador || []).length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "space-y-3 mb-4"
