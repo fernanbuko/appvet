@@ -9073,9 +9073,11 @@ function PanelPropietarioView({
     className: "space-y-2"
   }, panel.cuentas.map(c => /*#__PURE__*/React.createElement("div", {
     key: c.uid,
-    className: "bg-white border border-[#DDD5C4] rounded-lg p-4 flex items-center justify-between gap-3"
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-4 flex items-center gap-3"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "min-w-0"
+    className: "w-10 h-10 rounded-full bg-[#EAF0EC] flex items-center justify-center text-lg shrink-0"
+  }, c.rol === "peluquero" ? "🧴" : "🏥"), /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0 flex-1"
   }, /*#__PURE__*/React.createElement("div", {
     className: "font-medium text-sm truncate"
   }, c.clinica), /*#__PURE__*/React.createElement("div", {
