@@ -861,6 +861,44 @@ async function procesarSolicitudesEliminacion() {
   }
 }
 
+/* ---------------------------------------------------------
+   Procesa solicitudes de "bloquear/desbloquear el acceso" de
+   una cuenta ajena — a diferencia de eliminar, esto NO borra
+   ningún dato: solo activa/desactiva su cuenta en Firebase
+   Authentication (auth().updateUser(uid, {disabled})), así que
+   se puede revertir en cualquier momento. Se guarda la
+   solicitud en users/{OWNER_UID}/data/solicitudesBloqueo, igual
+   patrón que las eliminaciones.
+----------------------------------------------------------*/
+async function procesarSolicitudesBloqueo() {
+  try {
+    const ownerDataRef = db.collection("users").doc(OWNER_UID).collection("data");
+    const doc = await ownerDataRef.doc("solicitudesBloqueo").get();
+    const solicitudes = doc.exists ? doc.data()?.value || [] : [];
+    if (solicitudes.length === 0) return;
+
+    const pendientes = [];
+    for (const solicitud of solicitudes) {
+      const { uid, bloquear, clinica } = solicitud || {};
+      if (!uid || uid === OWNER_UID) continue; // nunca te bloquees a ti mismo por accidente
+      try {
+        await admin.auth().updateUser(uid, {
+          disabled: !!bloquear
+        });
+        console.log(`${bloquear ? "🔒 Bloqueada" : "🔓 Desbloqueada"} la cuenta: ${clinica || "(sin nombre)"} (${uid})`);
+      } catch (e) {
+        console.error(`No se pudo ${bloquear ? "bloquear" : "desbloquear"} la cuenta ${uid}:`, e.message);
+        pendientes.push(solicitud); // se reintenta en la próxima corrida
+      }
+    }
+    await ownerDataRef.doc("solicitudesBloqueo").set({
+      value: pendientes
+    });
+  } catch (e) {
+    console.error("Error procesando solicitudes de bloqueo:", e.message);
+  }
+}
+
 async function actualizarPanelPropietario() {
   try {
     const usuarios = await db.collection("users").listDocuments();
@@ -885,9 +923,11 @@ async function actualizarPanelPropietario() {
       // quedaron datos sueltos en Firestore, esto simplemente no encuentra
       // nada y se deja en blanco, sin romper el resto del panel.
       let correo = "";
+      let bloqueado = false;
       try {
         const authUser = await admin.auth().getUser(usuarioRef.id);
         correo = authUser.email || "";
+        bloqueado = !!authUser.disabled;
       } catch (e) {
         correo = "";
       }
@@ -897,6 +937,7 @@ async function actualizarPanelPropietario() {
       cuentas.push({
         uid: usuarioRef.id,
         correo,
+        bloqueado,
         clinica: config.clinica || "(sin nombre)",
         doctorNombres: config.doctorNombres || "",
         rol: config.rol || "veterinario",
@@ -968,6 +1009,7 @@ async function main() {
   totalAvisos += await revisarAvisosColaboradores();
 
   await procesarSolicitudesEliminacion();
+  await procesarSolicitudesBloqueo();
   await actualizarPanelPropietario();
 
   console.log(`Listo. Avisos mandados en esta corrida: ${totalAvisos}.`);
