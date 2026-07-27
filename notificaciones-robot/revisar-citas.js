@@ -817,6 +817,50 @@ async function revisarAvisosColaboradores() {
 ----------------------------------------------------------*/
 const OWNER_UID = "nmV0gBjVkHePN02d0OYomH8ilqI3";
 
+/* ---------------------------------------------------------
+   Procesa solicitudes de "eliminar una cuenta ajena por
+   completo" (pacientes, historial, TODO + su acceso de inicio
+   de sesión) — dejadas desde el Panel de la app en
+   users/{OWNER_UID}/data/solicitudesEliminacionCuenta. Como el
+   robot corre con permisos de administrador, sí puede borrar
+   los datos de cualquier cuenta; la app nunca tiene ese permiso
+   directamente (por eso pasa por aquí en vez de borrar de una).
+----------------------------------------------------------*/
+async function procesarSolicitudesEliminacion() {
+  try {
+    const ownerDataRef = db.collection("users").doc(OWNER_UID).collection("data");
+    const doc = await ownerDataRef.doc("solicitudesEliminacionCuenta").get();
+    const solicitudes = doc.exists ? doc.data()?.value || [] : [];
+    if (solicitudes.length === 0) return;
+
+    const pendientes = [];
+    for (const solicitud of solicitudes) {
+      const { uid, clinica } = solicitud || {};
+      if (!uid || uid === OWNER_UID) continue; // nunca te borres a ti mismo por accidente
+      try {
+        // Borra TODOS los datos de esa cuenta (todas sus subcolecciones:
+        // patients, recetas, examenes, historial, vacunas, banos, etc.)
+        await db.recursiveDelete(db.collection("users").doc(uid));
+        // Borra también su acceso de inicio de sesión (Firebase Auth).
+        try {
+          await admin.auth().deleteUser(uid);
+        } catch (e) {
+          console.log(`  (no se pudo borrar de Authentication — puede que ya no existiera): ${e.message}`);
+        }
+        console.log(`🗑️ Cuenta eliminada por completo: ${clinica || "(sin nombre)"} (${uid})`);
+      } catch (e) {
+        console.error(`No se pudo eliminar la cuenta ${uid}:`, e.message);
+        pendientes.push(solicitud); // se reintenta en la próxima corrida
+      }
+    }
+    await ownerDataRef.doc("solicitudesEliminacionCuenta").set({
+      value: pendientes
+    });
+  } catch (e) {
+    console.error("Error procesando solicitudes de eliminación:", e.message);
+  }
+}
+
 async function actualizarPanelPropietario() {
   try {
     const usuarios = await db.collection("users").listDocuments();
@@ -923,6 +967,7 @@ async function main() {
   totalAvisos += await revisarAvisosClinica();
   totalAvisos += await revisarAvisosColaboradores();
 
+  await procesarSolicitudesEliminacion();
   await actualizarPanelPropietario();
 
   console.log(`Listo. Avisos mandados en esta corrida: ${totalAvisos}.`);
