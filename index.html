@@ -2155,7 +2155,11 @@ function MobileTopBar({
     style: {
       fontSize: 16
     }
-  }, "🙂")), /*#__PURE__*/React.createElement("button", {
+  }, "🙂")), currentUid === OWNER_UID_APP && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setActive("panel"),
+    title: "Panel",
+    className: "w-9 h-9 rounded-full flex items-center justify-center text-base transition " + (active === "panel" ? "bg-white/20" : "bg-white/10")
+  }, "🛠️"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setActive("config"),
     className: "w-9 h-9 rounded-full flex items-center justify-center text-base transition " + (active === "config" ? "bg-white/20" : "bg-white/10")
   }, "⚙️")));
