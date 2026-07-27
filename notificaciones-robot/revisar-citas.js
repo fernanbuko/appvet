@@ -835,11 +835,24 @@ async function actualizarPanelPropietario() {
       } catch (e) {
         numPacientes = 0;
       }
+      // El correo NO se guarda en Firestore (solo vive en Firebase
+      // Authentication) — por eso hay que pedirlo aparte con el SDK de
+      // administrador. Si la cuenta se borró de Authentication pero le
+      // quedaron datos sueltos en Firestore, esto simplemente no encuentra
+      // nada y se deja en blanco, sin romper el resto del panel.
+      let correo = "";
+      try {
+        const authUser = await admin.auth().getUser(usuarioRef.id);
+        correo = authUser.email || "";
+      } catch (e) {
+        correo = "";
+      }
       const numColaboradores = config.colaboradoresPermitidos ? Object.keys(config.colaboradoresPermitidos).length : 0;
       totalPacientes += numPacientes;
       totalColaboradores += numColaboradores;
       cuentas.push({
         uid: usuarioRef.id,
+        correo,
         clinica: config.clinica || "(sin nombre)",
         doctorNombres: config.doctorNombres || "",
         rol: config.rol || "veterinario",
