@@ -825,6 +825,7 @@ async function actualizarPanelPropietario() {
     let totalColaboradores = 0;
 
     for (const usuarioRef of usuarios) {
+      if (usuarioRef.id === OWNER_UID) continue; // tu propia cuenta no cuenta — es de prueba/soporte, no una clínica real
       const config = await configDeUid(usuarioRef.id);
       if (!config) continue; // cuenta a medio registrar (sin config todavía)
       let numPacientes = 0;
