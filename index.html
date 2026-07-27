@@ -9047,6 +9047,33 @@ function PanelPropietarioView({
   const [pasoEliminar, setPasoEliminar] = useState(0);
   const [textoConfirmarEliminar, setTextoConfirmarEliminar] = useState("");
   const [solicitadas, setSolicitadas] = useState([]);
+  // Bloquear/desbloquear el acceso de una cuenta ajena — a diferencia de
+  // eliminar, esto NO borra ningún dato: solo desactiva su inicio de
+  // sesión (se puede revertir tocando "Desbloquear" en cualquier
+  // momento). Como sí se puede deshacer, pide una sola confirmación (no
+  // el candado doble de "escribir ELIMINAR").
+  const [confirmandoBloqueo, setConfirmandoBloqueo] = useState(null); // { uid, clinica, bloquear } | null
+  const [bloqueosSolicitados, setBloqueosSolicitados] = useState({}); // { [uid]: true/false }
+  const ejecutarSolicitudBloqueo = async () => {
+    if (!confirmandoBloqueo) return;
+    const {
+      uid,
+      clinica,
+      bloquear
+    } = confirmandoBloqueo;
+    const actuales = (await store.get("solicitudesBloqueo")) || [];
+    const nuevas = [...actuales.filter(s => s.uid !== uid), {
+      uid,
+      clinica,
+      bloquear
+    }];
+    await store.set("solicitudesBloqueo", nuevas);
+    setBloqueosSolicitados(cur => ({
+      ...cur,
+      [uid]: bloquear
+    }));
+    setConfirmandoBloqueo(null);
+  };
   const cerrarEliminar = () => {
     setEliminando(null);
     setPasoEliminar(0);
@@ -9119,27 +9146,54 @@ function PanelPropietarioView({
   }, c.fechaRegistro ? new Date(c.fechaRegistro).toLocaleDateString("es-EC") : "Fecha de registro no disponible"), /*#__PURE__*/React.createElement("div", {
     className: "text-[10px] text-[#A6A08F] truncate mt-0.5",
     style: styles.mono
-  }, "ID: ", c.uid), solicitadas.includes(c.uid) ? /*#__PURE__*/React.createElement("div", {
-    className: "text-xs mt-1.5",
-    style: {
-      color: "var(--accent-orange)"
-    }
-  }, "⏳ Se va a eliminar en la próxima corrida del robot") : /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      setEliminando({
+  }, "ID: ", c.uid), (() => {
+    const bloqueadoEfectivo = bloqueosSolicitados[c.uid] !== undefined ? bloqueosSolicitados[c.uid] : c.bloqueado;
+    return /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-3 mt-1.5 flex-wrap"
+    }, bloqueosSolicitados[c.uid] !== undefined ? /*#__PURE__*/React.createElement("span", {
+      className: "text-xs",
+      style: {
+        color: "var(--accent-orange)"
+      }
+    }, "⏳ ", bloqueadoEfectivo ? "Se va a bloquear" : "Se va a desbloquear", " en la próxima corrida") : /*#__PURE__*/React.createElement("button", {
+      onClick: () => setConfirmandoBloqueo({
         uid: c.uid,
-        clinica: c.clinica
-      });
-      setPasoEliminar(1);
-    },
-    className: "text-xs mt-1.5 hover:underline",
-    style: {
-      color: "var(--accent-orange)"
-    }
-  }, "🗑️ Eliminar esta cuenta")), /*#__PURE__*/React.createElement("div", {
+        clinica: c.clinica,
+        bloquear: !bloqueadoEfectivo
+      }),
+      className: "text-xs hover:underline",
+      style: {
+        color: bloqueadoEfectivo ? "var(--accent-green)" : "var(--accent-orange)"
+      }
+    }, bloqueadoEfectivo ? "🔓 Desbloquear acceso" : "🔒 Bloquear acceso"), solicitadas.includes(c.uid) ? /*#__PURE__*/React.createElement("span", {
+      className: "text-xs",
+      style: {
+        color: "var(--accent-orange)"
+      }
+    }, "⏳ Se va a eliminar en la próxima corrida") : /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        setEliminando({
+          uid: c.uid,
+          clinica: c.clinica
+        });
+        setPasoEliminar(1);
+      },
+      className: "text-xs hover:underline",
+      style: {
+        color: "var(--accent-orange)"
+      }
+    }, "🗑️ Eliminar esta cuenta"));
+  })()), /*#__PURE__*/React.createElement("div", {
     className: "text-right text-xs text-[#6B7A72] shrink-0",
     style: styles.mono
-  }, /*#__PURE__*/React.createElement("div", null, "🐾 ", c.pacientes || 0), c.colaboradores > 0 && /*#__PURE__*/React.createElement("div", null, "🤝 ", c.colaboradores))))), pasoEliminar === 1 && /*#__PURE__*/React.createElement(ConfirmModal, {
+  }, /*#__PURE__*/React.createElement("div", null, "🐾 ", c.pacientes || 0), c.colaboradores > 0 && /*#__PURE__*/React.createElement("div", null, "🤝 ", c.colaboradores))))), confirmandoBloqueo && /*#__PURE__*/React.createElement(ConfirmModal, {
+    title: confirmandoBloqueo.bloquear ? "Bloquear acceso" : "Desbloquear acceso",
+    message: confirmandoBloqueo.bloquear ? `"${confirmandoBloqueo.clinica}" ya no va a poder iniciar sesión hasta que la desbloquees. Sus datos no se tocan. ¿Continuar?` : `"${confirmandoBloqueo.clinica}" va a poder volver a iniciar sesión normalmente. ¿Continuar?`,
+    confirmLabel: confirmandoBloqueo.bloquear ? "Sí, bloquear" : "Sí, desbloquear",
+    danger: confirmandoBloqueo.bloquear,
+    onCancel: () => setConfirmandoBloqueo(null),
+    onConfirm: ejecutarSolicitudBloqueo
+  }), pasoEliminar === 1 && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "Eliminar cuenta ajena",
     message: `Esto va a ELIMINAR PERMANENTEMENTE la cuenta de "${eliminando?.clinica}" — todos sus datos (pacientes, historial, etc.) y su acceso de inicio de sesión. No se puede deshacer.`,
     confirmLabel: "Continuar",
