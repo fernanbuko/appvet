@@ -9037,14 +9037,16 @@ function PanelPropietarioView({
   }, []);
   if (cargando) {
     return /*#__PURE__*/React.createElement("p", {
-      className: "text-sm text-[#6B7A72]"
+      className: "text-sm text-[#6B7A72] max-w-2xl"
     }, "Cargando...");
   }
   if (!panel) {
-    return /*#__PURE__*/React.createElement(EmptyState, {
+    return /*#__PURE__*/React.createElement("div", {
+      className: "max-w-2xl"
+    }, /*#__PURE__*/React.createElement(EmptyState, {
       title: "Todavía no hay datos",
       subtitle: "El robot (revisar-citas.js) arma este resumen automáticamente en su próxima corrida — vuelve a entrar en unos minutos."
-    });
+    }));
   }
   return /*#__PURE__*/React.createElement("div", {
     className: "max-w-2xl"
