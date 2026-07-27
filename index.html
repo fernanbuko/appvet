@@ -9035,6 +9035,35 @@ function PanelPropietarioView({
       setCargando(false);
     });
   }, []);
+  // Eliminar una cuenta ajena (permanente: todos sus datos + su acceso de
+  // inicio de sesión) — NO se borra directo desde aquí, porque esta app
+  // nunca tiene permiso de tocar los datos de otra cuenta. En vez de eso,
+  // se dejar una "solicitud" guardada en TU PROPIA cuenta (a la que sí
+  // tienes acceso total), y el robot (revisar-citas.js, con permisos de
+  // administrador) la ejecuta en su próxima corrida. Por lo delicado que
+  // es, pide confirmar dos veces, igual que "Eliminar cuenta y todos mis
+  // datos" en Configuración.
+  const [eliminando, setEliminando] = useState(null); // { uid, clinica } | null
+  const [pasoEliminar, setPasoEliminar] = useState(0);
+  const [textoConfirmarEliminar, setTextoConfirmarEliminar] = useState("");
+  const [solicitadas, setSolicitadas] = useState([]);
+  const cerrarEliminar = () => {
+    setEliminando(null);
+    setPasoEliminar(0);
+    setTextoConfirmarEliminar("");
+  };
+  const ejecutarSolicitudEliminacion = async () => {
+    if (textoConfirmarEliminar !== "ELIMINAR" || !eliminando) return;
+    const actuales = (await store.get("solicitudesEliminacionCuenta")) || [];
+    const nuevas = [...actuales.filter(s => s.uid !== eliminando.uid), {
+      uid: eliminando.uid,
+      clinica: eliminando.clinica,
+      solicitadoEn: Date.now()
+    }];
+    await store.set("solicitudesEliminacionCuenta", nuevas);
+    setSolicitadas(cur => [...cur, eliminando.uid]);
+    cerrarEliminar();
+  };
   if (cargando) {
     return /*#__PURE__*/React.createElement("p", {
       className: "text-sm text-[#6B7A72] max-w-md"
@@ -9090,10 +9119,60 @@ function PanelPropietarioView({
   }, c.fechaRegistro ? new Date(c.fechaRegistro).toLocaleDateString("es-EC") : "Fecha de registro no disponible"), /*#__PURE__*/React.createElement("div", {
     className: "text-[10px] text-[#A6A08F] truncate mt-0.5",
     style: styles.mono
-  }, "ID: ", c.uid)), /*#__PURE__*/React.createElement("div", {
+  }, "ID: ", c.uid), solicitadas.includes(c.uid) ? /*#__PURE__*/React.createElement("div", {
+    className: "text-xs mt-1.5",
+    style: {
+      color: "var(--accent-orange)"
+    }
+  }, "⏳ Se va a eliminar en la próxima corrida del robot") : /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setEliminando({
+        uid: c.uid,
+        clinica: c.clinica
+      });
+      setPasoEliminar(1);
+    },
+    className: "text-xs mt-1.5 hover:underline",
+    style: {
+      color: "var(--accent-orange)"
+    }
+  }, "🗑️ Eliminar esta cuenta")), /*#__PURE__*/React.createElement("div", {
     className: "text-right text-xs text-[#6B7A72] shrink-0",
     style: styles.mono
-  }, /*#__PURE__*/React.createElement("div", null, "🐾 ", c.pacientes || 0), c.colaboradores > 0 && /*#__PURE__*/React.createElement("div", null, "🤝 ", c.colaboradores))))));
+  }, /*#__PURE__*/React.createElement("div", null, "🐾 ", c.pacientes || 0), c.colaboradores > 0 && /*#__PURE__*/React.createElement("div", null, "🤝 ", c.colaboradores))))), pasoEliminar === 1 && /*#__PURE__*/React.createElement(ConfirmModal, {
+    title: "Eliminar cuenta ajena",
+    message: `Esto va a ELIMINAR PERMANENTEMENTE la cuenta de "${eliminando?.clinica}" — todos sus datos (pacientes, historial, etc.) y su acceso de inicio de sesión. No se puede deshacer.`,
+    confirmLabel: "Continuar",
+    danger: true,
+    onCancel: cerrarEliminar,
+    onConfirm: () => setPasoEliminar(2)
+  }), pasoEliminar === 2 && /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 flex items-center justify-center p-4",
+    style: {
+      background: "rgba(0,0,0,.5)"
+    },
+    onClick: cerrarEliminar
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-lg p-6 max-w-sm w-full",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: styles.display,
+    className: "text-lg font-semibold text-[#23342F] mb-2"
+  }, "Confirmar eliminación"), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-[#6B7A72] mb-3"
+  }, "Para confirmar, escribe ", /*#__PURE__*/React.createElement("b", null, "ELIMINAR"), " (en mayúsculas):"), /*#__PURE__*/React.createElement(TextInput, {
+    value: textoConfirmarEliminar,
+    onChange: e => setTextoConfirmarEliminar(e.target.value),
+    placeholder: "ELIMINAR"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 justify-end mt-4"
+  }, /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: cerrarEliminar
+  }, "Cancelar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: ejecutarSolicitudEliminacion,
+    disabled: textoConfirmarEliminar !== "ELIMINAR",
+    danger: true
+  }, "Eliminar definitivamente")))));
 }
 
 function ReportesView({
