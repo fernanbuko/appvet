@@ -801,6 +801,92 @@ async function revisarAvisosColaboradores() {
   return avisos;
 }
 
+/* ---------------------------------------------------------
+   Panel del propietario de la app: arma un resumen de TODAS las
+   cuentas registradas (no reglas de seguridad nuevas — el robot
+   ya tiene acceso total como administrador) y lo guarda DENTRO
+   de la propia cuenta del propietario, en
+   users/{OWNER_UID}/data/panelPropietario — el mismo lugar y
+   formato ({value: ...}) que usa store.set() en la app, así la
+   app solo necesita leer sus propios datos para mostrarlo, sin
+   tocar las reglas de Firestore.
+
+   De paso, compara la lista de cuentas contra la de la corrida
+   anterior (guardada en ese mismo resumen) para detectar cuentas
+   RECIÉN registradas y avisarle al propietario por notificación.
+----------------------------------------------------------*/
+const OWNER_UID = "nmV0gBjVkHePN02d0OYomH8ilqI3";
+
+async function actualizarPanelPropietario() {
+  try {
+    const usuarios = await db.collection("users").listDocuments();
+    const cuentas = [];
+    let totalPacientes = 0;
+    let totalColaboradores = 0;
+
+    for (const usuarioRef of usuarios) {
+      const config = await configDeUid(usuarioRef.id);
+      if (!config) continue; // cuenta a medio registrar (sin config todavía)
+      let numPacientes = 0;
+      try {
+        const patientsSnap = await usuarioRef.collection("patients").get();
+        numPacientes = patientsSnap.size;
+      } catch (e) {
+        numPacientes = 0;
+      }
+      const numColaboradores = config.colaboradoresPermitidos ? Object.keys(config.colaboradoresPermitidos).length : 0;
+      totalPacientes += numPacientes;
+      totalColaboradores += numColaboradores;
+      cuentas.push({
+        uid: usuarioRef.id,
+        clinica: config.clinica || "(sin nombre)",
+        doctorNombres: config.doctorNombres || "",
+        rol: config.rol || "veterinario",
+        fechaRegistro: config.fechaRegistro || null,
+        pacientes: numPacientes,
+        colaboradores: numColaboradores
+      });
+    }
+
+    cuentas.sort((a, b) => (b.fechaRegistro || 0) - (a.fechaRegistro || 0));
+
+    // Comparar contra la corrida anterior para detectar cuentas nuevas.
+    const ownerDataRef = db.collection("users").doc(OWNER_UID).collection("data");
+    const panelAnteriorDoc = await ownerDataRef.doc("panelPropietario").get();
+    const panelAnterior = panelAnteriorDoc.exists ? panelAnteriorDoc.data()?.value : null;
+    const uidsConocidos = new Set((panelAnterior?.cuentas || []).map(c => c.uid));
+    const cuentasNuevas = panelAnterior ? cuentas.filter(c => !uidsConocidos.has(c.uid)) : []; // primera corrida: no avisar de "todas" de golpe
+
+    const resumen = {
+      actualizadoEn: Date.now(),
+      totalClinicas: cuentas.length,
+      totalPacientes,
+      totalColaboradores,
+      cuentas
+    };
+    await ownerDataRef.doc("panelPropietario").set({
+      value: resumen
+    });
+    console.log(`Panel de propietario actualizado: ${cuentas.length} cuenta(s), ${totalPacientes} paciente(s) en total.`);
+
+    if (cuentasNuevas.length > 0) {
+      const tokens = await tokensDeUsuario({
+        id: OWNER_UID
+      });
+      for (const cuenta of cuentasNuevas) {
+        const dataPayload = {
+          title: "🆕 Nueva cuenta registrada",
+          body: `${cuenta.clinica} (${cuenta.doctorNombres || "sin nombre"}) se acaba de registrar.`,
+          patientId: ""
+        };
+        await mandarNotificacion(tokens, dataPayload, `users/${OWNER_UID}`, cuenta.clinica);
+      }
+    }
+  } catch (e) {
+    console.error("No se pudo actualizar el panel de propietario:", e.message);
+  }
+}
+
 async function main() {
   const hoy = hoyComoTexto();
   const manana = mananaComoTexto();
@@ -822,6 +908,8 @@ async function main() {
   totalAvisos += await revisarClientesNuevos();
   totalAvisos += await revisarAvisosClinica();
   totalAvisos += await revisarAvisosColaboradores();
+
+  await actualizarPanelPropietario();
 
   console.log(`Listo. Avisos mandados en esta corrida: ${totalAvisos}.`);
 }
