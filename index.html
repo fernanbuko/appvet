@@ -7281,7 +7281,10 @@ function GreetingScreen({
     className: "text-3xl font-semibold text-[#23342F] leading-tight"
   }, greetingByHour(), /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
     className: "text-2xl"
-  }, config.rol === "veterinario" && config.doctorTitulo ? config.doctorTitulo + " " : "", nombreCompletoDoctor(config))), config.clinica && /*#__PURE__*/React.createElement("p", {
+  }, config.rol === "veterinario" && config.doctorTitulo && currentUid !== OWNER_UID_APP ? config.doctorTitulo + " " : "", nombreCompletoDoctor(config))), currentUid === OWNER_UID_APP && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#B14E1C] mt-2",
+    style: styles.mono
+  }, "🛠️ Cuenta de soporte"), config.clinica && /*#__PURE__*/React.createElement("p", {
     className: "text-[#6B7A72] mt-2"
   }, config.clinica), /*#__PURE__*/React.createElement("div", {
     className: "mt-8"
