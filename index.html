@@ -9082,10 +9082,15 @@ function PanelPropietarioView({
     className: "font-medium text-sm truncate"
   }, c.clinica), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72] truncate"
-  }, c.doctorNombres || "Sin nombre", " · ", c.rol || "veterinario"), /*#__PURE__*/React.createElement("div", {
+  }, c.doctorNombres || "Sin nombre", " · ", c.rol || "veterinario"), c.correo && /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72] truncate"
+  }, "✉️ ", c.correo), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#A6A08F] mt-0.5",
     style: styles.mono
-  }, c.fechaRegistro ? new Date(c.fechaRegistro).toLocaleDateString("es-EC") : "Fecha de registro no disponible")), /*#__PURE__*/React.createElement("div", {
+  }, c.fechaRegistro ? new Date(c.fechaRegistro).toLocaleDateString("es-EC") : "Fecha de registro no disponible"), /*#__PURE__*/React.createElement("div", {
+    className: "text-[10px] text-[#A6A08F] truncate mt-0.5",
+    style: styles.mono
+  }, "ID: ", c.uid)), /*#__PURE__*/React.createElement("div", {
     className: "text-right text-xs text-[#6B7A72] shrink-0",
     style: styles.mono
   }, /*#__PURE__*/React.createElement("div", null, "🐾 ", c.pacientes || 0), c.colaboradores > 0 && /*#__PURE__*/React.createElement("div", null, "🤝 ", c.colaboradores))))));
