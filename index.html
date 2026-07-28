@@ -7395,7 +7395,7 @@ function ActionCard({
 }) {
   return /*#__PURE__*/React.createElement("button", {
     onClick: onClick,
-    className: "text-left bg-white border border-[#DDD5C4] rounded-lg p-5 hover:border-[#3D6B5C] hover:shadow-sm transition flex items-start gap-4"
+    className: "w-full h-full text-left bg-white border border-[#DDD5C4] rounded-lg p-5 hover:border-[#3D6B5C] hover:shadow-sm transition flex items-start gap-4"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-11 h-11 rounded-full bg-[#EAF0EC] flex items-center justify-center text-xl shrink-0"
   }, icon), /*#__PURE__*/React.createElement("div", {
@@ -9942,11 +9942,15 @@ function HomeScreen({
   const puedeVerReportes = !modoColaborador && (!seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("reportes"));
   // Reordenar los "Accesos rápidos" arrastrando con el dedo (solo tiene
   // sentido en celular — en escritorio ya se puede ver todo de un
-  // vistazo). Mantener pulsado ~400ms "agarra" la tarjeta; al mover el
-  // dedo, se detecta sobre cuál otra tarjeta está pasando (con
-  // elementFromPoint) y se intercambian de lugar en tiempo real. El
-  // nuevo orden se guarda en la configuración recién al soltar (no en
-  // cada movimiento, para no saturar Firestore de escrituras).
+  // vistazo). Mantener pulsado ~400ms activa el "modo edición" (todas las
+  // tarjetas tiemblan, aparece "✓ Listo") Y agarra esa tarjeta para
+  // arrastrarla. IMPORTANTE: mientras el dedo sigue tocando la pantalla,
+  // el ORDEN REAL no se toca todavía — solo se resalta sobre cuál
+  // tarjeta está pasando el dedo (targetArrastre). El intercambio de
+  // verdad recién ocurre al SOLTAR. Esto es a propósito: si el arreglo
+  // (y por lo tanto el DOM) cambiara de orden mientras el dedo sigue
+  // tocando, el navegador puede "perder" ese toque (queda pegado, sin
+  // soltarse) porque el elemento que se estaba tocando se movió de lugar.
   const ORDEN_DEFECTO_ACCESOS = ["tareas", "agenda", "banos", "vacunas", "desparasitacion", "tratamientos", "reportes"];
   const clavesVisiblesAccesos = [puedeVerTareas && "tareas", puedeVerAgenda && "agenda", puedeVerBanos && "banos", puedeVerVacunas && "vacunas", puedeVerDesparasitacion && "desparasitacion", puedeVerTratamientos && "tratamientos", puedeVerReportes && "reportes"].filter(Boolean);
   const [ordenAccesos, setOrdenAccesos] = useState(() => {
@@ -9962,7 +9966,9 @@ function HomeScreen({
     const guardado = (config?.ordenAccesosRapidos || []).filter(k => clavesVisiblesAccesos.includes(k));
     setOrdenAccesos([...guardado, ...ORDEN_DEFECTO_ACCESOS.filter(k => clavesVisiblesAccesos.includes(k) && !guardado.includes(k))]);
   }, [JSON.stringify(config?.ordenAccesosRapidos), clavesVisiblesAccesos.join(",")]);
+  const [modoEdicionAccesos, setModoEdicionAccesos] = useState(false);
   const [arrastrandoKey, setArrastrandoKey] = useState(null);
+  const [targetArrastre, setTargetArrastre] = useState(null);
   const [offsetArrastre, setOffsetArrastre] = useState({
     x: 0,
     y: 0
@@ -9972,6 +9978,12 @@ function HomeScreen({
     x: 0,
     y: 0
   });
+  const salirModoEdicion = () => {
+    setModoEdicionAccesos(false);
+    setArrastrandoKey(null);
+    setTargetArrastre(null);
+    arrastrandoRef.current = false;
+  };
   const iniciarPulsacionLarga = (key, e) => {
     const touch = e.touches ? e.touches[0] : e;
     inicioToqueRef.current = {
@@ -9980,6 +9992,7 @@ function HomeScreen({
     };
     tiempoPulsadoRef.current = setTimeout(() => {
       arrastrandoRef.current = true;
+      setModoEdicionAccesos(true);
       setArrastrandoKey(key);
       if (navigator.vibrate) navigator.vibrate(15);
     }, 400);
@@ -10004,31 +10017,31 @@ function HomeScreen({
       const elemento = document.elementFromPoint(touch.clientX, touch.clientY);
       const tarjetaDebajo = elemento && elemento.closest("[data-orden-key]");
       const keyDebajo = tarjetaDebajo && tarjetaDebajo.getAttribute("data-orden-key");
-      if (keyDebajo && keyDebajo !== arrastrandoKey) {
-        setOrdenAccesos(cur => {
-          const i = cur.indexOf(arrastrandoKey);
-          const j = cur.indexOf(keyDebajo);
-          if (i < 0 || j < 0) return cur;
-          const nuevo = cur.slice();
-          nuevo.splice(i, 1);
-          nuevo.splice(j, 0, arrastrandoKey);
-          return nuevo;
-        });
-      }
+      setTargetArrastre(keyDebajo && keyDebajo !== arrastrandoKey ? keyDebajo : null);
     };
     const alSoltar = () => {
-      arrastrandoRef.current = false;
+      setOrdenAccesos(cur => {
+        let nuevo = cur;
+        if (targetArrastre) {
+          const i = cur.indexOf(arrastrandoKey);
+          const j = cur.indexOf(targetArrastre);
+          if (i >= 0 && j >= 0) {
+            nuevo = cur.slice();
+            nuevo.splice(i, 1);
+            nuevo.splice(j, 0, arrastrandoKey);
+          }
+        }
+        store.set("config", {
+          ...config,
+          ordenAccesosRapidos: nuevo
+        });
+        return nuevo;
+      });
       setArrastrandoKey(null);
+      setTargetArrastre(null);
       setOffsetArrastre({
         x: 0,
         y: 0
-      });
-      setOrdenAccesos(cur => {
-        store.set("config", {
-          ...config,
-          ordenAccesosRapidos: cur
-        });
-        return cur;
       });
     };
     document.addEventListener("touchmove", alMover, {
@@ -10045,7 +10058,7 @@ function HomeScreen({
       document.removeEventListener("mousemove", alMover);
       document.removeEventListener("mouseup", alSoltar);
     };
-  }, [arrastrandoKey]);
+  }, [arrastrandoKey, targetArrastre]);
   const hoy = new Date().toISOString().slice(0, 10);
   const en30dias = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   // Todo lo que toca justo HOY, de cualquier sección — para la sección
@@ -10408,10 +10421,14 @@ function HomeScreen({
     label: "Exámenes",
     value: examenes.length,
     onClick: () => setActive("examenes")
-  })), (puedeVerTareas || puedeVerAgenda || puedeVerBanos || puedeVerVacunas || puedeVerDesparasitacion || puedeVerTratamientos || puedeVerReportes) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
-    className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
+  })), (puedeVerTareas || puedeVerAgenda || puedeVerBanos || puedeVerVacunas || puedeVerDesparasitacion || puedeVerTratamientos || puedeVerReportes) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-3"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-[11px] uppercase tracking-wider text-[#6B7A72]",
     style: styles.mono
-  }, "Accesos rápidos"), /*#__PURE__*/React.createElement("div", {
+  }, "Accesos rápidos"), modoEdicionAccesos && /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: salirModoEdicion
+  }, "✓ Listo")), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-3 mb-10 max-w-md"
   }, !esPeluquero && !modoColaborador && agendandoCita && /*#__PURE__*/React.createElement("div", {
     className: "col-span-2 bg-white border border-[#DDD5C4] rounded-lg p-4"
@@ -10518,12 +10535,20 @@ function HomeScreen({
       onMouseDown: e => iniciarPulsacionLarga(key, e),
       onMouseUp: cancelarPulsacionLarga,
       onMouseLeave: cancelarPulsacionLarga,
-      className: "relative touch-none select-none",
+      onClickCapture: e => {
+        if (modoEdicionAccesos) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      },
+      className: "relative touch-none select-none h-full rounded-lg" + (modoEdicionAccesos && arrastrandoKey !== key ? " animate-temblor" : ""),
       style: arrastrandoKey === key ? {
         transform: `translate(${offsetArrastre.x}px, ${offsetArrastre.y}px) scale(1.04)`,
         zIndex: 50,
         boxShadow: "0 8px 24px rgba(0,0,0,.18)",
         transition: "none"
+      } : targetArrastre === key ? {
+        boxShadow: "0 0 0 2px var(--accent-green) inset"
       } : undefined
     }, tarjetasPorKey[key]));
   })()))), /*#__PURE__*/React.createElement("div", {
