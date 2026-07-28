@@ -67,7 +67,7 @@
   .whitespace-pre-wrap{white-space:pre-wrap}
   .overflow-hidden{overflow:hidden}.overflow-x-auto{overflow-x:auto;min-width:0}.overflow-visible{overflow:visible}
   .object-cover{object-fit:cover}
-  .cursor-pointer{cursor:pointer}.select-none{user-select:none}.touch-none{touch-action:none}
+  .cursor-pointer{cursor:pointer}.select-none{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}.touch-none{touch-action:none}
   .shadow-sm{box-shadow:0 1px 2px rgba(0,0,0,.06)}.shadow-lg{box-shadow:0 8px 20px rgba(0,0,0,.15)}
   .transition{transition:all .15s ease}
   .p-4{padding:1rem}.p-6{padding:1.5rem}
@@ -11467,7 +11467,13 @@ function VetApp() {
             }
             if (db) {
               try {
-                const registro = await db.collection("sistema").doc("cuentasEliminadas").get();
+                // Se le pone un límite de tiempo a esta comprobación — si
+                // no hay conexión, Firestore puede tardarse mucho (o
+                // nunca responder) intentando confirmar esto, y eso NO
+                // debe dejar a la persona atascada en la pantalla de
+                // inicio de sesión cuando en realidad ya tiene una sesión
+                // guardada y solo está sin internet.
+                const registro = await Promise.race([db.collection("sistema").doc("cuentasEliminadas").get(), new Promise((_, rechazar) => setTimeout(() => rechazar(new Error("tiempo de espera agotado")), 2500))]);
                 const correos = registro.exists ? registro.data()?.correos || [] : [];
                 if (u.email && correos.includes(u.email)) {
                   await firebase.auth().signOut();
@@ -11477,8 +11483,9 @@ function VetApp() {
                   return;
                 }
               } catch (e) {
-                // Si esta verificación falla (por ejemplo sin conexión), no se
-                // bloquea el inicio de sesión por eso — sigue de largo.
+                // Si esta verificación falla o se demora demasiado (por
+                // ejemplo sin conexión), no se bloquea el inicio de
+                // sesión por eso — sigue de largo.
               }
             }
             currentUid = u.uid;
