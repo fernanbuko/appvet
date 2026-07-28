@@ -11322,25 +11322,47 @@ function VetApp() {
         return;
       }
       try {
+        let temporizadorSinSesion = null;
         unsubscribe = firebase.auth().onAuthStateChanged(async u => {
-          if (u && db) {
-            try {
-              const registro = await db.collection("sistema").doc("cuentasEliminadas").get();
-              const correos = registro.exists ? registro.data()?.correos || [] : [];
-              if (u.email && correos.includes(u.email)) {
-                await firebase.auth().signOut();
-                currentUid = null;
-                setUser(null);
-                setCuentaEliminada(true);
-                return;
-              }
-            } catch (e) {
-              // Si esta verificación falla (por ejemplo sin conexión), no se
-              // bloquea el inicio de sesión por eso — sigue de largo.
+          if (u) {
+            // Llegó una sesión real — se cancela cualquier "sin sesión"
+            // que estuviera por confirmarse (ver más abajo) y se confía
+            // en esta de inmediato.
+            if (temporizadorSinSesion) {
+              clearTimeout(temporizadorSinSesion);
+              temporizadorSinSesion = null;
             }
+            if (db) {
+              try {
+                const registro = await db.collection("sistema").doc("cuentasEliminadas").get();
+                const correos = registro.exists ? registro.data()?.correos || [] : [];
+                if (u.email && correos.includes(u.email)) {
+                  await firebase.auth().signOut();
+                  currentUid = null;
+                  setUser(null);
+                  setCuentaEliminada(true);
+                  return;
+                }
+              } catch (e) {
+                // Si esta verificación falla (por ejemplo sin conexión), no se
+                // bloquea el inicio de sesión por eso — sigue de largo.
+              }
+            }
+            currentUid = u.uid;
+            setUser(u);
+          } else {
+            // Firebase a veces avisa "sin sesión" muy rápido, un instante
+            // antes de terminar de restaurar una sesión guardada — por
+            // eso no se confía de una vez: se espera un poquito por si
+            // justo después llega la sesión real (lo cual cancelaría
+            // este aviso, arriba). Solo si después de ese momento sigue
+            // sin haber sesión, ahí sí se muestra el login.
+            if (temporizadorSinSesion) clearTimeout(temporizadorSinSesion);
+            temporizadorSinSesion = setTimeout(() => {
+              currentUid = null;
+              setUser(null);
+            }, 400);
           }
-          currentUid = u ? u.uid : null;
-          setUser(u);
         });
       } catch (e) {
         console.error("No se pudo iniciar el observador de sesión:", e);
