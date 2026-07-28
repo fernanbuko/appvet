@@ -998,6 +998,15 @@ if (firebaseReady) {
   try {
     firebase.initializeApp(firebaseConfig);
     db = firebase.firestore();
+    // Le pide al navegador que NO borre lo guardado para trabajar sin
+    // conexión bajo presión de espacio — esto es especialmente
+    // importante en iPhone/Safari, que por defecto es mucho más agresivo
+    // que Android borrando datos de sitios que no se han abierto en unos
+    // días (a menos que la app esté "Agregada a pantalla de inicio",
+    // donde iOS respeta esto mucho mejor).
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist().catch(() => {});
+    }
     // Activa el modo sin conexión: guarda una copia local de los datos ya
     // vistos, permite seguir trabajando (leer y escribir) sin internet, y
     // sincroniza solo en cuanto vuelve la conexión, sin que el usuario
@@ -9620,8 +9629,12 @@ function PanelPropietarioView({
     key: c.uid,
     className: "bg-white border border-[#DDD5C4] rounded-lg p-4 flex items-center gap-3"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "w-10 h-10 rounded-full bg-[#EAF0EC] flex items-center justify-center text-lg shrink-0"
-  }, c.rol === "peluquero" ? "🧴" : "🏥"), /*#__PURE__*/React.createElement("div", {
+    className: "w-10 h-10 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center text-lg shrink-0"
+  }, c.logo ? /*#__PURE__*/React.createElement("img", {
+    src: c.logo,
+    alt: "",
+    className: "w-full h-full object-cover"
+  }) : c.rol === "peluquero" ? "🧴" : "🏥"), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0 flex-1"
   }, /*#__PURE__*/React.createElement("div", {
     className: "font-medium text-sm truncate"
@@ -11316,6 +11329,26 @@ function VetApp() {
   // general — ver PatientSecciones, que la aplica y la limpia sola.
   const [pestanaInicial, setPestanaInicial] = useState(null);
   const [toast, setToast] = useState("");
+  // En iPhone, si se usa desde Safari normal (no "Agregada a pantalla de
+  // inicio"), iOS es mucho más agresivo borrando lo guardado para
+  // trabajar sin conexión — por eso se sugiere instalarla así, que es la
+  // solución real (no depende de nada que la propia app pueda forzar).
+  const [mostrarSugerenciaIOS, setMostrarSugerenciaIOS] = useState(() => {
+    try {
+      const esIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) && !window.MSStream;
+      const yaInstalada = window.navigator.standalone === true;
+      const yaSugerido = localStorage.getItem("vd_sugerencia_ios_vista") === "1";
+      return esIOS && !yaInstalada && !yaSugerido;
+    } catch (e) {
+      return false;
+    }
+  });
+  const cerrarSugerenciaIOS = () => {
+    setMostrarSugerenciaIOS(false);
+    try {
+      localStorage.setItem("vd_sugerencia_ios_vista", "1");
+    } catch (e) {}
+  };
   const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
   useEffect(() => {
     const goOnline = () => {
@@ -12557,7 +12590,23 @@ function VetApp() {
       zIndex: 30,
       boxSizing: "border-box"
     }
-  }, "📴 Sin conexión — se sincroniza al reconectar"), /*#__PURE__*/React.createElement(MobileTopBar, {
+  }, "📴 Sin conexión — se sincroniza al reconectar"), mostrarSugerenciaIOS && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "var(--accent-orange-bg)",
+      color: "var(--accent-orange)",
+      textAlign: "center",
+      fontSize: "13px",
+      padding: "8px 12px",
+      position: "relative",
+      zIndex: 30
+    }
+  }, "📲 Para que la app funcione bien sin internet, agrégala a tu pantalla de inicio: toca ", /*#__PURE__*/React.createElement("b", null, "Compartir"), " → ", /*#__PURE__*/React.createElement("b", null, "\"Agregar a pantalla de inicio\""), ". ", /*#__PURE__*/React.createElement("button", {
+    onClick: cerrarSugerenciaIOS,
+    style: {
+      textDecoration: "underline",
+      marginLeft: "4px"
+    }
+  }, "Entendido")), /*#__PURE__*/React.createElement(MobileTopBar, {
     active: active,
     setActive: k => {
       setActive(k);
