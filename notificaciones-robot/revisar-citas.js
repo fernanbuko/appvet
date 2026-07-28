@@ -838,6 +838,15 @@ async function procesarSolicitudesEliminacion() {
       const { uid, clinica } = solicitud || {};
       if (!uid || uid === OWNER_UID) continue; // nunca te borres a ti mismo por accidente
       try {
+        // El correo hay que sacarlo ANTES de borrar — una vez eliminada
+        // la cuenta de Authentication, ya no hay forma de recuperarlo.
+        let correo = "";
+        try {
+          const authUser = await admin.auth().getUser(uid);
+          correo = authUser.email || "";
+        } catch (e) {
+          correo = "";
+        }
         // Borra TODOS los datos de esa cuenta (todas sus subcolecciones:
         // patients, recetas, examenes, historial, vacunas, banos, etc.)
         await db.recursiveDelete(db.collection("users").doc(uid));
@@ -846,6 +855,19 @@ async function procesarSolicitudesEliminacion() {
           await admin.auth().deleteUser(uid);
         } catch (e) {
           console.log(`  (no se pudo borrar de Authentication — puede que ya no existiera): ${e.message}`);
+        }
+        // Deja registrado el correo (nada más) para que, si esa persona
+        // vuelve a intentar entrar, la app le avise "tu cuenta fue
+        // eliminada" en vez de dejarla pasar como si fuera nueva.
+        if (correo) {
+          const registroRef = db.collection("sistema").doc("cuentasEliminadas");
+          const registroDoc = await registroRef.get();
+          const correosActuales = registroDoc.exists ? registroDoc.data()?.correos || [] : [];
+          if (!correosActuales.includes(correo)) {
+            await registroRef.set({
+              correos: [...correosActuales, correo]
+            });
+          }
         }
         console.log(`🗑️ Cuenta eliminada por completo: ${clinica || "(sin nombre)"} (${uid})`);
       } catch (e) {
