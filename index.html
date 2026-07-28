@@ -9979,6 +9979,7 @@ function HomeScreen({
     y: 0
   });
   const origenArrastreRectRef = useRef(null);
+  const rectsOriginalesRef = useRef({});
   const salirModoEdicion = () => {
     setModoEdicionAccesos(false);
     setArrastrandoKey(null);
@@ -9995,12 +9996,19 @@ function HomeScreen({
       arrastrandoRef.current = true;
       setModoEdicionAccesos(true);
       setArrastrandoKey(key);
-      // Se guarda dónde estaba la tarjeta ANTES de empezar a seguir el
-      // dedo — así, si se suelta sobre otra tarjeta, se sabe exactamente
-      // a qué posición en pantalla debe "volver" la tarjeta que estaba
-      // ahí (para el intercambio simple entre las dos).
-      const el = document.querySelector(`[data-orden-key="${key}"]`);
-      origenArrastreRectRef.current = el ? el.getBoundingClientRect() : null;
+      // Se toma una "foto" de dónde está CADA tarjeta justo antes de
+      // empezar a arrastrar (no solo la que se agarra) — así, si más
+      // adelante hay que calcular hacia dónde se desliza la tarjeta
+      // destino, siempre se usa esta posición fija original, en vez de
+      // volver a medir la tarjeta EN VIVO (que podría estar a media
+      // transición en ese momento, dando medidas inconsistentes y
+      // causando ese temblor).
+      const rects = {};
+      document.querySelectorAll("[data-orden-key]").forEach(elemento => {
+        rects[elemento.getAttribute("data-orden-key")] = elemento.getBoundingClientRect();
+      });
+      rectsOriginalesRef.current = rects;
+      origenArrastreRectRef.current = rects[key] || null;
       if (navigator.vibrate) navigator.vibrate(15);
     }, 400);
   };
@@ -10102,12 +10110,15 @@ function HomeScreen({
   // las tarjetas en la pantalla en ese momento.
   const previsualizacionArrastre = useMemo(() => {
     if (!arrastrandoKey || !targetArrastre || !origenArrastreRectRef.current) return {};
-    const elDestino = document.querySelector(`[data-orden-key="${targetArrastre}"]`);
-    if (!elDestino) return {};
+    const rectDestino = rectsOriginalesRef.current[targetArrastre];
+    if (!rectDestino) return {};
     // Intercambio simple: la tarjeta sobre la que se suelta se ve moverse
     // hacia donde ESTABA la que se está arrastrando (su posición
     // original, guardada al empezar el arrastre) — nada más se mueve.
-    const rectDestino = elDestino.getBoundingClientRect();
+    // Se usan las posiciones de la "foto" tomada al iniciar el arrastre
+    // (no se vuelve a medir en vivo), para que el cálculo no dependa de
+    // dónde esté la tarjeta en ese instante (que podría estar a media
+    // transición si el dedo pasó por ahí más de una vez).
     const origen = origenArrastreRectRef.current;
     return {
       [targetArrastre]: {
