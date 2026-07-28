@@ -11490,6 +11490,19 @@ function VetApp() {
             }
             currentUid = u.uid;
             setUser(u);
+            // Se guarda una copia mínima de "quién eras la última vez que
+            // sí hubo sesión confirmada" — esto es lo que permite, más
+            // abajo, seguir entrando sin conexión aunque Firebase no
+            // logre confirmar la sesión (ver el comentario de abajo para
+            // el porqué).
+            try {
+              localStorage.setItem("vd_ultima_sesion", JSON.stringify({
+                uid: u.uid,
+                email: u.email,
+                displayName: u.displayName,
+                photoURL: u.photoURL
+              }));
+            } catch (e) {}
           } else {
             // Firebase a veces avisa "sin sesión" muy rápido, un instante
             // antes de terminar de restaurar una sesión guardada — por
@@ -11497,8 +11510,29 @@ function VetApp() {
             // justo después llega la sesión real (lo cual cancelaría
             // este aviso, arriba). Solo si después de ese momento sigue
             // sin haber sesión, ahí sí se muestra el login.
+            //
+            // Es un problema documentado de Firebase con Safari/iOS: el
+            // token de sesión vence cada hora, y si el teléfono intenta
+            // renovarlo SIN internet, esa renovación puede fallar (o
+            // quedarse colgada) y Firebase termina reportando "sin
+            // sesión" — aunque la persona sí tenga una sesión guardada y
+            // solo esté sin conexión. Por eso, si de verdad no hay
+            // conexión Y hay una sesión guardada de la última vez que sí
+            // se confirmó, se usa esa en vez de mandar a la persona al
+            // login — la propia app y Firestore (con su caché local) se
+            // encargan de que todo siga funcionando con esos datos.
             if (temporizadorSinSesion) clearTimeout(temporizadorSinSesion);
             temporizadorSinSesion = setTimeout(() => {
+              if (navigator.onLine === false) {
+                try {
+                  const guardada = JSON.parse(localStorage.getItem("vd_ultima_sesion") || "null");
+                  if (guardada && guardada.uid) {
+                    currentUid = guardada.uid;
+                    setUser(guardada);
+                    return;
+                  }
+                } catch (e) {}
+              }
               currentUid = null;
               setUser(null);
             }, 400);
