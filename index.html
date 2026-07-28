@@ -10022,6 +10022,7 @@ function HomeScreen({
       });
       rectsOriginalesRef.current = rects;
       origenArrastreRectRef.current = rects[key] || null;
+      sinDestinoDesdeRef.current = null;
       if (navigator.vibrate) navigator.vibrate(15);
     }, 400);
   };
@@ -10032,6 +10033,7 @@ function HomeScreen({
     }
   };
   const targetArrastreRef = useRef(null);
+  const sinDestinoDesdeRef = useRef(null);
   useEffect(() => {
     if (!arrastrandoKey) return;
     const alMover = e => {
@@ -10046,13 +10048,23 @@ function HomeScreen({
       const elemento = document.elementFromPoint(touch.clientX, touch.clientY);
       const tarjetaDebajo = elemento && elemento.closest("[data-orden-key]");
       const keyDebajo = tarjetaDebajo && tarjetaDebajo.getAttribute("data-orden-key");
-      // Si el dedo cae justo en el pequeño espacio ENTRE tarjetas (el
-      // margen del grid), "keyDebajo" sale vacío por un instante — en
-      // ese caso se mantiene el último destino válido conocido en vez de
-      // "olvidarlo" de inmediato, para que la tarjeta destino no aparezca
-      // y desaparezca (parpadee) cada vez que el dedo pasa por ese
-      // huequito milimétrico entre una tarjeta y otra.
-      const nuevoTarget = keyDebajo && keyDebajo !== arrastrandoKey ? keyDebajo : targetArrastreRef.current;
+      let nuevoTarget;
+      if (keyDebajo && keyDebajo !== arrastrandoKey) {
+        // Hay una tarjeta válida justo debajo del dedo: ese es el destino.
+        nuevoTarget = keyDebajo;
+        sinDestinoDesdeRef.current = null;
+      } else {
+        // No hay ninguna tarjeta debajo en este instante — puede ser que
+        // el dedo esté pasando por el huequito milimétrico ENTRE dos
+        // tarjetas (un cruce de una fracción de segundo), o puede ser que
+        // de verdad se haya alejado (por ejemplo, volvió a la posición
+        // original para cancelar el cambio). Para no "olvidar" el
+        // destino de golpe por un simple cruce de huequito, se le da un
+        // margen breve (120ms) antes de soltarlo de verdad.
+        if (sinDestinoDesdeRef.current === null) sinDestinoDesdeRef.current = Date.now();
+        const llevaTiempoSinDestino = Date.now() - sinDestinoDesdeRef.current > 120;
+        nuevoTarget = llevaTiempoSinDestino ? null : targetArrastreRef.current;
+      }
       targetArrastreRef.current = nuevoTarget;
       setTargetArrastre(nuevoTarget); // esto es solo para el resaltado visual
     };
