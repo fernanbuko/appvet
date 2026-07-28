@@ -10532,6 +10532,9 @@ function HomeScreen({
       "data-orden-key": key,
       onTouchStart: e => iniciarPulsacionLarga(key, e),
       onTouchEnd: cancelarPulsacionLarga,
+      onTouchMove: () => {
+        if (arrastrandoKey !== key) cancelarPulsacionLarga();
+      },
       onMouseDown: e => iniciarPulsacionLarga(key, e),
       onMouseUp: cancelarPulsacionLarga,
       onMouseLeave: cancelarPulsacionLarga,
@@ -10541,12 +10544,13 @@ function HomeScreen({
           e.stopPropagation();
         }
       },
-      className: "relative touch-none select-none h-full rounded-lg" + (modoEdicionAccesos && arrastrandoKey !== key ? " animate-temblor" : ""),
+      className: "relative select-none h-full rounded-lg" + (modoEdicionAccesos && arrastrandoKey !== key ? " animate-temblor" : ""),
       style: arrastrandoKey === key ? {
         transform: `translate(${offsetArrastre.x}px, ${offsetArrastre.y}px) scale(1.04)`,
         zIndex: 50,
         boxShadow: "0 8px 24px rgba(0,0,0,.18)",
-        transition: "none"
+        transition: "none",
+        touchAction: "none"
       } : targetArrastre === key ? {
         boxShadow: "0 0 0 2px var(--accent-green) inset"
       } : undefined
