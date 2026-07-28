@@ -11356,6 +11356,29 @@ function VetApp() {
     }, () => {}));
     return () => unsubs.forEach(u => u());
   }, [db, currentUid, JSON.stringify(Object.keys(config?.colaboradoresPermitidos || {}))]);
+  // Si soy colaborador/a peluquero/a de una clínica, cada vez que cambien
+  // mis baños PROPIOS (con clientes míos, no de la clínica), dejo
+  // guardado en la cuenta del dueño SOLO qué días/horas ya tengo
+  // ocupados — nunca el paciente ni el propietario. Así la clínica no me
+  // agenda una cita a la misma hora que ya tengo con un cliente mío, sin
+  // necesidad de que vea de quién se trata. (Se usa "config?.colaboradorDe?.uid"
+  // directo en vez de la variable "modoColaborador" porque esta última
+  // todavía no existe en este punto del código — se declara más abajo.)
+  useEffect(() => {
+    if (!(config?.rol === "peluquero" && config?.colaboradorDe?.uid && db && currentUid)) return;
+    const hoy = new Date().toISOString().slice(0, 10);
+    const horarios = banosPropios.filter(b => b.proximoBano && b.proximoBano >= hoy).map(b => ({
+      fecha: b.proximoBano,
+      hora: b.proximoBanoHora || ""
+    }));
+    db.collection("users").doc(config.colaboradorDe.uid).collection("data").doc("horariosOcupados_" + currentUid).set({
+      value: {
+        colaboradorNombre: config.doctorNombres || "Colaborador/a",
+        horarios,
+        actualizadoEn: Date.now()
+      }
+    }).catch(() => {});
+  }, [JSON.stringify(banosPropios.map(b => [b.proximoBano, b.proximoBanoHora])), config?.rol, config?.colaboradorDe?.uid, currentUid]);
   // "¿Qué hay de nuevo?": en vez de una ventana automática al entrar, se
   // muestra un ícono ✨ (al lado de la campanita) con un "1" cuando hay
   // algo nuevo que no se ha visto — comparando con VERSION_NOVEDADES (ver
@@ -12683,27 +12706,6 @@ function VetApp() {
   // Igual que con los pacientes: los baños de un colaborador peluquero/a se
   // combinan entre los compartidos por la clínica y los suyos propios.
   const banosCombinados = [...banos, ...banosPropios];
-  // Si soy colaborador/a peluquero/a de una clínica, cada vez que cambien
-  // mis baños PROPIOS (con clientes míos, no de la clínica), dejo
-  // guardado en la cuenta del dueño SOLO qué días/horas ya tengo
-  // ocupados — nunca el paciente ni el propietario. Así la clínica no me
-  // agenda una cita a la misma hora que ya tengo con un cliente mío, sin
-  // necesidad de que vea de quién se trata.
-  useEffect(() => {
-    if (!(config?.rol === "peluquero" && modoColaborador && config?.colaboradorDe?.uid && db && currentUid)) return;
-    const hoy = new Date().toISOString().slice(0, 10);
-    const horarios = banosPropios.filter(b => b.proximoBano && b.proximoBano >= hoy).map(b => ({
-      fecha: b.proximoBano,
-      hora: b.proximoBanoHora || ""
-    }));
-    db.collection("users").doc(config.colaboradorDe.uid).collection("data").doc("horariosOcupados_" + currentUid).set({
-      value: {
-        colaboradorNombre: config.doctorNombres || "Colaborador/a",
-        horarios,
-        actualizadoEn: Date.now()
-      }
-    }).catch(() => {});
-  }, [JSON.stringify(banosPropios.map(b => [b.proximoBano, b.proximoBanoHora])), config?.rol, modoColaborador, config?.colaboradorDe?.uid, currentUid]);
   // Para un peluquero/a, un paciente recién creado por la clínica (que
   // todavía no tiene ningún baño agendado) no le sirve de nada ver en su
   // lista — solo le interesan los pacientes que ya tienen al menos un
