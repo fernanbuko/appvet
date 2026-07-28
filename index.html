@@ -429,6 +429,17 @@
     30% { transform: translateY(0); }
   }
   .animate-brinco { animation: vd-brinco 1.8s ease-in-out infinite; }
+  /* "Modo edición" para reordenar los accesos rápidos (mantener pulsado
+     una tarjeta) — el mismo tipo de temblor que usan los celulares al
+     reordenar apps, para que quede claro que se puede mover. Cada
+     tarjeta empieza el temblor en un momento ligeramente distinto
+     (nth-child) para que no se vean todas moviéndose exactamente igual. */
+  @keyframes vd-temblor {
+    0%, 100% { transform: rotate(-1deg); }
+    50% { transform: rotate(1deg); }
+  }
+  .animate-temblor { animation: vd-temblor 0.22s ease-in-out infinite; }
+  .animate-temblor:nth-child(even) { animation-delay: 0.08s; }
 
   [data-theme="dark"] #boot-msg { color: #ECEDEE; }
 </style>
@@ -1474,39 +1485,19 @@ function GhostButton({
    la cuenta (no en este dispositivo), así que aparece una sola
    vez sin importar en cuántos celulares/computadoras entres.
 ----------------------------------------------------------*/
-const VERSION_NOVEDADES = "2026-07-27";
+const VERSION_NOVEDADES = "2026-07-28";
 const NOVEDADES = [{
-  icono: "📅",
-  titulo: "Agendar cita rápida",
-  descripcion: "Nueva tarjeta destacada en Inicio y botón \"＋ Agendar\" en la Agenda — elige paciente, fecha y hora sin abrir su ficha completa."
-}, {
-  icono: "✅",
-  titulo: "Nueva sección: Pendientes",
-  descripcion: "Todo lo de hoy, mañana y pasado mañana en un solo lugar — citas, baños, vacunas, desparasitación y tratamientos juntos."
-}, {
-  icono: "🔔",
-  titulo: "Notificaciones más completas",
-  descripcion: "Ahora Baños, Vacunas, Desparasitación y Tratamientos también avisan un día antes, el mismo día, y preguntan \"¿qué pasó?\" si no se confirman."
-}, {
-  icono: "📷",
-  titulo: "Fotos en avisos y tarjetas",
-  descripcion: "Las notificaciones y las tarjetas de \"Próximas...\" ya muestran la foto del paciente, no solo el nombre."
-}, {
-  icono: "✓",
-  titulo: "Confirmar o reagendar sin entrar a la ficha",
-  descripcion: "Desde Inicio puedes deslizar o tocar los botones ✓/📅 para confirmar o reagendar al instante."
-}, {
-  icono: "🛡️",
-  titulo: "Doble confirmación antes de marcar o cancelar",
-  descripcion: "Al tocar \"Ya se aplicó/atendió\" o \"Cancelar\", ahora aparece una ventana para confirmar — así no se marca nada por error con un toque accidental."
-}, {
-  icono: "🩹",
-  titulo: "Tratamientos inyectables con historial",
-  descripcion: "Ahora se guarda cada aplicación por separado (día 1, día 2, día 3...), con su propia próxima fecha y hora."
+  icono: "❓",
+  titulo: "¿Qué pasó con estos pacientes?",
+  descripcion: "Nueva sección dentro de Pendientes: todo lo que quedó con una fecha ya pasada sin confirmar, reagendar ni cancelar, en un solo lugar."
 }, {
   icono: "📅",
-  titulo: "Agenda mejorada",
-  descripcion: "Ahora muestra tanto lo programado como lo que ya se hizo, y salta directo a la sección correcta al tocar un paciente."
+  titulo: "Confirmar y reagendar también en la Agenda",
+  descripcion: "Los mismos botones ✓/📅 (y deslizar en celular) que ya tenías en Inicio, ahora también funcionan directo desde el calendario de la Agenda."
+}, {
+  icono: "✋",
+  titulo: "Reordena tus Accesos rápidos",
+  descripcion: "Mantén pulsada cualquier tarjeta de Inicio para entrar en modo edición y acomodarlas como prefieras."
 }];
 function NovedadesModal({
   onCerrar
@@ -6373,6 +6364,56 @@ function migrarConfig(base) {
   };
   return migrado;
 }
+/* ---------------------------------------------------------
+   Ventana emergente para aprobar a un colaborador AL INSTANTE,
+   apenas confirma el link de invitación — sin tener que estar
+   entrando a Configuración a cada rato para ver si ya se
+   conectó. Se muestra encima de CUALQUIER pantalla (menos
+   Configuración, que ya tiene su propia versión de esto mismo
+   más abajo). Solo muestra la solicitud más antigua a la vez,
+   aunque haya varias pendientes.
+----------------------------------------------------------*/
+function SolicitudColaboradorOverlay({
+  solicitud,
+  onAceptar,
+  onRechazar
+}) {
+  const [secciones, setSecciones] = useState(["banos"]);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 flex items-center justify-center p-4",
+    style: {
+      background: "rgba(0,0,0,.5)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-lg p-6 max-w-sm w-full"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-3xl mb-2"
+  }, "🤝"), /*#__PURE__*/React.createElement("h3", {
+    style: styles.display,
+    className: "text-lg font-semibold text-[#23342F] mb-1"
+  }, "Nueva solicitud de colaborador/a"), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-[#6B7A72] mb-4"
+  }, /*#__PURE__*/React.createElement("b", null, solicitud.nombre), " quiere conectarse como colaborador/a. Elige qué puede ver:"), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 flex-wrap mb-4"
+  }, SECCIONES_COLABORADOR_DISPONIBLES.map(sec => {
+    const activo = secciones.includes(sec.key);
+    return /*#__PURE__*/React.createElement("button", {
+      key: sec.key,
+      type: "button",
+      onClick: () => setSecciones(cur => activo ? cur.filter(k => k !== sec.key) : [...cur, sec.key]),
+      className: "text-xs px-3 py-1.5 rounded-full border transition " + (activo ? "bg-[#3D6B5C] border-[#3D6B5C] text-white" : "bg-white border-[#DDD5C4] text-[#6B7A72]")
+    }, sec.icon, " ", sec.label);
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: () => onAceptar(solicitud, secciones),
+    disabled: secciones.length === 0,
+    icon: "✓"
+  }, "Aceptar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => onRechazar(solicitud)
+  }, "Rechazar"))));
+}
+
 function ConfigForm({
   config,
   onSave,
@@ -7248,6 +7289,36 @@ function LoginScreen({
 }
 
 /* ---------------------------------------------------------
+   Pantallas para cuentas bloqueadas o eliminadas por el
+   propietario de la app (ver Panel). No dejan pasar a la
+   persona a ningún lado más — solo ofrecen volver al login
+   (con otra cuenta, por ejemplo).
+----------------------------------------------------------*/
+function CuentaEspecialScreen({
+  tipo,
+  onVolver
+}) {
+  const esBloqueada = tipo === "bloqueada";
+  return /*#__PURE__*/React.createElement("div", {
+    className: "min-h-screen flex items-center justify-center px-6",
+    style: styles.page
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "max-w-sm w-full text-center"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-4xl mb-4"
+  }, esBloqueada ? "🔒" : "🗑️"), /*#__PURE__*/React.createElement("h1", {
+    style: styles.display,
+    className: "text-2xl font-semibold text-[#23342F] leading-tight"
+  }, esBloqueada ? "Esta cuenta está bloqueada" : "Esta cuenta fue eliminada"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[#6B7A72] mt-3 text-sm"
+  }, esBloqueada ? "No puedes iniciar sesión por ahora. Si crees que esto es un error, contacta a soporte." : "Todos los datos de esta cuenta fueron eliminados de forma permanente. Si crees que esto es un error, contacta a soporte."), /*#__PURE__*/React.createElement("div", {
+    className: "mt-8"
+  }, /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: onVolver
+  }, esBloqueada ? "Reintentar" : "Volver al inicio de sesión"))));
+}
+
+/* ---------------------------------------------------------
    Pantalla de saludo
 ----------------------------------------------------------*/
 function greetingByHour() {
@@ -7369,13 +7440,129 @@ function TareasView({
   config,
   setActive,
   setSelected,
-  onSetPestanaInicial
+  onSetPestanaInicial,
+  onUpdateVisita,
+  onUpdateBano,
+  onUpdateVacuna,
+  onUpdateDesparasitacion,
+  onUpdateTratamiento
 }) {
   const esPeluquero = config?.rol === "peluquero";
+  const hoy = new Date().toISOString().slice(0, 10);
   const fechaISO = offset => {
     const d = new Date();
     d.setDate(d.getDate() + offset);
     return d.toISOString().slice(0, 10);
+  };
+  // "¿Qué pasó con estos pacientes?": todo lo que quedó con una fecha YA
+  // PASADA sin que nadie lo confirmara, reagendara o cancelara — el mismo
+  // caso que el robot detecta para mandar el aviso "¿qué pasó?", pero
+  // mostrado aquí para revisar todo junto de una vez.
+  const CONFIG_TIPO_VENCIDO = {
+    cita: {
+      onUpdate: onUpdateVisita,
+      campoFecha: "proximaVisita",
+      campoHora: "proximaVisitaHora",
+      campoConfirmado: null,
+      verbo: "atendió"
+    },
+    banos: {
+      onUpdate: onUpdateBano,
+      campoFecha: "proximoBano",
+      campoHora: "proximoBanoHora",
+      campoConfirmado: "fechaAtendido",
+      verbo: "bañó"
+    },
+    vacunas: {
+      onUpdate: onUpdateVacuna,
+      campoFecha: "proximaDosis",
+      campoHora: "proximaDosisHora",
+      campoConfirmado: "fechaAplicada",
+      verbo: "vacunó"
+    },
+    desparasitacion: {
+      onUpdate: onUpdateDesparasitacion,
+      campoFecha: "proximaDosis",
+      campoHora: "proximaDosisHora",
+      campoConfirmado: "fechaAplicada",
+      verbo: "desparasitó"
+    },
+    tratamientos: {
+      onUpdate: onUpdateTratamiento,
+      campoFecha: "proximaAplicacion",
+      campoHora: "proximaAplicacionHora",
+      campoConfirmado: "fecha",
+      verbo: null
+    }
+  };
+  const vencidos = (() => {
+    const lista = [];
+    const agregar = (patientId, tipo, registro) => {
+      const patient = patients.find(p => p.id === patientId);
+      const cfg = CONFIG_TIPO_VENCIDO[tipo];
+      if (!patient || !registro[cfg.campoFecha] || registro[cfg.campoFecha] >= hoy) return;
+      lista.push({
+        id: tipo + ":" + patientId + ":" + registro[cfg.campoFecha],
+        patientId: patient.id,
+        nombre: patient.nombre,
+        propietario: patient.propietario,
+        foto: patient.foto,
+        fecha: registro[cfg.campoFecha],
+        hora: registro[cfg.campoHora] || "",
+        tab: tipo === "cita" ? null : tipo,
+        tipo,
+        registro
+      });
+    };
+    if (esPeluquero) {
+      (banos || []).forEach(b => agregar(b.patientId, "banos", b));
+    } else {
+      patients.forEach(p => agregar(p.id, "cita", p));
+      (banos || []).forEach(b => agregar(b.patientId, "banos", b));
+      (vacunas || []).forEach(v => agregar(v.patientId, "vacunas", v));
+      (desparasitaciones || []).forEach(d => agregar(d.patientId, "desparasitacion", d));
+      (tratamientos || []).forEach(t => agregar(t.patientId, "tratamientos", t));
+    }
+    return lista.sort((a, b) => a.fecha < b.fecha ? -1 : 1);
+  })();
+  const construirMensajeVencido = (tipo, nombreCrudo) => {
+    const nombre = (nombreCrudo || "").trim();
+    if (tipo === "tratamientos") return `¿Ya se aplicó el tratamiento a ${nombre}?`;
+    const verbo = CONFIG_TIPO_VENCIDO[tipo]?.verbo;
+    if (verbo) return `¿Ya se ${verbo} a ${nombre}?`;
+    return `¿Ya se atendió a ${nombre}?`;
+  };
+  const [confirmandoVencido, setConfirmandoVencido] = useState(null); // { ejecutar, mensaje } | null
+  const [cancelandoVencido, setCancelandoVencido] = useState(null); // { ejecutar, nombre } | null
+  const [reagendandoVencidoId, setReagendandoVencidoId] = useState(null);
+  const [nuevaFechaVencido, setNuevaFechaVencido] = useState("");
+  const [nuevaHoraVencido, setNuevaHoraVencido] = useState("");
+  const confirmarVencido = ev => {
+    const cfg = CONFIG_TIPO_VENCIDO[ev.tipo];
+    const cambios = {
+      [cfg.campoFecha]: "",
+      [cfg.campoHora]: ""
+    };
+    if (cfg.campoConfirmado) cambios[cfg.campoConfirmado] = hoy;
+    cfg.onUpdate && cfg.onUpdate(ev.registro, cambios);
+  };
+  const cancelarVencido = ev => {
+    const cfg = CONFIG_TIPO_VENCIDO[ev.tipo];
+    cfg.onUpdate && cfg.onUpdate(ev.registro, {
+      [cfg.campoFecha]: "",
+      [cfg.campoHora]: ""
+    });
+  };
+  const guardarReagendarVencido = ev => {
+    if (!nuevaFechaVencido) return;
+    const cfg = CONFIG_TIPO_VENCIDO[ev.tipo];
+    cfg.onUpdate && cfg.onUpdate(ev.registro, {
+      [cfg.campoFecha]: nuevaFechaVencido,
+      [cfg.campoHora]: nuevaHoraVencido
+    });
+    setReagendandoVencidoId(null);
+    setNuevaFechaVencido("");
+    setNuevaHoraVencido("");
   };
   const dias = [{
     key: "hoy",
@@ -7477,7 +7664,108 @@ function TareasView({
       className: "text-xs font-semibold text-[#3D6B5C] shrink-0",
       style: styles.mono
     }, ev.hora)))));
-  }));
+  }), vencidos.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "mb-8"
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: styles.display,
+    className: "text-lg font-semibold mb-1"
+  }, "¿Qué pasó con estos pacientes?"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#6B7A72] mb-3"
+  }, "Quedaron con una fecha ya pasada, sin confirmar, reagendar ni cancelar."), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2"
+  }, vencidos.map(ev => /*#__PURE__*/React.createElement(React.Fragment, {
+    key: ev.id
+  }, reagendandoVencidoId === ev.id ? /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-sm font-medium mb-2"
+  }, "Reagendar ", ev.nombre), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 flex-wrap"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: nuevaFechaVencido,
+    onChange: e => setNuevaFechaVencido(e.target.value)
+  }), /*#__PURE__*/React.createElement(TextInput, {
+    type: "time",
+    value: nuevaHoraVencido,
+    onChange: e => setNuevaHoraVencido(e.target.value)
+  }), /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: () => guardarReagendarVencido(ev),
+    disabled: !nuevaFechaVencido,
+    icon: "✓"
+  }, "Guardar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => {
+      setReagendandoVencidoId(null);
+      setNuevaFechaVencido("");
+      setNuevaHoraVencido("");
+    }
+  }, "Cancelar"))) : /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: () => irAFicha(ev),
+    className: "flex items-center justify-between gap-3 cursor-pointer hover:opacity-80"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
+  }, ev.foto ? /*#__PURE__*/React.createElement("img", {
+    src: ev.foto,
+    alt: "",
+    className: "w-full h-full object-cover"
+  }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-sm truncate"
+  }, ev.nombre), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72] truncate"
+  }, ev.propietario || "Sin propietario"))), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs font-semibold shrink-0 text-right",
+    style: {
+      ...styles.mono,
+      color: "var(--accent-orange)"
+    }
+  }, formatDate(ev.fecha, config?.dateFormat), ev.hora && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("br", null), ev.hora))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mt-2"
+  }, /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => setConfirmandoVencido({
+      ejecutar: () => confirmarVencido(ev),
+      mensaje: construirMensajeVencido(ev.tipo, ev.nombre)
+    }),
+    icon: "✓"
+  }, "Ya se hizo"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => {
+      setReagendandoVencidoId(ev.id);
+      setNuevaFechaVencido(hoy);
+      setNuevaHoraVencido(ev.hora || "");
+    },
+    icon: "📅"
+  }, "Reagendar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => setCancelandoVencido({
+      ejecutar: () => cancelarVencido(ev),
+      nombre: ev.nombre
+    }),
+    icon: "✕",
+    danger: true
+  }, "Cancelar")))))))), confirmandoVencido && /*#__PURE__*/React.createElement(ConfirmModal, {
+    title: "¿Confirmar?",
+    message: confirmandoVencido.mensaje,
+    confirmLabel: "Sí, confirmar",
+    onConfirm: () => {
+      confirmandoVencido.ejecutar();
+      setConfirmandoVencido(null);
+    },
+    onCancel: () => setConfirmandoVencido(null)
+  }), cancelandoVencido && /*#__PURE__*/React.createElement(ConfirmModal, {
+    title: "¿Cancelar este aviso?",
+    message: `Se va a quitar el aviso pendiente de ${cancelandoVencido.nombre}, sin registrar que se hizo. ¿Continuar?`,
+    confirmLabel: "Sí, cancelar aviso",
+    danger: true,
+    onConfirm: () => {
+      cancelandoVencido.ejecutar();
+      setCancelandoVencido(null);
+    },
+    onCancel: () => setCancelandoVencido(null)
+  });
 }
 
 function AgendaView({
@@ -7490,7 +7778,11 @@ function AgendaView({
   setActive,
   setSelected,
   onSetPestanaInicial,
-  onUpdateVisita
+  onUpdateVisita,
+  onUpdateBano,
+  onUpdateVacuna,
+  onUpdateDesparasitacion,
+  onUpdateTratamiento
 }) {
   const [mesActual, setMesActual] = useState(() => {
     const d = new Date();
@@ -7530,7 +7822,9 @@ function AgendaView({
             foto: patient.foto,
             icon: "🛁",
             label: "Baño programado",
-            tab: "banos"
+            tab: "banos",
+            registro: b,
+            tipoAccion: "banos"
           }, "prog");
         }
         if (b.fecha && b.fecha !== b.proximoBano) {
@@ -7555,7 +7849,9 @@ function AgendaView({
             foto: p.foto,
             icon: "📅",
             label: "Cita",
-            tab: null
+            tab: null,
+            registro: p,
+            tipoAccion: "cita"
           }, "prog");
         }
       });
@@ -7570,7 +7866,9 @@ function AgendaView({
             foto: patient.foto,
             icon: "🛁",
             label: "Baño programado",
-            tab: "banos"
+            tab: "banos",
+            registro: b,
+            tipoAccion: "banos"
           }, "prog");
         }
         if (b.fecha && b.fecha !== b.proximoBano) {
@@ -7596,7 +7894,9 @@ function AgendaView({
             foto: patient.foto,
             icon: "💉",
             label: "Vacuna programada",
-            tab: "vacunas"
+            tab: "vacunas",
+            registro: v,
+            tipoAccion: "vacunas"
           }, "prog");
         }
         if (v.fechaAplicada && v.fechaAplicada !== v.proximaDosis) {
@@ -7622,7 +7922,9 @@ function AgendaView({
             foto: patient.foto,
             icon: "🐛",
             label: "Desparasitación programada",
-            tab: "desparasitacion"
+            tab: "desparasitacion",
+            registro: d,
+            tipoAccion: "desparasitacion"
           }, "prog");
         }
         if (d.fechaAplicada && d.fechaAplicada !== d.proximaDosis) {
@@ -7648,7 +7950,9 @@ function AgendaView({
             foto: patient.foto,
             icon: "🩹",
             label: "Tratamiento programado",
-            tab: "tratamientos"
+            tab: "tratamientos",
+            registro: t,
+            tipoAccion: "tratamientos"
           }, "prog");
         }
         if (t.fecha && t.fecha !== t.proximaAplicacion) {
@@ -7711,6 +8015,89 @@ function AgendaView({
       proximaVisitaHora: horaAgendar
     });
     cerrarAgendarCita();
+  };
+  // Confirmar/reagendar/cancelar directamente desde la Agenda, mismo
+  // mecanismo que en Inicio (ventana de confirmación + deslizar en
+  // celular vía SwipeRow) — solo aplica a los eventos "programados"
+  // (los "realizados" ya están hechos, no tienen nada que confirmar).
+  const CONFIG_TIPO_AGENDA = {
+    cita: {
+      onUpdate: onUpdateVisita,
+      campoFecha: "proximaVisita",
+      campoHora: "proximaVisitaHora",
+      campoConfirmado: null,
+      verbo: "atendió"
+    },
+    banos: {
+      onUpdate: onUpdateBano,
+      campoFecha: "proximoBano",
+      campoHora: "proximoBanoHora",
+      campoConfirmado: "fechaAtendido",
+      verbo: "bañó"
+    },
+    vacunas: {
+      onUpdate: onUpdateVacuna,
+      campoFecha: "proximaDosis",
+      campoHora: "proximaDosisHora",
+      campoConfirmado: "fechaAplicada",
+      verbo: "vacunó"
+    },
+    desparasitacion: {
+      onUpdate: onUpdateDesparasitacion,
+      campoFecha: "proximaDosis",
+      campoHora: "proximaDosisHora",
+      campoConfirmado: "fechaAplicada",
+      verbo: "desparasitó"
+    },
+    tratamientos: {
+      onUpdate: onUpdateTratamiento,
+      campoFecha: "proximaAplicacion",
+      campoHora: "proximaAplicacionHora",
+      campoConfirmado: "fecha",
+      verbo: null
+    }
+  };
+  const construirMensajeAgenda = (tipoAccion, nombreCrudo) => {
+    const nombre = (nombreCrudo || "").trim();
+    if (tipoAccion === "tratamientos") return `¿Ya se aplicó el tratamiento a ${nombre}?`;
+    const verbo = CONFIG_TIPO_AGENDA[tipoAccion]?.verbo;
+    if (verbo) return `¿Ya se ${verbo} a ${nombre}?`;
+    return `¿Ya se atendió a ${nombre}?`;
+  };
+  const [confirmandoAgenda, setConfirmandoAgenda] = useState(null); // { ejecutar, mensaje } | null
+  const [cancelandoAgenda, setCancelandoAgenda] = useState(null); // { ejecutar, nombre } | null
+  const [reagendandoAgendaId, setReagendandoAgendaId] = useState(null);
+  const [nuevaFechaAgendaEv, setNuevaFechaAgendaEv] = useState("");
+  const [nuevaHoraAgendaEv, setNuevaHoraAgendaEv] = useState("");
+  const confirmarEventoAgenda = ev => {
+    const cfg = CONFIG_TIPO_AGENDA[ev.tipoAccion];
+    if (!cfg) return;
+    const cambios = {
+      [cfg.campoFecha]: "",
+      [cfg.campoHora]: ""
+    };
+    if (cfg.campoConfirmado) cambios[cfg.campoConfirmado] = new Date().toISOString().slice(0, 10);
+    cfg.onUpdate && cfg.onUpdate(ev.registro, cambios);
+  };
+  const cancelarEventoAgenda = ev => {
+    const cfg = CONFIG_TIPO_AGENDA[ev.tipoAccion];
+    if (!cfg) return;
+    cfg.onUpdate && cfg.onUpdate(ev.registro, {
+      [cfg.campoFecha]: "",
+      [cfg.campoHora]: ""
+    });
+  };
+  const guardarReagendarAgenda = ev => {
+    if (!nuevaFechaAgendaEv) return;
+    const cfg = CONFIG_TIPO_AGENDA[ev.tipoAccion];
+    if (!cfg) return;
+    cfg.onUpdate && cfg.onUpdate(ev.registro, {
+      [cfg.campoFecha]: nuevaFechaAgendaEv,
+      [cfg.campoHora]: nuevaHoraAgendaEv
+    });
+    setReagendandoAgendaId(null);
+    setNuevaFechaAgendaEv("");
+    setNuevaHoraAgendaEv("");
   };
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-5 max-w-xl"
@@ -7821,8 +8208,9 @@ function AgendaView({
     className: "text-sm text-[#6B7A72]"
   }, esPeluquero ? "Sin baños programados este día." : "Sin eventos programados este día.") : /*#__PURE__*/React.createElement("div", {
     className: "space-y-2"
-  }, porFecha[diaSeleccionado].map(ev => /*#__PURE__*/React.createElement("button", {
-    key: ev.tab + ":" + ev.patientId,
+  }, porFecha[diaSeleccionado].map(ev => /*#__PURE__*/React.createElement(React.Fragment, {
+    key: ev.tab + ":" + ev.patientId + ":" + ev.label
+  }, !ev.tipoAccion ? /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       const patient = patients.find(p => p.id === ev.patientId);
       if (!patient) return;
@@ -7846,7 +8234,115 @@ function AgendaView({
   }, ev.propietario || "Sin propietario")), ev.hora && /*#__PURE__*/React.createElement("span", {
     className: "text-xs font-semibold text-[#3D6B5C] shrink-0",
     style: styles.mono
-  }, ev.hora))))));
+  }, ev.hora)) : reagendandoAgendaId === ev.tab + ":" + ev.patientId + ":" + ev.label ? /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-sm font-medium mb-2"
+  }, "Reagendar ", ev.nombre), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 flex-wrap"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: nuevaFechaAgendaEv,
+    onChange: e => setNuevaFechaAgendaEv(e.target.value)
+  }), /*#__PURE__*/React.createElement(TextInput, {
+    type: "time",
+    value: nuevaHoraAgendaEv,
+    onChange: e => setNuevaHoraAgendaEv(e.target.value)
+  }), /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: () => guardarReagendarAgenda(ev),
+    disabled: !nuevaFechaAgendaEv,
+    icon: "✓"
+  }, "Guardar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => {
+      setReagendandoAgendaId(null);
+      setNuevaFechaAgendaEv("");
+      setNuevaHoraAgendaEv("");
+    }
+  }, "Cancelar"))) : /*#__PURE__*/React.createElement(SwipeRow, {
+    onConfirmar: () => setConfirmandoAgenda({
+      ejecutar: () => confirmarEventoAgenda(ev),
+      mensaje: construirMensajeAgenda(ev.tipoAccion, ev.nombre)
+    }),
+    onReagendar: () => {
+      setNuevaFechaAgendaEv(diaSeleccionado);
+      setNuevaHoraAgendaEv(ev.hora || "");
+      setReagendandoAgendaId(ev.tab + ":" + ev.patientId + ":" + ev.label);
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: () => {
+      const patient = patients.find(p => p.id === ev.patientId);
+      if (!patient) return;
+      setActive("pacientes");
+      setSelected(patient);
+      if (ev.tab) onSetPestanaInicial && onSetPestanaInicial(ev.tab);
+    },
+    className: "flex items-center gap-3 cursor-pointer"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
+  }, ev.foto ? /*#__PURE__*/React.createElement("img", {
+    src: ev.foto,
+    alt: "",
+    className: "w-full h-full object-cover"
+  }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0 flex-1"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-sm"
+  }, ev.icon, " ", ev.label, ": ", ev.nombre), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72]"
+  }, ev.propietario || "Sin propietario")), ev.hora && /*#__PURE__*/React.createElement("span", {
+    className: "text-xs font-semibold text-[#3D6B5C] shrink-0",
+    style: styles.mono
+  }, ev.hora)), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mt-2"
+  }, /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: e => {
+      e.stopPropagation();
+      setConfirmandoAgenda({
+        ejecutar: () => confirmarEventoAgenda(ev),
+        mensaje: construirMensajeAgenda(ev.tipoAccion, ev.nombre)
+      });
+    },
+    icon: "✓"
+  }, "Confirmar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: e => {
+      e.stopPropagation();
+      setNuevaFechaAgendaEv(diaSeleccionado);
+      setNuevaHoraAgendaEv(ev.hora || "");
+      setReagendandoAgendaId(ev.tab + ":" + ev.patientId + ":" + ev.label);
+    },
+    icon: "📅"
+  }, "Reagendar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: e => {
+      e.stopPropagation();
+      setCancelandoAgenda({
+        ejecutar: () => cancelarEventoAgenda(ev),
+        nombre: ev.nombre
+      });
+    },
+    icon: "✕",
+    danger: true
+  }, "Cancelar")))))))), confirmandoAgenda && /*#__PURE__*/React.createElement(ConfirmModal, {
+    title: "¿Confirmar?",
+    message: confirmandoAgenda.mensaje,
+    confirmLabel: "Sí, confirmar",
+    onConfirm: () => {
+      confirmandoAgenda.ejecutar();
+      setConfirmandoAgenda(null);
+    },
+    onCancel: () => setConfirmandoAgenda(null)
+  }), cancelandoAgenda && /*#__PURE__*/React.createElement(ConfirmModal, {
+    title: "¿Cancelar este aviso?",
+    message: `Se va a quitar el aviso pendiente de ${cancelandoAgenda.nombre}, sin registrar que se hizo. ¿Continuar?`,
+    confirmLabel: "Sí, cancelar aviso",
+    danger: true,
+    onConfirm: () => {
+      cancelandoAgenda.ejecutar();
+      setCancelandoAgenda(null);
+    },
+    onCancel: () => setCancelandoAgenda(null)
+  }));
 }
 
 /* ---------------------------------------------------------
@@ -9033,10 +9529,18 @@ function PanelPropietarioView({
   const [panel, setPanel] = useState(null);
   const [cargando, setCargando] = useState(true);
   useEffect(() => {
-    store.get("panelPropietario").then(valor => {
-      setPanel(valor);
+    // Escucha en tiempo real (no una sola lectura) para que, en cuanto el
+    // robot vuelva a correr y actualice el resumen, esta pantalla se
+    // actualice sola sin tener que salir y volver a entrar.
+    if (!db || !currentUid) return;
+    const unsub = db.collection("users").doc(currentUid).collection("data").doc("panelPropietario").onSnapshot(doc => {
+      setPanel(doc.exists ? doc.data()?.value || null : null);
+      setCargando(false);
+    }, e => {
+      console.error("Error escuchando el panel:", e);
       setCargando(false);
     });
+    return unsub;
   }, []);
   // Eliminar una cuenta ajena (permanente: todos sus datos + su acceso de
   // inicio de sesión) — NO se borra directo desde aquí, porque esta app
@@ -9113,13 +9617,10 @@ function PanelPropietarioView({
     className: "text-xs text-[#6B7A72] mb-5",
     style: styles.mono
   }, "Actualizado: ", panel.actualizadoEn ? new Date(panel.actualizadoEn).toLocaleString("es-EC") : "—"), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-3 gap-3 mb-8"
+    className: "grid grid-cols-2 gap-3 mb-8 max-w-sm"
   }, /*#__PURE__*/React.createElement(StatCard, {
     label: "Clínicas",
     value: panel.totalClinicas || 0
-  }), /*#__PURE__*/React.createElement(StatCard, {
-    label: "Pacientes",
-    value: panel.totalPacientes || 0
   }), /*#__PURE__*/React.createElement(StatCard, {
     label: "Colaboradores",
     value: panel.totalColaboradores || 0
@@ -9146,10 +9647,7 @@ function PanelPropietarioView({
   }, "✉️ ", c.correo), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#A6A08F] mt-0.5",
     style: styles.mono
-  }, c.fechaRegistro ? new Date(c.fechaRegistro).toLocaleDateString("es-EC") : "Fecha de registro no disponible"), /*#__PURE__*/React.createElement("div", {
-    className: "text-[10px] text-[#A6A08F] truncate mt-0.5",
-    style: styles.mono
-  }, "ID: ", c.uid), (() => {
+  }, c.fechaRegistro ? new Date(c.fechaRegistro).toLocaleDateString("es-EC") : "Fecha de registro no disponible"), (() => {
     const bloqueadoEfectivo = bloqueosSolicitados[c.uid] !== undefined ? bloqueosSolicitados[c.uid] : c.bloqueado;
     return /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-3 mt-1.5 flex-wrap"
@@ -9189,7 +9687,7 @@ function PanelPropietarioView({
   })()), /*#__PURE__*/React.createElement("div", {
     className: "text-right text-xs text-[#6B7A72] shrink-0",
     style: styles.mono
-  }, /*#__PURE__*/React.createElement("div", null, "🐾 ", c.pacientes || 0), c.colaboradores > 0 && /*#__PURE__*/React.createElement("div", null, "🤝 ", c.colaboradores))))), confirmandoBloqueo && /*#__PURE__*/React.createElement(ConfirmModal, {
+  }, /*#__PURE__*/React.createElement("div", null, "🤝 ", c.colaboradores || 0))))), confirmandoBloqueo && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: confirmandoBloqueo.bloquear ? "Bloquear acceso" : "Desbloquear acceso",
     message: confirmandoBloqueo.bloquear ? `"${confirmandoBloqueo.clinica}" ya no va a poder iniciar sesión hasta que la desbloquees. Sus datos no se tocan. ¿Continuar?` : `"${confirmandoBloqueo.clinica}" va a poder volver a iniciar sesión normalmente. ¿Continuar?`,
     confirmLabel: confirmandoBloqueo.bloquear ? "Sí, bloquear" : "Sí, desbloquear",
@@ -9427,6 +9925,25 @@ function HomeScreen({
   const [pacienteAgendar, setPacienteAgendar] = useState(null);
   const [fechaAgendar, setFechaAgendar] = useState(() => new Date().toISOString().slice(0, 10));
   const [horaAgendar, setHoraAgendar] = useState("");
+  // Reordenar los "Accesos rápidos" manteniendo pulsada una tarjeta (solo
+  // tiene sentido en celular — en escritorio ya se puede ver todo de
+  // un vistazo). El orden elegido se guarda en la configuración de la
+  // cuenta, así que se mantiene entre dispositivos.
+  const [modoEdicionAccesos, setModoEdicionAccesos] = useState(false);
+  const tiempoPulsadoRef = useRef(null);
+  const iniciarPulsacionLarga = () => {
+    if (modoEdicionAccesos) return;
+    tiempoPulsadoRef.current = setTimeout(() => {
+      setModoEdicionAccesos(true);
+      if (navigator.vibrate) navigator.vibrate(15);
+    }, 550);
+  };
+  const cancelarPulsacionLarga = () => {
+    if (tiempoPulsadoRef.current) {
+      clearTimeout(tiempoPulsadoRef.current);
+      tiempoPulsadoRef.current = null;
+    }
+  };
   const cerrarAgendarCita = () => {
     setAgendandoCita(false);
     setPacienteAgendar(null);
@@ -9819,11 +10336,21 @@ function HomeScreen({
     label: "Exámenes",
     value: examenes.length,
     onClick: () => setActive("examenes")
-  })), (puedeVerTareas || puedeVerAgenda || puedeVerBanos || puedeVerVacunas || puedeVerDesparasitacion || puedeVerTratamientos || puedeVerReportes) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h2", {
-    className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
+  })), (puedeVerTareas || puedeVerAgenda || puedeVerBanos || puedeVerVacunas || puedeVerDesparasitacion || puedeVerTratamientos || puedeVerReportes) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-3"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-[11px] uppercase tracking-wider text-[#6B7A72]",
     style: styles.mono
-  }, "Accesos rápidos"), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 gap-3 mb-10 max-w-md"
+  }, "Accesos rápidos"), modoEdicionAccesos && /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => setModoEdicionAccesos(false)
+  }, "✓ Listo")), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-3 mb-10 max-w-md",
+    onTouchStart: iniciarPulsacionLarga,
+    onTouchEnd: cancelarPulsacionLarga,
+    onTouchMove: cancelarPulsacionLarga,
+    onMouseDown: iniciarPulsacionLarga,
+    onMouseUp: cancelarPulsacionLarga,
+    onMouseLeave: cancelarPulsacionLarga
   }, !esPeluquero && !modoColaborador && agendandoCita && /*#__PURE__*/React.createElement("div", {
     className: "col-span-2 bg-white border border-[#DDD5C4] rounded-lg p-4"
   }, /*#__PURE__*/React.createElement("h4", {
@@ -9865,53 +10392,78 @@ function HomeScreen({
     className: "flex justify-end mt-2"
   }, /*#__PURE__*/React.createElement(GhostButton, {
     onClick: cerrarAgendarCita
-  }, "Cancelar"))), puedeVerTareas && /*#__PURE__*/React.createElement(ActionCard, {
-    icon: "✅",
-    title: "Pendientes",
-    subtitle: "Todo lo de hoy, mañana y pasado mañana",
-    onClick: () => setActive("tareas")
-  }), puedeVerAgenda && /*#__PURE__*/React.createElement("div", {
-    className: "bg-white border border-[#DDD5C4] rounded-lg overflow-hidden hover:border-[#3D6B5C] hover:shadow-sm transition"
-  }, /*#__PURE__*/React.createElement("div", {
-    onClick: () => setActive("agenda"),
-    className: "p-5 flex items-start gap-4 cursor-pointer"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "w-11 h-11 rounded-full bg-[#EAF0EC] flex items-center justify-center text-xl shrink-0"
-  }, "📅"), /*#__PURE__*/React.createElement("div", {
-    className: "min-w-0 flex-1"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-[#23342F] break-words"
-  }, "Agenda"), /*#__PURE__*/React.createElement("div", {
-    className: "text-sm text-[#6B7A72] mt-0.5"
-  }, esPeluquero ? "Calendario de próximos baños" : "Calendario de próximas visitas"))), !esPeluquero && !modoColaborador && /*#__PURE__*/React.createElement("button", {
-    onClick: () => setAgendandoCita(true),
-    className: "w-full text-left border-t border-[#DDD5C4] px-5 py-2.5 text-xs font-medium text-[#3D6B5C] active:bg-[#EAF0EC] transition flex items-center gap-1.5"
-  }, "＋ Agendar cita rápida")), puedeVerBanos && /*#__PURE__*/React.createElement(ActionCard, {
-    icon: "🛁",
-    title: "Baños",
-    subtitle: "Todos los baños programados y su historial",
-    onClick: () => setActive("banos")
-  }), puedeVerVacunas && /*#__PURE__*/React.createElement(ActionCard, {
-    icon: "💉",
-    title: "Vacunas",
-    subtitle: "Próximas dosis y su historial",
-    onClick: () => setActive("vacunas")
-  }), puedeVerDesparasitacion && /*#__PURE__*/React.createElement(ActionCard, {
-    icon: "🐛",
-    title: "Desparasitación",
-    subtitle: "Próximas dosis y su historial",
-    onClick: () => setActive("desparasitacion")
-  }), puedeVerTratamientos && /*#__PURE__*/React.createElement(ActionCard, {
-    icon: "🩹",
-    title: "Tratamientos inyectables",
-    subtitle: "Pacientes con tratamiento inyectable registrado",
-    onClick: () => setActive("tratamientos")
-  }), puedeVerReportes && /*#__PURE__*/React.createElement(ActionCard, {
-    icon: "📊",
-    title: "Reportes",
-    subtitle: "Cobros totales por mes",
-    onClick: () => setActive("reportes")
-  })))), /*#__PURE__*/React.createElement("div", {
+  }, "Cancelar"))), (() => {
+    const tarjetasPorKey = {
+      tareas: puedeVerTareas && /*#__PURE__*/React.createElement(ActionCard, {
+        icon: "✅",
+        title: "Pendientes",
+        subtitle: "Todo lo de hoy, mañana y pasado mañana",
+        onClick: () => setActive("tareas")
+      }),
+      agenda: puedeVerAgenda && /*#__PURE__*/React.createElement("div", {
+        className: "bg-white border border-[#DDD5C4] rounded-lg overflow-hidden hover:border-[#3D6B5C] hover:shadow-sm transition"
+      }, /*#__PURE__*/React.createElement("div", {
+        onClick: () => setActive("agenda"),
+        className: "p-5 flex items-start gap-4 cursor-pointer"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "w-11 h-11 rounded-full bg-[#EAF0EC] flex items-center justify-center text-xl shrink-0"
+      }, "📅"), /*#__PURE__*/React.createElement("div", {
+        className: "min-w-0 flex-1"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "font-medium text-[#23342F] break-words"
+      }, "Agenda"), /*#__PURE__*/React.createElement("div", {
+        className: "text-sm text-[#6B7A72] mt-0.5"
+      }, esPeluquero ? "Calendario de próximos baños" : "Calendario de próximas visitas"))), !esPeluquero && !modoColaborador && /*#__PURE__*/React.createElement("button", {
+        onClick: () => setAgendandoCita(true),
+        className: "w-full text-left border-t border-[#DDD5C4] px-5 py-2.5 text-xs font-medium text-[#3D6B5C] active:bg-[#EAF0EC] transition flex items-center gap-1.5"
+      }, "＋ Agendar cita rápida")),
+      banos: puedeVerBanos && /*#__PURE__*/React.createElement(ActionCard, {
+        icon: "🛁",
+        title: "Baños",
+        subtitle: "Todos los baños programados y su historial",
+        onClick: () => setActive("banos")
+      }),
+      vacunas: puedeVerVacunas && /*#__PURE__*/React.createElement(ActionCard, {
+        icon: "💉",
+        title: "Vacunas",
+        subtitle: "Próximas dosis y su historial",
+        onClick: () => setActive("vacunas")
+      }),
+      desparasitacion: puedeVerDesparasitacion && /*#__PURE__*/React.createElement(ActionCard, {
+        icon: "🐛",
+        title: "Desparasitación",
+        subtitle: "Próximas dosis y su historial",
+        onClick: () => setActive("desparasitacion")
+      }),
+      tratamientos: puedeVerTratamientos && /*#__PURE__*/React.createElement(ActionCard, {
+        icon: "🩹",
+        title: "Tratamientos inyectables",
+        subtitle: "Pacientes con tratamiento inyectable registrado",
+        onClick: () => setActive("tratamientos")
+      }),
+      reportes: puedeVerReportes && /*#__PURE__*/React.createElement(ActionCard, {
+        icon: "📊",
+        title: "Reportes",
+        subtitle: "Cobros totales por mes",
+        onClick: () => setActive("reportes")
+      })
+    };
+    const ORDEN_DEFECTO_ACCESOS = ["tareas", "agenda", "banos", "vacunas", "desparasitacion", "tratamientos", "reportes"];
+    const ordenGuardado = (config?.ordenAccesosRapidos || []).filter(k => tarjetasPorKey[k]);
+    const ordenAccesosEfectivo = [...ordenGuardado, ...ORDEN_DEFECTO_ACCESOS.filter(k => !ordenGuardado.includes(k))];
+    return ordenAccesosEfectivo.filter(key => tarjetasPorKey[key]).map(key => /*#__PURE__*/React.createElement("div", {
+      key: key,
+      className: "relative" + (modoEdicionAccesos ? " animate-temblor" : "")
+    }, tarjetasPorKey[key], modoEdicionAccesos && /*#__PURE__*/React.createElement("div", {
+      className: "absolute -top-2 -right-2 flex gap-0.5 bg-white rounded-full shadow-md border border-[#DDD5C4] p-0.5 z-10"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => moverAccesoRapido(key, -1),
+      className: "w-6 h-6 rounded-full flex items-center justify-center text-xs text-[#6B7A72] hover:bg-[#EAF0EC]"
+    }, "◀"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => moverAccesoRapido(key, 1),
+      className: "w-6 h-6 rounded-full flex items-center justify-center text-xs text-[#6B7A72] hover:bg-[#EAF0EC]"
+    }, "▶"))));
+  })()))), /*#__PURE__*/React.createElement("div", {
     className: "mt-8 lg:mt-0 lg:w-80 lg:shrink-0 lg:sticky lg:top-8"
   }, /*#__PURE__*/React.createElement("div", {
     className: "hidden lg:block"
@@ -10634,6 +11186,14 @@ function VetApp() {
   const [dataLoaded, setDataLoaded] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
+  // Pantallas especiales para cuentas bloqueadas (Firebase Authentication
+  // rechaza el inicio de sesión con el código "auth/user-disabled") o
+  // eliminadas por el propietario (ver Panel) — este segundo caso se
+  // detecta comparando el correo contra sistema/cuentasEliminadas, ya que
+  // una vez borrada la cuenta de Authentication no queda ningún otro
+  // rastro con el que avisarle a la persona qué pasó.
+  const [cuentaBloqueada, setCuentaBloqueada] = useState(false);
+  const [cuentaEliminada, setCuentaEliminada] = useState(false);
   // Invitación por link para conectarse como colaborador (ver
   // leerInvitacionDesdeHash) y las solicitudes de colaboradores pendientes
   // de aprobar (llegan a la propia cuenta, ver ownCollectionStore).
@@ -10646,7 +11206,23 @@ function VetApp() {
     }
     let unsubscribe = () => {};
     try {
-      unsubscribe = firebase.auth().onAuthStateChanged(u => {
+      unsubscribe = firebase.auth().onAuthStateChanged(async u => {
+        if (u && db) {
+          try {
+            const registro = await db.collection("sistema").doc("cuentasEliminadas").get();
+            const correos = registro.exists ? registro.data()?.correos || [] : [];
+            if (u.email && correos.includes(u.email)) {
+              await firebase.auth().signOut();
+              currentUid = null;
+              setUser(null);
+              setCuentaEliminada(true);
+              return;
+            }
+          } catch (e) {
+            // Si esta verificación falla (por ejemplo sin conexión), no se
+            // bloquea el inicio de sesión por eso — sigue de largo.
+          }
+        }
         currentUid = u ? u.uid : null;
         setUser(u);
       });
@@ -10802,7 +11378,7 @@ function VetApp() {
       unsubConfig();
     };
   }, [user, dataLoaded, modoColaborador, seccionesColaborador, config?.rol]);
-  const handleSignIn = () => {
+  const handleSignIn = (forzarSelectorCuenta = true) => {
     setAuthError("");
     if (typeof firebase === "undefined") {
       setAuthError("No se pudo cargar el servicio de inicio de sesión. Revisa tu conexión e intenta de nuevo.");
@@ -10810,12 +11386,23 @@ function VetApp() {
     }
     setAuthLoading(true);
     const provider = new firebase.auth.GoogleAuthProvider();
-    // Pide siempre el selector de cuentas de Google, en vez de reutilizar
-    // automáticamente la última cuenta con la que se inició sesión.
-    provider.setCustomParameters({
-      prompt: "select_account"
-    });
-    firebase.auth().signInWithPopup(provider).catch(err => setAuthError("No se pudo iniciar sesión: " + (err.message || "intenta de nuevo."))).finally(() => setAuthLoading(false));
+    // Pide el selector de cuentas de Google normalmente, para no reutilizar
+    // automáticamente la última cuenta con la que se inició sesión — salvo
+    // cuando se está reintentando justo después de que una cuenta bloqueada
+    // se desbloqueó, donde sí conviene entrar directo con la misma cuenta
+    // de siempre, sin pedirle a la persona que la vuelva a elegir.
+    if (forzarSelectorCuenta) {
+      provider.setCustomParameters({
+        prompt: "select_account"
+      });
+    }
+    firebase.auth().signInWithPopup(provider).catch(err => {
+      if (err.code === "auth/user-disabled") {
+        setCuentaBloqueada(true);
+      } else {
+        setAuthError("No se pudo iniciar sesión: " + (err.message || "intenta de nuevo."));
+      }
+    }).finally(() => setAuthLoading(false));
   };
   const handleSignOut = async () => {
     // Apaga la suscripción de notificaciones de ESTE dispositivo antes de
@@ -11635,6 +12222,21 @@ function VetApp() {
       text: "Comprobando sesión..."
     });
   }
+  if (cuentaBloqueada) {
+    return /*#__PURE__*/React.createElement(CuentaEspecialScreen, {
+      tipo: "bloqueada",
+      onVolver: () => {
+        setCuentaBloqueada(false);
+        handleSignIn(false); // sin selector de cuentas: puede que ya la hayan desbloqueado
+      }
+    });
+  }
+  if (cuentaEliminada) {
+    return /*#__PURE__*/React.createElement(CuentaEspecialScreen, {
+      tipo: "eliminada",
+      onVolver: () => setCuentaEliminada(false)
+    });
+  }
   if (user === null) {
     return /*#__PURE__*/React.createElement(LoginScreen, {
       onSignIn: handleSignIn,
@@ -11934,7 +12536,12 @@ function VetApp() {
     config: config,
     setActive: setActive,
     setSelected: setSelected,
-    onSetPestanaInicial: setPestanaInicial
+    onSetPestanaInicial: setPestanaInicial,
+    onUpdateVisita: updatePatientVisita,
+    onUpdateBano: updateBano,
+    onUpdateVacuna: updateVacuna,
+    onUpdateDesparasitacion: updateDesparasitacion,
+    onUpdateTratamiento: updateTratamiento
   })), active === "agenda" && /*#__PURE__*/React.createElement(AgendaView, {
     patients: activePatients,
     banos: banosCombinados,
@@ -11945,7 +12552,11 @@ function VetApp() {
     setActive: setActive,
     setSelected: setSelected,
     onSetPestanaInicial: setPestanaInicial,
-    onUpdateVisita: updatePatientVisita
+    onUpdateVisita: updatePatientVisita,
+    onUpdateBano: updateBano,
+    onUpdateVacuna: updateVacuna,
+    onUpdateDesparasitacion: updateDesparasitacion,
+    onUpdateTratamiento: updateTratamiento
   }), active === "banos" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold mb-5"
@@ -12145,6 +12756,10 @@ function VetApp() {
     danger: true,
     onCancel: () => setPendingBackupData(null),
     onConfirm: confirmarRestaurarBackup
+  }), (solicitudesColaborador || []).length > 0 && active !== "config" && /*#__PURE__*/React.createElement(SolicitudColaboradorOverlay, {
+    solicitud: solicitudesColaborador[0],
+    onAceptar: aceptarSolicitudColaborador,
+    onRechazar: rechazarSolicitudColaborador
   }), mostrarNovedades && /*#__PURE__*/React.createElement(NovedadesModal, {
     onCerrar: cerrarNovedades
   })));
