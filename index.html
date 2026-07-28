@@ -10537,10 +10537,10 @@ function HomeScreen({
         onClick: () => setActive("tareas")
       }),
       agenda: puedeVerAgenda && /*#__PURE__*/React.createElement("div", {
-        className: "bg-white border border-[#DDD5C4] rounded-lg overflow-hidden hover:border-[#3D6B5C] hover:shadow-sm transition"
+        className: "bg-white border border-[#DDD5C4] rounded-lg overflow-hidden hover:border-[#3D6B5C] hover:shadow-sm transition h-full flex flex-col"
       }, /*#__PURE__*/React.createElement("div", {
         onClick: () => setActive("agenda"),
-        className: "p-5 flex items-start gap-4 cursor-pointer"
+        className: "p-5 flex items-start gap-4 cursor-pointer flex-1"
       }, /*#__PURE__*/React.createElement("div", {
         className: "w-11 h-11 rounded-full bg-[#EAF0EC] flex items-center justify-center text-xl shrink-0"
       }, "📅"), /*#__PURE__*/React.createElement("div", {
