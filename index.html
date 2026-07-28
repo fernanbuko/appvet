@@ -7279,7 +7279,17 @@ function LoginScreen({
     className: "inline-flex items-center gap-3 bg-white border border-[#DDD5C4] rounded-md px-5 py-3 text-sm font-medium hover:shadow-sm transition disabled:opacity-50"
   }, /*#__PURE__*/React.createElement(GoogleIcon, null), loading ? "Conectando..." : "Iniciar sesión con Google")), error && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#B14E1C] mt-4"
-  }, error)));
+  }, error), /*#__PURE__*/React.createElement("p", {
+    className: "text-[10px] text-[#A6A08F] mt-6",
+    style: styles.mono
+  }, "🔧 Diagnóstico temporal — respaldo guardado: ", (() => {
+    try {
+      const guardada = localStorage.getItem("vd_ultima_sesion");
+      return guardada ? "SÍ hay (" + (JSON.parse(guardada).email || "sin correo") + ")" : "NO hay nada guardado";
+    } catch (e) {
+      return "error leyendo: " + e.message;
+    }
+  })(), " · conexión: ", typeof navigator !== "undefined" && navigator.onLine ? "reporta ONLINE" : "reporta OFFLINE")));
 }
 
 /* ---------------------------------------------------------
