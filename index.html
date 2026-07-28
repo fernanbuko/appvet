@@ -10027,8 +10027,23 @@ function HomeScreen({
       targetArrastreRef.current = nuevoTarget;
       setTargetArrastre(nuevoTarget); // esto es solo para el resaltado visual
     };
-    const alSoltar = () => {
-      const targetFinal = targetArrastreRef.current;
+    const alSoltar = e => {
+      // En un arrastre rápido, el último "touchmove" registrado puede
+      // quedar un instante atrás de dónde realmente estaba el dedo al
+      // soltar (los eventos de movimiento no siempre alcanzan a
+      // reportarse tan seguido). Por eso, en vez de confiar solo en el
+      // último valor guardado, se vuelve a calcular AQUÍ MISMO, con la
+      // posición exacta del evento de soltar.
+      let targetFinal = targetArrastreRef.current;
+      const touchFinal = e && e.changedTouches ? e.changedTouches[0] : e;
+      if (touchFinal && typeof touchFinal.clientX === "number") {
+        const elemento = document.elementFromPoint(touchFinal.clientX, touchFinal.clientY);
+        const tarjetaDebajo = elemento && elemento.closest("[data-orden-key]");
+        const keyDebajo = tarjetaDebajo && tarjetaDebajo.getAttribute("data-orden-key");
+        if (keyDebajo && keyDebajo !== arrastrandoKey) {
+          targetFinal = keyDebajo;
+        }
+      }
       setOrdenAccesos(cur => {
         let nuevo = cur;
         if (targetFinal) {
