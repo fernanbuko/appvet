@@ -11516,23 +11516,26 @@ function VetApp() {
             // renovarlo SIN internet, esa renovación puede fallar (o
             // quedarse colgada) y Firebase termina reportando "sin
             // sesión" — aunque la persona sí tenga una sesión guardada y
-            // solo esté sin conexión. Por eso, si de verdad no hay
-            // conexión Y hay una sesión guardada de la última vez que sí
-            // se confirmó, se usa esa en vez de mandar a la persona al
-            // login — la propia app y Firestore (con su caché local) se
-            // encargan de que todo siga funcionando con esos datos.
+            // solo esté sin conexión. Por eso, si hay una sesión guardada
+            // de la última vez que sí se confirmó, se usa esa en vez de
+            // mandar a la persona al login — la propia app y Firestore
+            // (con su caché local) se encargan de que todo siga
+            // funcionando con esos datos. (No se usa navigator.onLine
+            // para decidir esto — ese dato no es confiable: puede decir
+            // "conectado" solo porque hay señal o wifi, aunque no llegue
+            // internet de verdad. Esta copia de respaldo se borra sola
+            // en cuanto alguien cierra sesión a propósito, así que no
+            // hay riesgo de que se quede "pegada" a la cuenta anterior.)
             if (temporizadorSinSesion) clearTimeout(temporizadorSinSesion);
             temporizadorSinSesion = setTimeout(() => {
-              if (navigator.onLine === false) {
-                try {
-                  const guardada = JSON.parse(localStorage.getItem("vd_ultima_sesion") || "null");
-                  if (guardada && guardada.uid) {
-                    currentUid = guardada.uid;
-                    setUser(guardada);
-                    return;
-                  }
-                } catch (e) {}
-              }
+              try {
+                const guardada = JSON.parse(localStorage.getItem("vd_ultima_sesion") || "null");
+                if (guardada && guardada.uid) {
+                  currentUid = guardada.uid;
+                  setUser(guardada);
+                  return;
+                }
+              } catch (e) {}
               currentUid = null;
               setUser(null);
             }, 400);
@@ -11756,6 +11759,12 @@ function VetApp() {
     } catch (e) {
       console.error("Error cerrando sesión:", e);
     }
+    // Se borra la copia de respaldo de la sesión — si no, la próxima vez
+    // que se abra la app sin conexión, podría "reconectar" por error con
+    // la cuenta de la que la persona ACABA de salir a propósito.
+    try {
+      localStorage.removeItem("vd_ultima_sesion");
+    } catch (e) {}
     setShowGreeting(true);
     setActive("inicio");
   };
@@ -11770,7 +11779,6 @@ function VetApp() {
   const [confirmarEliminarPaso, setConfirmarEliminarPaso] = useState(0);
   const [textoConfirmacionEliminar, setTextoConfirmacionEliminar] = useState("");
   const handleDeleteAccount = () => {
-    showToast("🔧 Diagnóstico: el botón sí respondió al toque.");
     if (deletingAccount) return;
     setConfirmarEliminarPaso(1);
   };
