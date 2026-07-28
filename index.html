@@ -10601,7 +10601,7 @@ function HomeScreen({
           e.stopPropagation();
         }
       },
-      className: "relative select-none h-full rounded-lg" + (modoEdicionAccesos && arrastrandoKey !== key && !(arrastrandoKey && targetArrastre) ? " animate-temblor" : ""),
+      className: "relative select-none h-full rounded-lg" + (modoEdicionAccesos && !arrastrandoKey ? " animate-temblor" : ""),
       style: arrastrandoKey === key ? {
         transform: `translate(${offsetArrastre.x}px, ${offsetArrastre.y}px) scale(1.04)`,
         zIndex: 50,
