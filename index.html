@@ -10045,22 +10045,35 @@ function HomeScreen({
         x: dx,
         y: dy
       });
-      const elemento = document.elementFromPoint(touch.clientX, touch.clientY);
-      const tarjetaDebajo = elemento && elemento.closest("[data-orden-key]");
-      const keyDebajo = tarjetaDebajo && tarjetaDebajo.getAttribute("data-orden-key");
+      // En vez de preguntarle al navegador "qué elemento hay debajo del
+      // dedo" (elementFromPoint puede fallar por pointer-events, z-index,
+      // u otros elementos de por medio), se usa geometría simple y
+      // confiable: ¿el dedo cae DENTRO de la posición ORIGINAL (fija,
+      // medida al empezar a arrastrar) de alguna tarjeta?
+      const rects = rectsOriginalesRef.current;
+      let encontrado = null;
+      for (const key in rects) {
+        const r = rects[key];
+        if (touch.clientX >= r.left && touch.clientX <= r.right && touch.clientY >= r.top && touch.clientY <= r.bottom) {
+          encontrado = key;
+          break;
+        }
+      }
       let nuevoTarget;
-      if (keyDebajo && keyDebajo !== arrastrandoKey) {
-        // Hay una tarjeta válida justo debajo del dedo: ese es el destino.
-        nuevoTarget = keyDebajo;
+      if (encontrado === arrastrandoKey) {
+        // El dedo volvió a caer sobre la posición ORIGINAL de la tarjeta
+        // que se arrastra — es una señal clara de "quiero regresar todo
+        // como estaba", así que se cancela de inmediato (sin esperar
+        // nada).
+        nuevoTarget = null;
+        sinDestinoDesdeRef.current = null;
+      } else if (encontrado) {
+        nuevoTarget = encontrado;
         sinDestinoDesdeRef.current = null;
       } else {
-        // No hay ninguna tarjeta debajo en este instante — puede ser que
-        // el dedo esté pasando por el huequito milimétrico ENTRE dos
-        // tarjetas (un cruce de una fracción de segundo), o puede ser que
-        // de verdad se haya alejado (por ejemplo, volvió a la posición
-        // original para cancelar el cambio). Para no "olvidar" el
-        // destino de golpe por un simple cruce de huequito, se le da un
-        // margen breve (120ms) antes de soltarlo de verdad.
+        // El dedo cayó en el huequito entre tarjetas (no dentro de
+        // ninguna) — se mantiene el último destino un instante, para no
+        // perderlo por un cruce milimétrico y causar parpadeo.
         if (sinDestinoDesdeRef.current === null) sinDestinoDesdeRef.current = Date.now();
         const llevaTiempoSinDestino = Date.now() - sinDestinoDesdeRef.current > 120;
         nuevoTarget = llevaTiempoSinDestino ? null : targetArrastreRef.current;
@@ -10074,16 +10087,21 @@ function HomeScreen({
       // soltar (los eventos de movimiento no siempre alcanzan a
       // reportarse tan seguido). Por eso, en vez de confiar solo en el
       // último valor guardado, se vuelve a calcular AQUÍ MISMO, con la
-      // posición exacta del evento de soltar.
+      // posición exacta del evento de soltar — usando la misma geometría
+      // fija (no elementFromPoint) que el resto del arrastre.
       let targetFinal = targetArrastreRef.current;
       const touchFinal = e && e.changedTouches ? e.changedTouches[0] : e;
       if (touchFinal && typeof touchFinal.clientX === "number") {
-        const elemento = document.elementFromPoint(touchFinal.clientX, touchFinal.clientY);
-        const tarjetaDebajo = elemento && elemento.closest("[data-orden-key]");
-        const keyDebajo = tarjetaDebajo && tarjetaDebajo.getAttribute("data-orden-key");
-        if (keyDebajo && keyDebajo !== arrastrandoKey) {
-          targetFinal = keyDebajo;
+        const rects = rectsOriginalesRef.current;
+        let encontrado = null;
+        for (const key in rects) {
+          const r = rects[key];
+          if (touchFinal.clientX >= r.left && touchFinal.clientX <= r.right && touchFinal.clientY >= r.top && touchFinal.clientY <= r.bottom) {
+            encontrado = key;
+            break;
+          }
         }
+        targetFinal = encontrado === arrastrandoKey ? null : encontrado || targetFinal;
       }
       setOrdenAccesos(cur => {
         let nuevo = cur;
