@@ -1,9 +1,29 @@
-const CACHE_NAME = "vetdata-v4";
-const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
+const CACHE_NAME = "vetdata-v5";
+// Los 4 scripts de Firebase se cargan desde el servidor de Google
+// (gstatic.com), no desde este mismo sitio — por eso hay que guardarlos
+// aparte a propósito. Sin ellos guardados, sin internet la librería de
+// Firebase nunca llega a cargar, y la app se queda pegada para siempre
+// esperándola (nunca llega ni a mostrar el login de verdad ni los datos
+// guardados).
+const ASSETS_FIREBASE = [
+  "https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js",
+  "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js",
+  "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js",
+  "https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js"
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)).catch(() => {})
+    caches.open(CACHE_NAME).then(async (cache) => {
+      // El resto del sitio (archivos propios) se cachea junto, todo o
+      // nada — si alguno falla es señal de un problema real.
+      await cache.addAll(["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"]).catch(() => {});
+      // Los scripts de Firebase se guardan APARTE, uno por uno: si alguno
+      // fallara al guardarse (por ejemplo, por un problema pasajero de
+      // CORS con el servidor de Google), no debe tumbar el guardado de
+      // TODO lo demás — mejor guardar los que sí se puedan.
+      await Promise.all(ASSETS_FIREBASE.map((url) => cache.add(url).catch(() => {})));
+    })
   );
   self.skipWaiting();
 });
@@ -20,9 +40,10 @@ self.addEventListener("activate", (event) => {
 // Estrategia: primero red, y si falla (sin conexión), usa lo que haya en caché.
 // Así siempre ves la versión más reciente cuando hay internet, y la app sigue
 // abriendo aunque no haya conexión.
-// IMPORTANTE: solo se aplica a peticiones del propio sitio; las peticiones a
-// Firebase/Google (login, base de datos) se dejan pasar sin tocar, para no
-// interferir con el inicio de sesión ni la sincronización de datos.
+// IMPORTANTE: se aplica a los archivos del propio sitio Y a los 4
+// scripts de Firebase (ver ASSETS_FIREBASE) — las demás peticiones a
+// Firebase (el inicio de sesión en sí, la base de datos) se dejan pasar
+// sin tocar, para no interferir con la sincronización de datos.
 //
 // "cache: no-store" en el fetch: evita que el propio navegador (no solo este
 // Service Worker) devuelva una copia intermedia guardada por su cuenta —
@@ -53,7 +74,9 @@ function fetchConLimiteDeTiempo(request, milisegundos) {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
-  if (!event.request.url.startsWith(self.location.origin)) return;
+  const esDelPropioSitio = event.request.url.startsWith(self.location.origin);
+  const esScriptDeFirebase = ASSETS_FIREBASE.includes(event.request.url);
+  if (!esDelPropioSitio && !esScriptDeFirebase) return;
 
   event.respondWith(
     fetchConLimiteDeTiempo(event.request, 4000)
