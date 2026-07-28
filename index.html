@@ -11729,6 +11729,7 @@ function VetApp() {
   const [confirmarEliminarPaso, setConfirmarEliminarPaso] = useState(0);
   const [textoConfirmacionEliminar, setTextoConfirmacionEliminar] = useState("");
   const handleDeleteAccount = () => {
+    showToast("🔧 Diagnóstico: el botón sí respondió al toque.");
     if (deletingAccount) return;
     setConfirmarEliminarPaso(1);
   };
@@ -11736,7 +11737,7 @@ function VetApp() {
     setConfirmarEliminarPaso(0);
     setTextoConfirmacionEliminar("");
   };
-  useCerrarConAtras(confirmarEliminarPaso === 2, cerrarModalEliminarCuenta);
+  useCerrarConAtras(confirmarEliminarPaso > 0, cerrarModalEliminarCuenta);
   const ejecutarEliminacionCuenta = async () => {
     if (textoConfirmacionEliminar !== "ELIMINAR") return;
     cerrarModalEliminarCuenta();
@@ -12966,14 +12967,28 @@ function VetApp() {
     onClick: handleDeleteAccount,
     icon: "🗑️",
     danger: true
-  }, deletingAccount ? "Eliminando..." : "Eliminar cuenta y todos mis datos")), confirmarEliminarPaso === 1 && /*#__PURE__*/React.createElement(ConfirmModal, {
-    title: "Eliminar cuenta",
-    message: "Esto va a ELIMINAR PERMANENTEMENTE tu cuenta y TODOS tus datos (pacientes, recetas, exámenes, historial médico). No se puede deshacer.",
-    confirmLabel: "Continuar",
-    danger: true,
-    onCancel: cerrarModalEliminarCuenta,
-    onConfirm: () => setConfirmarEliminarPaso(2)
-  }), confirmarEliminarPaso === 2 && /*#__PURE__*/React.createElement("div", {
+  }, deletingAccount ? "Eliminando..." : "Eliminar cuenta y todos mis datos")), confirmarEliminarPaso === 1 && /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 flex items-center justify-center p-4",
+    style: {
+      background: "rgba(0,0,0,.5)"
+    },
+    onClick: cerrarModalEliminarCuenta
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-lg p-6 max-w-sm w-full",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: styles.display,
+    className: "text-lg font-semibold text-[#23342F] mb-2"
+  }, "Eliminar cuenta"), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-[#6B7A72] mb-6 whitespace-pre-line"
+  }, "Esto va a ELIMINAR PERMANENTEMENTE tu cuenta y TODOS tus datos (pacientes, recetas, exámenes, historial médico). No se puede deshacer."), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 justify-end flex-wrap"
+  }, /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: cerrarModalEliminarCuenta
+  }, "Cancelar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => setConfirmarEliminarPaso(2),
+    danger: true
+  }, "Continuar")))), confirmarEliminarPaso === 2 && /*#__PURE__*/React.createElement("div", {
     className: "fixed inset-0 z-50 flex items-center justify-center p-4",
     style: {
       background: "rgba(0,0,0,.5)"
