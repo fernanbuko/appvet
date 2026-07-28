@@ -961,6 +961,7 @@ async function actualizarPanelPropietario() {
         correo,
         bloqueado,
         clinica: config.clinica || "(sin nombre)",
+        logo: config.logo || "",
         doctorNombres: config.doctorNombres || "",
         rol: config.rol || "veterinario",
         fechaRegistro: config.fechaRegistro || null,
