@@ -1,4 +1,4 @@
-const CACHE_NAME = "vetdata-v3";
+const CACHE_NAME = "vetdata-v4";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -62,7 +62,30 @@ self.addEventListener("fetch", (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         return response;
       })
-      .catch(() => caches.match(event.request))
+      .catch(async () => {
+        // Primero se busca una coincidencia exacta con lo que se pidió
+        // (ignorando "?parámetros" en la URL, que no cambian qué archivo
+        // es).
+        const exacto = await caches.match(event.request, { ignoreSearch: true });
+        if (exacto) return exacto;
+        // Si de todos modos no hay coincidencia exacta y esto es abrir la
+        // app (no pedir una imagen o un archivo suelto) — por ejemplo, en
+        // iPhone, abrir la app "Agregada a pantalla de inicio" a veces
+        // hace la petición con una URL que no es idéntica, letra por
+        // letra, a la guardada — se usa la página principal guardada de
+        // todos modos. Es mejor mostrar la app (aunque tenga que volver a
+        // pedir esa URL exacta después) que una pantalla en blanco.
+        if (event.request.mode === "navigate") {
+          const indice = await caches.match("./index.html") || await caches.match("./");
+          if (indice) return indice;
+        }
+        return new Response("Sin conexión y todavía no hay una copia guardada de esto. Abre la app una vez con internet primero.", {
+          status: 503,
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8"
+          }
+        });
+      })
   );
 });
 
