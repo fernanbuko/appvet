@@ -7731,7 +7731,7 @@ function TareasView({
     }),
     icon: "✕",
     danger: true
-  }, "Cancelar")))))))), confirmandoVencido && /*#__PURE__*/React.createElement(ConfirmModal, {
+  }, "Cancelar"))))))), confirmandoVencido && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
     message: confirmandoVencido.mensaje,
     confirmLabel: "Sí, confirmar",
@@ -7750,7 +7750,7 @@ function TareasView({
       setCancelandoVencido(null);
     },
     onCancel: () => setCancelandoVencido(null)
-  });
+  }));
 }
 
 function AgendaView({
