@@ -10069,6 +10069,37 @@ function HomeScreen({
       document.removeEventListener("mouseup", alSoltar);
     };
   }, [arrastrandoKey]);
+  // Mientras se arrastra, se calcula (SIN tocar el orden real todavía) qué
+  // tan lejos se tiene que "correr" visualmente cada tarjeta de en medio
+  // para hacerle espacio a la que se está arrastrando — dando el efecto
+  // de "reordenar cartas" en vivo. El orden real solo se aplica al
+  // soltar (por eso no se toca aquí), midiendo directamente dónde están
+  // las tarjetas en la pantalla en ese momento.
+  const previsualizacionArrastre = useMemo(() => {
+    if (!arrastrandoKey || !targetArrastre) return {};
+    const i = ordenAccesos.indexOf(arrastrandoKey);
+    const j = ordenAccesos.indexOf(targetArrastre);
+    if (i < 0 || j < 0 || i === j) return {};
+    const offsets = {};
+    const dir = i < j ? -1 : 1;
+    const desde = i < j ? i + 1 : j;
+    const hasta = i < j ? j : i - 1;
+    for (let k = desde; k <= hasta; k++) {
+      const keyActual = ordenAccesos[k];
+      const keyDestino = ordenAccesos[k + dir];
+      const elActual = document.querySelector(`[data-orden-key="${keyActual}"]`);
+      const elDestino = document.querySelector(`[data-orden-key="${keyDestino}"]`);
+      if (elActual && elDestino) {
+        const rectActual = elActual.getBoundingClientRect();
+        const rectDestino = elDestino.getBoundingClientRect();
+        offsets[keyActual] = {
+          x: rectDestino.left - rectActual.left,
+          y: rectDestino.top - rectActual.top
+        };
+      }
+    }
+    return offsets;
+  }, [arrastrandoKey, targetArrastre, ordenAccesos]);
   const hoy = new Date().toISOString().slice(0, 10);
   const en30dias = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   // Todo lo que toca justo HOY, de cualquier sección — para la sección
@@ -10554,7 +10585,7 @@ function HomeScreen({
           e.stopPropagation();
         }
       },
-      className: "relative select-none h-full rounded-lg" + (modoEdicionAccesos && arrastrandoKey !== key ? " animate-temblor" : ""),
+      className: "relative select-none h-full rounded-lg" + (modoEdicionAccesos && arrastrandoKey !== key && !previsualizacionArrastre[key] ? " animate-temblor" : ""),
       style: arrastrandoKey === key ? {
         transform: `translate(${offsetArrastre.x}px, ${offsetArrastre.y}px) scale(1.04)`,
         zIndex: 50,
@@ -10562,6 +10593,9 @@ function HomeScreen({
         transition: "none",
         touchAction: "none",
         pointerEvents: "none"
+      } : previsualizacionArrastre[key] ? {
+        transform: `translate(${previsualizacionArrastre[key].x}px, ${previsualizacionArrastre[key].y}px)`,
+        transition: "transform 0.2s ease"
       } : targetArrastre === key ? {
         boxShadow: "0 0 0 2px var(--accent-green) inset"
       } : undefined
