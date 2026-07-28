@@ -11293,37 +11293,66 @@ function VetApp() {
   const [invitacion, setInvitacion] = useState(() => leerInvitacionDesdeHash());
   const [solicitudesColaborador, setSolicitudesColaborador] = useState([]);
   useEffect(() => {
-    if (!firebaseReady || typeof firebase === "undefined" || !db) {
-      setUser(null);
-      return;
-    }
     let unsubscribe = () => {};
-    try {
-      unsubscribe = firebase.auth().onAuthStateChanged(async u => {
-        if (u && db) {
-          try {
-            const registro = await db.collection("sistema").doc("cuentasEliminadas").get();
-            const correos = registro.exists ? registro.data()?.correos || [] : [];
-            if (u.email && correos.includes(u.email)) {
-              await firebase.auth().signOut();
-              currentUid = null;
-              setUser(null);
-              setCuentaEliminada(true);
-              return;
-            }
-          } catch (e) {
-            // Si esta verificación falla (por ejemplo sin conexión), no se
-            // bloquea el inicio de sesión por eso — sigue de largo.
-          }
+    let cancelado = false;
+    let intentoDeReintento = null;
+    let intentos = 0;
+    const intentarConectar = () => {
+      if (cancelado) return;
+      // Si Firebase todavía no está configurado de verdad (API key de
+      // ejemplo sin reemplazar), ahí sí no hay sesión posible — se avisa
+      // de una vez. PERO si "firebase"/"db" simplemente no han terminado
+      // de cargar todavía (una fracción de segundo justo al abrir la
+      // app), NO se debe asumir "sin sesión" — hay que esperar un poco y
+      // reintentar, para no mostrar por error la pantalla de "Iniciar
+      // sesión con Google" mientras la sesión real sigue cargando. Eso
+      // sí, con un límite (unos 15 segundos) por si de verdad nunca
+      // llega a cargar (por ejemplo, un bloqueador de anuncios).
+      if (!firebaseReady) {
+        setUser(null);
+        return;
+      }
+      if (typeof firebase === "undefined" || !db) {
+        intentos++;
+        if (intentos > 100) {
+          setUser(null);
+          return;
         }
-        currentUid = u ? u.uid : null;
-        setUser(u);
-      });
-    } catch (e) {
-      console.error("No se pudo iniciar el observador de sesión:", e);
-      setUser(null);
-    }
-    return unsubscribe;
+        intentoDeReintento = setTimeout(intentarConectar, 150);
+        return;
+      }
+      try {
+        unsubscribe = firebase.auth().onAuthStateChanged(async u => {
+          if (u && db) {
+            try {
+              const registro = await db.collection("sistema").doc("cuentasEliminadas").get();
+              const correos = registro.exists ? registro.data()?.correos || [] : [];
+              if (u.email && correos.includes(u.email)) {
+                await firebase.auth().signOut();
+                currentUid = null;
+                setUser(null);
+                setCuentaEliminada(true);
+                return;
+              }
+            } catch (e) {
+              // Si esta verificación falla (por ejemplo sin conexión), no se
+              // bloquea el inicio de sesión por eso — sigue de largo.
+            }
+          }
+          currentUid = u ? u.uid : null;
+          setUser(u);
+        });
+      } catch (e) {
+        console.error("No se pudo iniciar el observador de sesión:", e);
+        setUser(null);
+      }
+    };
+    intentarConectar();
+    return () => {
+      cancelado = true;
+      if (intentoDeReintento) clearTimeout(intentoDeReintento);
+      unsubscribe();
+    };
   }, []);
   useEffect(() => {
     if (!user) {
