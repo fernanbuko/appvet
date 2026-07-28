@@ -1494,8 +1494,12 @@ function GhostButton({
    la cuenta (no en este dispositivo), así que aparece una sola
    vez sin importar en cuántos celulares/computadoras entres.
 ----------------------------------------------------------*/
-const VERSION_NOVEDADES = "2026-07-28";
+const VERSION_NOVEDADES = "2026-07-28-2";
 const NOVEDADES = [{
+  icono: "🔒",
+  titulo: "Horarios reservados de colaboradores",
+  descripcion: "Si un peluquero/a colaborador ya tiene ocupada una hora con un cliente propio, ahora aparece en tu Agenda como \"Reservado\" — sin mostrarte quién es, solo para que no le agendes encima."
+}, {
   icono: "❓",
   titulo: "¿Qué pasó con estos pacientes?",
   descripcion: "Nueva sección dentro de Pendientes: todo lo que quedó con una fecha ya pasada sin confirmar, reagendar ni cancelar, en un solo lugar."
@@ -7776,7 +7780,8 @@ function AgendaView({
   onUpdateBano,
   onUpdateVacuna,
   onUpdateDesparasitacion,
-  onUpdateTratamiento
+  onUpdateTratamiento,
+  horariosOcupadosColaboradores
 }) {
   const [mesActual, setMesActual] = useState(() => {
     const d = new Date();
@@ -7962,12 +7967,28 @@ function AgendaView({
         }
       });
     }
+    // Horarios que un colaborador (peluquero/a) ya tiene ocupados con
+    // clientes PROPIOS suyos — se muestran solo como "Reservado", sin
+    // ningún dato del cliente (a propósito: la clínica nunca debe verlo).
+    (horariosOcupadosColaboradores || []).forEach(datosColab => {
+      (datosColab.horarios || []).forEach((h, i) => {
+        agregar(h.fecha, h.hora, {
+          patientId: "reservado-" + datosColab.colaboradorNombre + "-" + i,
+          nombre: null,
+          propietario: null,
+          foto: null,
+          icon: "🔒",
+          label: `Reservado — ${datosColab.colaboradorNombre} — Cliente personal`,
+          tab: null
+        }, "reservado");
+      });
+    });
     const mapArrays = {};
     Object.entries(map).forEach(([fecha, porClave]) => {
       mapArrays[fecha] = Object.values(porClave).sort((a, b) => (a.hora || "99:99") < (b.hora || "99:99") ? -1 : 1);
     });
     return mapArrays;
-  }, [patients, banos, vacunas, desparasitaciones, tratamientos, esPeluquero]);
+  }, [patients, banos, vacunas, desparasitaciones, tratamientos, esPeluquero, horariosOcupadosColaboradores]);
   const {
     year,
     month
@@ -8204,7 +8225,18 @@ function AgendaView({
     className: "space-y-2"
   }, porFecha[diaSeleccionado].map(ev => /*#__PURE__*/React.createElement(React.Fragment, {
     key: ev.tab + ":" + ev.patientId + ":" + ev.label
-  }, !ev.tipoAccion ? /*#__PURE__*/React.createElement("button", {
+  }, ev.tipoAccion === undefined && ev.patientId && ev.patientId.startsWith("reservado-") ? /*#__PURE__*/React.createElement("div", {
+    className: "w-full bg-[#F7F4EC] border border-dashed border-[#DDD5C4] rounded-lg p-3 flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-9 h-9 rounded-full bg-[#EAF0EC] flex items-center justify-center shrink-0"
+  }, ev.icon), /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0 flex-1"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-sm text-[#6B7A72]"
+  }, ev.label)), ev.hora && /*#__PURE__*/React.createElement("span", {
+    className: "text-xs font-semibold text-[#6B7A72] shrink-0",
+    style: styles.mono
+  }, ev.hora)) : !ev.tipoAccion ? /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       const patient = patients.find(p => p.id === ev.patientId);
       if (!patient) return;
@@ -11302,9 +11334,28 @@ function VetApp() {
   // cuenta — siempre en la cuenta de uno mismo, nunca en la del dueño ni
   // compartida, por eso se maneja con ownCollectionStore.
   const [notificaciones, setNotificaciones] = useState([]);
+  // Horarios ocupados de los colaboradores (peluqueros/as) con sus
+  // clientes PROPIOS — solo fecha/hora y su nombre, nunca el paciente.
+  // Se usa en la Agenda para mostrar "Reservado" en esos horarios, sin
+  // revelar de quién se trata.
+  const [horariosOcupadosColaboradores, setHorariosOcupadosColaboradores] = useState([]);
   const [cirugias, setCirugias] = useState([]);
   const [cobros, setCobros] = useState([]);
   const [config, setConfig] = useState(null);
+  useEffect(() => {
+    if (!(db && currentUid && config?.colaboradoresPermitidos)) return;
+    const uidsColaboradores = Object.keys(config.colaboradoresPermitidos);
+    if (uidsColaboradores.length === 0) {
+      setHorariosOcupadosColaboradores([]);
+      return;
+    }
+    const datosPorColaborador = {};
+    const unsubs = uidsColaboradores.map(uidColab => db.collection("users").doc(currentUid).collection("data").doc("horariosOcupados_" + uidColab).onSnapshot(doc => {
+      datosPorColaborador[uidColab] = doc.exists ? doc.data()?.value || null : null;
+      setHorariosOcupadosColaboradores(Object.values(datosPorColaborador).filter(Boolean));
+    }, () => {}));
+    return () => unsubs.forEach(u => u());
+  }, [db, currentUid, JSON.stringify(Object.keys(config?.colaboradoresPermitidos || {}))]);
   // "¿Qué hay de nuevo?": en vez de una ventana automática al entrar, se
   // muestra un ícono ✨ (al lado de la campanita) con un "1" cuando hay
   // algo nuevo que no se ha visto — comparando con VERSION_NOVEDADES (ver
@@ -12632,6 +12683,27 @@ function VetApp() {
   // Igual que con los pacientes: los baños de un colaborador peluquero/a se
   // combinan entre los compartidos por la clínica y los suyos propios.
   const banosCombinados = [...banos, ...banosPropios];
+  // Si soy colaborador/a peluquero/a de una clínica, cada vez que cambien
+  // mis baños PROPIOS (con clientes míos, no de la clínica), dejo
+  // guardado en la cuenta del dueño SOLO qué días/horas ya tengo
+  // ocupados — nunca el paciente ni el propietario. Así la clínica no me
+  // agenda una cita a la misma hora que ya tengo con un cliente mío, sin
+  // necesidad de que vea de quién se trata.
+  useEffect(() => {
+    if (!(config?.rol === "peluquero" && modoColaborador && config?.colaboradorDe?.uid && db && currentUid)) return;
+    const hoy = new Date().toISOString().slice(0, 10);
+    const horarios = banosPropios.filter(b => b.proximoBano && b.proximoBano >= hoy).map(b => ({
+      fecha: b.proximoBano,
+      hora: b.proximoBanoHora || ""
+    }));
+    db.collection("users").doc(config.colaboradorDe.uid).collection("data").doc("horariosOcupados_" + currentUid).set({
+      value: {
+        colaboradorNombre: config.doctorNombres || "Colaborador/a",
+        horarios,
+        actualizadoEn: Date.now()
+      }
+    }).catch(() => {});
+  }, [JSON.stringify(banosPropios.map(b => [b.proximoBano, b.proximoBanoHora])), config?.rol, modoColaborador, config?.colaboradorDe?.uid, currentUid]);
   // Para un peluquero/a, un paciente recién creado por la clínica (que
   // todavía no tiene ningún baño agendado) no le sirve de nada ver en su
   // lista — solo le interesan los pacientes que ya tienen al menos un
@@ -12918,7 +12990,8 @@ function VetApp() {
     onUpdateBano: updateBano,
     onUpdateVacuna: updateVacuna,
     onUpdateDesparasitacion: updateDesparasitacion,
-    onUpdateTratamiento: updateTratamiento
+    onUpdateTratamiento: updateTratamiento,
+    horariosOcupadosColaboradores: modoColaborador ? [] : horariosOcupadosColaboradores
   }), active === "banos" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold mb-5"
