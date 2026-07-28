@@ -9978,6 +9978,7 @@ function HomeScreen({
     x: 0,
     y: 0
   });
+  const origenArrastreRectRef = useRef(null);
   const salirModoEdicion = () => {
     setModoEdicionAccesos(false);
     setArrastrandoKey(null);
@@ -9994,6 +9995,12 @@ function HomeScreen({
       arrastrandoRef.current = true;
       setModoEdicionAccesos(true);
       setArrastrandoKey(key);
+      // Se guarda dónde estaba la tarjeta ANTES de empezar a seguir el
+      // dedo — así, si se suelta sobre otra tarjeta, se sabe exactamente
+      // a qué posición en pantalla debe "volver" la tarjeta que estaba
+      // ahí (para el intercambio simple entre las dos).
+      const el = document.querySelector(`[data-orden-key="${key}"]`);
+      origenArrastreRectRef.current = el ? el.getBoundingClientRect() : null;
       if (navigator.vibrate) navigator.vibrate(15);
     }, 400);
   };
@@ -10050,9 +10057,12 @@ function HomeScreen({
           const i = cur.indexOf(arrastrandoKey);
           const j = cur.indexOf(targetFinal);
           if (i >= 0 && j >= 0) {
+            // Intercambio simple: la tarjeta arrastrada y la tarjeta
+            // sobre la que se suelta cambian de lugar entre ellas —
+            // ninguna otra tarjeta se mueve ni se corre.
             nuevo = cur.slice();
-            nuevo.splice(i, 1);
-            nuevo.splice(j, 0, arrastrandoKey);
+            nuevo[i] = cur[j];
+            nuevo[j] = cur[i];
           }
         }
         store.set("config", {
@@ -10091,30 +10101,21 @@ function HomeScreen({
   // soltar (por eso no se toca aquí), midiendo directamente dónde están
   // las tarjetas en la pantalla en ese momento.
   const previsualizacionArrastre = useMemo(() => {
-    if (!arrastrandoKey || !targetArrastre) return {};
-    const i = ordenAccesos.indexOf(arrastrandoKey);
-    const j = ordenAccesos.indexOf(targetArrastre);
-    if (i < 0 || j < 0 || i === j) return {};
-    const offsets = {};
-    const dir = i < j ? -1 : 1;
-    const desde = i < j ? i + 1 : j;
-    const hasta = i < j ? j : i - 1;
-    for (let k = desde; k <= hasta; k++) {
-      const keyActual = ordenAccesos[k];
-      const keyDestino = ordenAccesos[k + dir];
-      const elActual = document.querySelector(`[data-orden-key="${keyActual}"]`);
-      const elDestino = document.querySelector(`[data-orden-key="${keyDestino}"]`);
-      if (elActual && elDestino) {
-        const rectActual = elActual.getBoundingClientRect();
-        const rectDestino = elDestino.getBoundingClientRect();
-        offsets[keyActual] = {
-          x: rectDestino.left - rectActual.left,
-          y: rectDestino.top - rectActual.top
-        };
+    if (!arrastrandoKey || !targetArrastre || !origenArrastreRectRef.current) return {};
+    const elDestino = document.querySelector(`[data-orden-key="${targetArrastre}"]`);
+    if (!elDestino) return {};
+    // Intercambio simple: la tarjeta sobre la que se suelta se ve moverse
+    // hacia donde ESTABA la que se está arrastrando (su posición
+    // original, guardada al empezar el arrastre) — nada más se mueve.
+    const rectDestino = elDestino.getBoundingClientRect();
+    const origen = origenArrastreRectRef.current;
+    return {
+      [targetArrastre]: {
+        x: origen.left - rectDestino.left,
+        y: origen.top - rectDestino.top
       }
-    }
-    return offsets;
-  }, [arrastrandoKey, targetArrastre, ordenAccesos]);
+    };
+  }, [arrastrandoKey, targetArrastre]);
   const hoy = new Date().toISOString().slice(0, 10);
   const en30dias = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   // Todo lo que toca justo HOY, de cualquier sección — para la sección
