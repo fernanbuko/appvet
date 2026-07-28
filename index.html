@@ -11442,18 +11442,12 @@ function VetApp() {
       // sí, con un límite (unos 15 segundos) por si de verdad nunca
       // llega a cargar (por ejemplo, un bloqueador de anuncios).
       if (!firebaseReady) {
-        try {
-          window.__vdDiagRazon = "firebaseReady es falso (config no configurada)";
-        } catch (e) {}
         setUser(null);
         return;
       }
       if (typeof firebase === "undefined" || !db) {
         intentos++;
         if (intentos > 100) {
-          try {
-            window.__vdDiagRazon = "se agotaron los 100 reintentos esperando 'firebase'/'db'";
-          } catch (e) {}
           setUser(null);
           return;
         }
@@ -11484,8 +11478,12 @@ function VetApp() {
                 if (u.email && correos.includes(u.email)) {
                   await firebase.auth().signOut();
                   currentUid = null;
+                  // Se borra también la copia de respaldo — si no, la
+                  // próxima vez que se abra la app sin conexión, el
+                  // respaldo podría "revivir" por error una cuenta que ya
+                  // fue eliminada de verdad.
                   try {
-                    window.__vdDiagRazon = "correo está en la lista de cuentas eliminadas";
+                    localStorage.removeItem("vd_ultima_sesion");
                   } catch (e2) {}
                   setUser(null);
                   setCuentaEliminada(true);
@@ -11544,14 +11542,7 @@ function VetApp() {
                   setUser(guardada);
                   return;
                 }
-                try {
-                  window.__vdDiagRazon = "onAuthStateChanged dio null, y no había respaldo guardado (o sin 'uid')";
-                } catch (e2) {}
-              } catch (e) {
-                try {
-                  window.__vdDiagRazon = "onAuthStateChanged dio null, y falló leyendo el respaldo: " + e.message;
-                } catch (e2) {}
-              }
+              } catch (e) {}
               currentUid = null;
               setUser(null);
             }, 400);
@@ -11559,9 +11550,6 @@ function VetApp() {
         });
       } catch (e) {
         console.error("No se pudo iniciar el observador de sesión:", e);
-        try {
-          window.__vdDiagRazon = "onAuthStateChanged lanzó un error: " + e.message;
-        } catch (e2) {}
         setUser(null);
       }
     };
@@ -11815,8 +11803,20 @@ function VetApp() {
       if (db && currentUid) {
         await db.collection("users").doc(currentUid).collection("data").doc("config").delete().catch(() => {});
       }
+      // Se borra la copia de respaldo de la sesión ANTES de eliminar la
+      // cuenta de verdad — si no, la próxima vez que Firebase reporte
+      // "sin sesión" (que va a pasar en un momento, por el borrado), el
+      // propio respaldo podría "revivirla" por error y dejar a la
+      // persona viendo la app en vez de la pantalla de inicio de sesión.
+      try {
+        localStorage.removeItem("vd_ultima_sesion");
+      } catch (e) {}
       await firebase.auth().currentUser.delete();
-      // Al borrarse el usuario, onAuthStateChanged se dispara solo y muestra el login.
+      // Se actualiza de inmediato (sin esperar a que Firebase avise por
+      // su cuenta, que igual pasaría solo un instante después) para que
+      // la vuelta a la pantalla de inicio de sesión se sienta instantánea.
+      currentUid = null;
+      setUser(null);
     } catch (e) {
       if (e && e.code === "auth/requires-recent-login") {
         showToast("Por seguridad, cierra sesión, entra de nuevo, e intenta eliminar la cuenta otra vez.");
