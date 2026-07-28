@@ -7289,7 +7289,7 @@ function LoginScreen({
     } catch (e) {
       return "error leyendo: " + e.message;
     }
-  })(), " · conexión: ", typeof navigator !== "undefined" && navigator.onLine ? "reporta ONLINE" : "reporta OFFLINE")));
+  })(), " · conexión: ", typeof navigator !== "undefined" && navigator.onLine ? "reporta ONLINE" : "reporta OFFLINE", " · razón del login: ", typeof window !== "undefined" && window.__vdDiagRazon || "(no se registró ninguna razón)")));
 }
 
 /* ---------------------------------------------------------
@@ -11452,12 +11452,18 @@ function VetApp() {
       // sí, con un límite (unos 15 segundos) por si de verdad nunca
       // llega a cargar (por ejemplo, un bloqueador de anuncios).
       if (!firebaseReady) {
+        try {
+          window.__vdDiagRazon = "firebaseReady es falso (config no configurada)";
+        } catch (e) {}
         setUser(null);
         return;
       }
       if (typeof firebase === "undefined" || !db) {
         intentos++;
         if (intentos > 100) {
+          try {
+            window.__vdDiagRazon = "se agotaron los 100 reintentos esperando 'firebase'/'db'";
+          } catch (e) {}
           setUser(null);
           return;
         }
@@ -11488,6 +11494,9 @@ function VetApp() {
                 if (u.email && correos.includes(u.email)) {
                   await firebase.auth().signOut();
                   currentUid = null;
+                  try {
+                    window.__vdDiagRazon = "correo está en la lista de cuentas eliminadas";
+                  } catch (e2) {}
                   setUser(null);
                   setCuentaEliminada(true);
                   return;
@@ -11545,7 +11554,14 @@ function VetApp() {
                   setUser(guardada);
                   return;
                 }
-              } catch (e) {}
+                try {
+                  window.__vdDiagRazon = "onAuthStateChanged dio null, y no había respaldo guardado (o sin 'uid')";
+                } catch (e2) {}
+              } catch (e) {
+                try {
+                  window.__vdDiagRazon = "onAuthStateChanged dio null, y falló leyendo el respaldo: " + e.message;
+                } catch (e2) {}
+              }
               currentUid = null;
               setUser(null);
             }, 400);
@@ -11553,6 +11569,9 @@ function VetApp() {
         });
       } catch (e) {
         console.error("No se pudo iniciar el observador de sesión:", e);
+        try {
+          window.__vdDiagRazon = "onAuthStateChanged lanzó un error: " + e.message;
+        } catch (e2) {}
         setUser(null);
       }
     };
