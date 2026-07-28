@@ -10046,12 +10046,13 @@ function HomeScreen({
       const elemento = document.elementFromPoint(touch.clientX, touch.clientY);
       const tarjetaDebajo = elemento && elemento.closest("[data-orden-key]");
       const keyDebajo = tarjetaDebajo && tarjetaDebajo.getAttribute("data-orden-key");
-      const nuevoTarget = keyDebajo && keyDebajo !== arrastrandoKey ? keyDebajo : null;
-      // Se guarda en un ref (no solo en estado) para que "alSoltar" — que
-      // no se vuelve a crear en cada movimiento (ver dependencias del
-      // useEffect más abajo) — siempre pueda leer el valor MÁS RECIENTE
-      // al momento exacto de soltar, en vez de quedarse con el valor de
-      // cuando se armó el listener por primera vez.
+      // Si el dedo cae justo en el pequeño espacio ENTRE tarjetas (el
+      // margen del grid), "keyDebajo" sale vacío por un instante — en
+      // ese caso se mantiene el último destino válido conocido en vez de
+      // "olvidarlo" de inmediato, para que la tarjeta destino no aparezca
+      // y desaparezca (parpadee) cada vez que el dedo pasa por ese
+      // huequito milimétrico entre una tarjeta y otra.
+      const nuevoTarget = keyDebajo && keyDebajo !== arrastrandoKey ? keyDebajo : targetArrastreRef.current;
       targetArrastreRef.current = nuevoTarget;
       setTargetArrastre(nuevoTarget); // esto es solo para el resaltado visual
     };
@@ -10636,8 +10637,6 @@ function HomeScreen({
       } : previsualizacionArrastre[key] ? {
         transform: `translate(${previsualizacionArrastre[key].x}px, ${previsualizacionArrastre[key].y}px)`,
         transition: "transform 0.2s ease"
-      } : targetArrastre === key ? {
-        boxShadow: "0 0 0 2px var(--accent-green) inset"
       } : undefined
     }, tarjetasPorKey[key]));
   })()))), /*#__PURE__*/React.createElement("div", {
