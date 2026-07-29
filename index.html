@@ -1110,6 +1110,19 @@ const store = {
   async set(key, value) {
     if (!db || !currentUid) return false;
     try {
+      // Al guardar la configuración, se deriva "colaboradoresDeUids" (solo
+      // los uid, sin el resto del objeto) a partir de "colaboradoresDe" —
+      // así las reglas de seguridad de Firestore pueden comprobar con un
+      // simple "in" si esta cuenta está conectada a tal clínica, sin tener
+      // que soportar buscar dentro de una lista de objetos. Se hace aquí,
+      // en un solo lugar, para que quede sincronizado sin importar desde
+      // qué parte del código se haya guardado el cambio.
+      if (key === "config" && value && Array.isArray(value.colaboradoresDe)) {
+        value = {
+          ...value,
+          colaboradoresDeUids: value.colaboradoresDe.map(c => c.uid)
+        };
+      }
       await withTimeout(db.collection("users").doc(currentUid).collection("data").doc(key).set({
         value
       }));
@@ -6517,6 +6530,28 @@ function ConfigForm({
   onRechazarSolicitud
 }) {
   const [data, setData] = useState(() => migrarConfig(config));
+  // El nombre guardado en "colaboradoresPermitidos[uid].nombre" es una FOTO
+  // fija del momento en que se aceptó la solicitud — si esa persona cambia
+  // su nombre (o el nombre de su negocio) después, no se reflejaba. Aquí se
+  // escucha en tiempo real la configuración de cada colaborador/a conectado
+  // (la regla de seguridad ya lo permite, ver firestore.rules) para mostrar
+  // siempre su nombre y el de su peluquería/negocio actualizados.
+  const [infoVivaColaboradores, setInfoVivaColaboradores] = useState({});
+  useEffect(() => {
+    const uids = Object.keys(data.colaboradoresPermitidos || {});
+    if (!db || uids.length === 0) return;
+    const unsubs = uids.map(uidColab => db.collection("users").doc(uidColab).collection("data").doc("config").onSnapshot(doc => {
+      const val = doc.exists ? doc.data().value : null;
+      setInfoVivaColaboradores(cur => ({
+        ...cur,
+        [uidColab]: {
+          nombre: (val && nombreCompletoDoctor(val)) || "",
+          negocio: val?.clinica || ""
+        }
+      }));
+    }, () => {}));
+    return () => unsubs.forEach(u => u());
+  }, [JSON.stringify(Object.keys(data.colaboradoresPermitidos || {}))]);
   // Una vez creada la cuenta, si el rol elegido no es veterinario/a (ej.
   // peluquero, vendedor, otro), ya no se puede cambiar — evita que alguien
   // cambie de rol después y quede con un menú/pestañas que no coinciden con
@@ -7220,17 +7255,24 @@ function ConfigForm({
     }, "Rechazar")));
   })), Object.keys(data.colaboradoresPermitidos || {}).length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "space-y-2 mb-4"
-  }, Object.entries(data.colaboradoresPermitidos).map(([uidColab, info]) => /*#__PURE__*/React.createElement("div", {
-    key: uidColab,
-    className: "flex items-center justify-between bg-[#EAF0EC] rounded-md px-3 py-2"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-medium"
-  }, info.nombre), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-[#6B7A72]"
-  }, info.secciones.map(s => SECCIONES_COLABORADOR_DISPONIBLES.find(op => op.key === s)?.label || s).join(", "))), /*#__PURE__*/React.createElement("button", {
-    onClick: () => quitarColaborador(uidColab),
-    className: "text-[#B14E1C] text-xs hover:underline"
-  }, "Quitar"))))), !isSetup && /*#__PURE__*/React.createElement("div", {
+  }, Object.entries(data.colaboradoresPermitidos).map(([uidColab, info]) => {
+    const vivo = infoVivaColaboradores[uidColab];
+    const nombreMostrado = vivo?.nombre || info.nombre || "Sin nombre";
+    const negocioMostrado = vivo?.negocio;
+    return /*#__PURE__*/React.createElement("div", {
+      key: uidColab,
+      className: "flex items-center justify-between bg-[#EAF0EC] rounded-md px-3 py-2"
+    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      className: "text-sm font-medium"
+    }, nombreMostrado, negocioMostrado && /*#__PURE__*/React.createElement("span", {
+      className: "font-normal text-[#6B7A72]"
+    }, " — ", negocioMostrado)), /*#__PURE__*/React.createElement("div", {
+      className: "text-xs text-[#6B7A72]"
+    }, info.secciones.map(s => SECCIONES_COLABORADOR_DISPONIBLES.find(op => op.key === s)?.label || s).join(", "))), /*#__PURE__*/React.createElement("button", {
+      onClick: () => quitarColaborador(uidColab),
+      className: "text-[#B14E1C] text-xs hover:underline"
+    }, "Quitar"));
+  }))), !isSetup && /*#__PURE__*/React.createElement("div", {
     className: "bg-white border border-[#DDD5C4] rounded-lg p-6 mt-4"
   }, /*#__PURE__*/React.createElement("span", {
     className: "block text-[11px] uppercase tracking-wider mb-2 text-[#6B7A72]",
