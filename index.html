@@ -1582,6 +1582,31 @@ function GhostButton({
   }, icon && /*#__PURE__*/React.createElement("span", null, icon), children);
 }
 
+// Fila compacta y minimalista de "Confirmar / Reagendar / Cancelar" (o
+// "Ya se aplicó/atendió" en vez de "Confirmar", según la sección) — se usa
+// en todas partes EXCEPTO en Inicio (que tiene su propio estilo, con
+// deslizar/swipe y botones circulares). En vez de tres cajas grandes con
+// borde, son solo textos con ícono, más discretos pero igual de claros.
+function AccionesRapidas({
+  labelConfirmar = "Confirmar",
+  onConfirmar,
+  onReagendar,
+  onCancelar
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-4 flex-wrap"
+  }, onConfirmar && /*#__PURE__*/React.createElement("button", {
+    onClick: onConfirmar,
+    className: "inline-flex items-center gap-1 text-sm font-medium text-[#3D6B5C] hover:underline"
+  }, "✓ ", labelConfirmar), onReagendar && /*#__PURE__*/React.createElement("button", {
+    onClick: onReagendar,
+    className: "inline-flex items-center gap-1 text-sm font-medium text-[#6B7A72] hover:underline"
+  }, "📅 Reagendar"), onCancelar && /*#__PURE__*/React.createElement("button", {
+    onClick: onCancelar,
+    className: "inline-flex items-center gap-1 text-sm font-medium text-[#B14E1C] hover:underline"
+  }, "✕ Cancelar"));
+}
+
 // Ventana de confirmación propia de la app — reemplaza a window.confirm(),
 // que en el navegador siempre muestra el nombre del sitio (ej.
 // "fernanbuko.github.io dice"), algo que ningún sitio puede quitar ni
@@ -3514,19 +3539,12 @@ function PatientDetail({
     style: {
       color: "var(--accent-orange)"
     }
-  }, "⏰ La cita del ", formatDate(patient.proximaVisita, config?.dateFormat), patient.proximaVisitaHora ? ` a las ${patient.proximaVisitaHora}` : "", " ya pasó. ¿Qué pasó con esta visita?"), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2 flex-wrap"
-  }, /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: marcarComoAtendida,
-    icon: "✅"
-  }, "Fue atendida"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => setResolviendoCita(true),
-    icon: "📅"
-  }, "Reprogramar"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: cancelarVisita,
-    icon: "✕",
-    danger: true
-  }, "Cancelar visita"))), citaVencida && resolviendoCita && /*#__PURE__*/React.createElement("div", {
+  }, "⏰ La cita del ", formatDate(patient.proximaVisita, config?.dateFormat), patient.proximaVisitaHora ? ` a las ${patient.proximaVisitaHora}` : "", " ya pasó. ¿Qué pasó con esta visita?"), /*#__PURE__*/React.createElement(AccionesRapidas, {
+    labelConfirmar: "Fue atendida",
+    onConfirmar: marcarComoAtendida,
+    onReagendar: () => setResolviendoCita(true),
+    onCancelar: cancelarVisita
+  })), citaVencida && resolviendoCita && /*#__PURE__*/React.createElement("div", {
     className: "mb-5 p-4 rounded-lg bg-white border border-[#DDD5C4]"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-sm font-medium mb-3"
@@ -4199,23 +4217,16 @@ function VacunasSection({
       setNuevaFechaProximaDosis("");
       setNuevaHoraProximaDosis("");
     }
-  }, "Cancelar")) : /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 mt-2 flex-wrap"
-  }, /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => setConfirmandoVacuna(v),
-    icon: "✅"
-  }, "Ya se aplicó"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => {
+  }, "Cancelar")) : /*#__PURE__*/React.createElement(AccionesRapidas, {
+    labelConfirmar: "Ya se aplicó",
+    onConfirmar: () => setConfirmandoVacuna(v),
+    onReagendar: () => {
       setReprogramandoId(v.id);
       setNuevaFechaProximaDosis(v.proximaDosis);
       setNuevaHoraProximaDosis(v.proximaDosisHora || "");
     },
-    icon: "📅"
-  }, "Reprogramar"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => setCancelandoVacuna(v),
-    icon: "✕",
-    danger: true
-  }, "Cancelar"))))))), confirmandoVacuna && /*#__PURE__*/React.createElement(ConfirmModal, {
+    onCancelar: () => setCancelandoVacuna(v)
+  })))))), confirmandoVacuna && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
     message: `¿Ya se vacunó a ${(confirmandoVacuna.patientName || "").trim()}?`,
     confirmLabel: "Sí, confirmar",
@@ -4461,23 +4472,16 @@ function DesparasitacionSection({
       setNuevaFechaProximaDosis("");
       setNuevaHoraProximaDosis("");
     }
-  }, "Cancelar")) : /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 mt-2 flex-wrap"
-  }, /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => setConfirmandoDesparasitacion(d),
-    icon: "✅"
-  }, "Ya se aplicó"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => {
+  }, "Cancelar")) : /*#__PURE__*/React.createElement(AccionesRapidas, {
+    labelConfirmar: "Ya se aplicó",
+    onConfirmar: () => setConfirmandoDesparasitacion(d),
+    onReagendar: () => {
       setReprogramandoId(d.id);
       setNuevaFechaProximaDosis(d.proximaDosis);
       setNuevaHoraProximaDosis(d.proximaDosisHora || "");
     },
-    icon: "📅"
-  }, "Reprogramar"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => setCancelandoDesparasitacion(d),
-    icon: "✕",
-    danger: true
-  }, "Cancelar"))))))), confirmandoDesparasitacion && /*#__PURE__*/React.createElement(ConfirmModal, {
+    onCancelar: () => setCancelandoDesparasitacion(d)
+  })))))), confirmandoDesparasitacion && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
     message: `¿Ya se desparasitó a ${(confirmandoDesparasitacion.patientName || "").trim()}?`,
     confirmLabel: "Sí, confirmar",
@@ -4715,23 +4719,16 @@ function TratamientosInyectablesSection({
       setNuevaFechaProximaAplicacion("");
       setNuevaHoraProximaAplicacion("");
     }
-  }, "Cancelar")) : /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 mt-2 flex-wrap"
-  }, /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => setConfirmandoTratamiento(t),
-    icon: "✅"
-  }, "Ya se aplicó"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => {
+  }, "Cancelar")) : /*#__PURE__*/React.createElement(AccionesRapidas, {
+    labelConfirmar: "Ya se aplicó",
+    onConfirmar: () => setConfirmandoTratamiento(t),
+    onReagendar: () => {
       setReprogramandoId(t.id);
       setNuevaFechaProximaAplicacion(t.proximaAplicacion);
       setNuevaHoraProximaAplicacion(t.proximaAplicacionHora || "");
     },
-    icon: "📅"
-  }, "Reprogramar"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => setCancelandoTratamiento(t),
-    icon: "✕",
-    danger: true
-  }, "Cancelar"))))))), confirmandoTratamiento && /*#__PURE__*/React.createElement(ConfirmModal, {
+    onCancelar: () => setCancelandoTratamiento(t)
+  })))))), confirmandoTratamiento && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
     message: `¿Ya se aplicó el tratamiento a ${(confirmandoTratamiento.patientName || "").trim()}?`,
     confirmLabel: "Sí, confirmar",
@@ -5127,23 +5124,16 @@ function BanosSection({
       setNuevaFechaProximoBano("");
       setNuevaHoraProximoBano("");
     }
-  }, "Cancelar")) : /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 mt-2 flex-wrap"
-  }, /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => setConfirmandoBano(b),
-    icon: "✅"
-  }, "Ya se atendió"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => {
+  }, "Cancelar")) : /*#__PURE__*/React.createElement(AccionesRapidas, {
+    labelConfirmar: "Ya se atendió",
+    onConfirmar: () => setConfirmandoBano(b),
+    onReagendar: () => {
       setReprogramandoId(b.id);
       setNuevaFechaProximoBano(b.proximoBano);
       setNuevaHoraProximoBano(b.proximoBanoHora || "");
     },
-    icon: "📅"
-  }, "Reprogramar"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => setCancelandoBano(b),
-    icon: "✕",
-    danger: true
-  }, "Cancelar"))))))), confirmandoBano && /*#__PURE__*/React.createElement(ConfirmModal, {
+    onCancelar: () => setCancelandoBano(b)
+  })))))), confirmandoBano && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
     message: `¿Ya se bañó a ${(confirmandoBano.patientName || "").trim()}?`,
     confirmLabel: "Sí, confirmar",
@@ -7871,29 +7861,22 @@ function TareasView({
       ...styles.mono,
       color: "var(--accent-orange)"
     }
-  }, formatDate(ev.fecha, config?.dateFormat), ev.hora && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("br", null), ev.hora))), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 mt-2 flex-wrap"
-  }, /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => setConfirmandoVencido({
+  }, formatDate(ev.fecha, config?.dateFormat), ev.hora && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("br", null), ev.hora))), /*#__PURE__*/React.createElement(AccionesRapidas, {
+    labelConfirmar: "Ya se hizo",
+    onConfirmar: () => setConfirmandoVencido({
       ejecutar: () => confirmarVencido(ev),
       mensaje: construirMensajeVencido(ev.tipo, ev.nombre)
     }),
-    icon: "✓"
-  }, "Ya se hizo"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => {
+    onReagendar: () => {
       setReagendandoVencidoId(ev.id);
       setNuevaFechaVencido(hoy);
       setNuevaHoraVencido(ev.hora || "");
     },
-    icon: "📅"
-  }, "Reagendar"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => setCancelandoVencido({
+    onCancelar: () => setCancelandoVencido({
       ejecutar: () => cancelarVencido(ev),
       nombre: ev.nombre
-    }),
-    icon: "✕",
-    danger: true
-  }, "Cancelar"))))))), confirmandoVencido && /*#__PURE__*/React.createElement(ConfirmModal, {
+    })
+  })))))), confirmandoVencido && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
     message: confirmandoVencido.mensaje,
     confirmLabel: "Sí, confirmar",
@@ -8608,36 +8591,28 @@ function AgendaView({
   }, subtitleAgenda(ev))), ev.hora && /*#__PURE__*/React.createElement("span", {
     className: "text-xs font-semibold text-[#3D6B5C] shrink-0",
     style: styles.mono
-  }, ev.hora)), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 mt-2 flex-wrap"
-  }, /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: e => {
+  }, ev.hora)), /*#__PURE__*/React.createElement(AccionesRapidas, {
+    onConfirmar: e => {
       e.stopPropagation();
       setConfirmandoAgenda({
         ejecutar: () => confirmarEventoAgenda(ev),
         mensaje: construirMensajeAgenda(ev.tipoAccion, ev.nombre)
       });
     },
-    icon: "✓"
-  }, "Confirmar"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: e => {
+    onReagendar: e => {
       e.stopPropagation();
       setNuevaFechaAgendaEv(diaSeleccionado);
       setNuevaHoraAgendaEv(ev.hora || "");
       setReagendandoAgendaId(ev.tab + ":" + ev.patientId + ":" + ev.label);
     },
-    icon: "📅"
-  }, "Reagendar"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: e => {
+    onCancelar: e => {
       e.stopPropagation();
       setCancelandoAgenda({
         ejecutar: () => cancelarEventoAgenda(ev),
         nombre: ev.nombre
       });
-    },
-    icon: "✕",
-    danger: true
-  }, "Cancelar")))))))), confirmandoAgenda && /*#__PURE__*/React.createElement(ConfirmModal, {
+    }
+  }))))))), confirmandoAgenda && /*#__PURE__*/React.createElement(ConfirmModal, {
     title: "¿Confirmar?",
     message: confirmandoAgenda.mensaje,
     confirmLabel: "Sí, confirmar",
@@ -8914,23 +8889,16 @@ function BanosGeneralView({
       setNuevaFecha("");
       setNuevaHora("");
     }
-  }, "Cancelar")) : /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 mt-2 flex-wrap"
-  }, /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => setConfirmandoBano(b),
-    icon: "✅"
-  }, "Ya se atendió"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => {
+  }, "Cancelar")) : /*#__PURE__*/React.createElement(AccionesRapidas, {
+    labelConfirmar: "Ya se atendió",
+    onConfirmar: () => setConfirmandoBano(b),
+    onReagendar: () => {
       setReprogramandoId(b.id);
       setNuevaFecha(b.proximoBano);
       setNuevaHora(b.proximoBanoHora || "");
     },
-    icon: "📅"
-  }, "Reprogramar"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => setCancelandoBano(b),
-    icon: "✕",
-    danger: true
-  }, "Cancelar"))))), /*#__PURE__*/React.createElement("h3", {
+    onCancelar: () => setCancelandoBano(b)
+  })))), /*#__PURE__*/React.createElement("h3", {
     style: styles.display,
     className: "text-lg font-semibold mb-3"
   }, "Historial reciente"), historial.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
@@ -9201,23 +9169,16 @@ function DesparasitacionesGeneralView({
       setNuevaFecha("");
       setNuevaHora("");
     }
-  }, "Cancelar")) : /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 mt-2 flex-wrap"
-  }, /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => setConfirmandoDesparasitacion(d),
-    icon: "✅"
-  }, "Ya se aplicó"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => {
+  }, "Cancelar")) : /*#__PURE__*/React.createElement(AccionesRapidas, {
+    labelConfirmar: "Ya se aplicó",
+    onConfirmar: () => setConfirmandoDesparasitacion(d),
+    onReagendar: () => {
       setReprogramandoId(d.id);
       setNuevaFecha(d.proximaDosis);
       setNuevaHora(d.proximaDosisHora || "");
     },
-    icon: "📅"
-  }, "Reprogramar"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => setCancelandoDesparasitacion(d),
-    icon: "✕",
-    danger: true
-  }, "Cancelar"))))), /*#__PURE__*/React.createElement("h3", {
+    onCancelar: () => setCancelandoDesparasitacion(d)
+  })))), /*#__PURE__*/React.createElement("h3", {
     style: styles.display,
     className: "text-lg font-semibold mb-3"
   }, "Historial reciente"), historial.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
@@ -9473,23 +9434,16 @@ function VacunasGeneralView({
       setNuevaFecha("");
       setNuevaHora("");
     }
-  }, "Cancelar")) : /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 mt-2 flex-wrap"
-  }, /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => setConfirmandoVacuna(v),
-    icon: "✅"
-  }, "Ya se aplicó"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => {
+  }, "Cancelar")) : /*#__PURE__*/React.createElement(AccionesRapidas, {
+    labelConfirmar: "Ya se aplicó",
+    onConfirmar: () => setConfirmandoVacuna(v),
+    onReagendar: () => {
       setReprogramandoId(v.id);
       setNuevaFecha(v.proximaDosis);
       setNuevaHora(v.proximaDosisHora || "");
     },
-    icon: "📅"
-  }, "Reprogramar"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => setCancelandoVacuna(v),
-    icon: "✕",
-    danger: true
-  }, "Cancelar"))))), /*#__PURE__*/React.createElement("h3", {
+    onCancelar: () => setCancelandoVacuna(v)
+  })))), /*#__PURE__*/React.createElement("h3", {
     style: styles.display,
     className: "text-lg font-semibold mb-3"
   }, "Historial reciente"), historial.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
@@ -9757,23 +9711,16 @@ function TratamientosInyectablesGeneralView({
       setNuevaFecha("");
       setNuevaHora("");
     }
-  }, "Cancelar")) : /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 mt-2 flex-wrap"
-  }, /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => setConfirmandoTratamiento(t),
-    icon: "✅"
-  }, "Ya se aplicó"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => {
+  }, "Cancelar")) : /*#__PURE__*/React.createElement(AccionesRapidas, {
+    labelConfirmar: "Ya se aplicó",
+    onConfirmar: () => setConfirmandoTratamiento(t),
+    onReagendar: () => {
       setReprogramandoId(t.id);
       setNuevaFecha(t.proximaAplicacion);
       setNuevaHora(t.proximaAplicacionHora || "");
     },
-    icon: "📅"
-  }, "Reprogramar"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => setCancelandoTratamiento(t),
-    icon: "✕",
-    danger: true
-  }, "Cancelar"))))), /*#__PURE__*/React.createElement("h3", {
+    onCancelar: () => setCancelandoTratamiento(t)
+  })))), /*#__PURE__*/React.createElement("h3", {
     style: styles.display,
     className: "text-lg font-semibold mb-3"
   }, "Historial reciente"), historial.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
