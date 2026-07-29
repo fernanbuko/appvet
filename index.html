@@ -10733,7 +10733,7 @@ function HomeScreen({
     setNuevaFechaProximo("");
     setNuevaHoraProximo("");
   };
-  const proximas = patients.filter(p => p.proximaVisita && p.proximaVisita <= en30dias).sort((a, b) => a.proximaVisita > b.proximaVisita ? 1 : -1).slice(0, 3);
+  const proximas = patients.filter(p => p.proximaVisita && p.proximaVisita >= hoy && p.proximaVisita <= en30dias).sort((a, b) => a.proximaVisita > b.proximaVisita ? 1 : -1).slice(0, 3);
   // Para el peluquero/a, "Próximas" se arma con la sección Baños (misma
   // lógica que en la Agenda): fecha del servicio si todavía no pasó, y/o la
   // fecha de "próximo baño programado".
@@ -10754,12 +10754,12 @@ function HomeScreen({
     });
     return Object.values(porPaciente).sort((a, b) => a.fecha !== b.fecha ? a.fecha < b.fecha ? -1 : 1 : (a.hora || "99:99") < (b.hora || "99:99") ? -1 : 1).slice(0, 3);
   }, [banos, patients, esPeluquero, hoy]);
-  const vacunasProximas = (vacunas || []).filter(v => v.proximaDosis && v.proximaDosis <= en30dias).sort((a, b) => a.proximaDosis < b.proximaDosis ? -1 : 1).slice(0, 3);
-  const desparasitacionesProximas = (desparasitaciones || []).filter(d => d.proximaDosis && d.proximaDosis <= en30dias).sort((a, b) => a.proximaDosis < b.proximaDosis ? -1 : 1).slice(0, 3);
-  const tratamientosProximos = (tratamientos || []).filter(t => t.proximaAplicacion && t.proximaAplicacion <= en30dias).sort((a, b) => a.proximaAplicacion < b.proximaAplicacion ? -1 : 1).slice(0, 3);
+  const vacunasProximas = (vacunas || []).filter(v => v.proximaDosis && v.proximaDosis >= hoy && v.proximaDosis <= en30dias).sort((a, b) => a.proximaDosis < b.proximaDosis ? -1 : 1).slice(0, 3);
+  const desparasitacionesProximas = (desparasitaciones || []).filter(d => d.proximaDosis && d.proximaDosis >= hoy && d.proximaDosis <= en30dias).sort((a, b) => a.proximaDosis < b.proximaDosis ? -1 : 1).slice(0, 3);
+  const tratamientosProximos = (tratamientos || []).filter(t => t.proximaAplicacion && t.proximaAplicacion >= hoy && t.proximaAplicacion <= en30dias).sort((a, b) => a.proximaAplicacion < b.proximaAplicacion ? -1 : 1).slice(0, 3);
   // "Próximos baños" para veterinario/a u "otro" (el peluquero ya tiene su
   // propia versión más arriba, con otra lógica de deduplicado).
-  const banosProximosGeneral = !esPeluquero ? (banos || []).filter(b => b.proximoBano && b.proximoBano <= en30dias).sort((a, b) => a.proximoBano < b.proximoBano ? -1 : 1).slice(0, 3) : [];
+  const banosProximosGeneral = !esPeluquero ? (banos || []).filter(b => b.proximoBano && b.proximoBano >= hoy && b.proximoBano <= en30dias).sort((a, b) => a.proximoBano < b.proximoBano ? -1 : 1).slice(0, 3) : [];
   const actualmenteHospitalizados = (hospitalizaciones || []).filter(h => !h.fechaAlta).sort((a, b) => a.fechaIngreso < b.fechaIngreso ? 1 : -1);
   const cumpleanosProximos = patients.filter(p => p.fechaNacimiento).map(p => {
     const [, mesStr, diaStr] = p.fechaNacimiento.split("-");
