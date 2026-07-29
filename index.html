@@ -5062,10 +5062,7 @@ function BanosSection({
     className: "flex items-start justify-between"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "font-medium"
-  }, b.tipo), b.fechaAtendido && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-[#3D6B5C]",
-    style: styles.mono
-  }, "✅ Atendido: ", formatDate(b.fechaAtendido, config?.dateFormat))), /*#__PURE__*/React.createElement("div", {
+  }, b.tipo)), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-3"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => startEdit(b),
