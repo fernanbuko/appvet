@@ -7948,8 +7948,8 @@ function AgendaView({
             tipoAccion: "banos"
           }, "prog");
         }
-        if (b.fecha && b.fecha !== b.proximoBano) {
-          agregar(b.fecha, "", {
+        if (b.fechaAtendido) {
+          agregar(b.fechaAtendido, "", {
             patientId: patient.id,
             nombre: patient.nombre,
             propietario: patient.propietario,
@@ -7992,8 +7992,8 @@ function AgendaView({
             tipoAccion: "banos"
           }, "prog");
         }
-        if (b.fecha && b.fecha !== b.proximoBano) {
-          agregar(b.fecha, "", {
+        if (b.fechaAtendido) {
+          agregar(b.fechaAtendido, "", {
             patientId: patient.id,
             nombre: patient.nombre,
             propietario: patient.propietario,
