@@ -1233,6 +1233,83 @@ const ownCollectionStore = {
 };
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
+// Un colaborador/a (ej. peluquero/a externo) puede trabajar para VARIAS
+// clínicas a la vez. Como cada clínica vive en la cuenta de su propio
+// dueño (users/{uidDeEsaClinica}/...), no alcanza con el "teamCollection"
+// de arriba (que solo apunta a UN espacio a la vez) — hace falta leer,
+// escuchar y escribir en cada clínica conectada por separado, y luego
+// juntar todo en una sola lista, marcando cada registro con de qué
+// clínica vino (_clinicaUid/_clinicaNombre) para poder mostrarlo bien y
+// saber a dónde escribir si se edita.
+function clinicCollectionRef(clinicaUid, name) {
+  return db.collection("users").doc(clinicaUid).collection(name);
+}
+const multiClinicStore = {
+  async getAll(name, clinicas) {
+    if (!db || !clinicas || clinicas.length === 0) return [];
+    const porClinica = await Promise.all(clinicas.map(async c => {
+      try {
+        const snap = await withTimeout(clinicCollectionRef(c.uid, name).get());
+        return snap.docs.map(d => ({
+          ...d.data(),
+          _clinicaUid: c.uid,
+          _clinicaNombre: c.nombre
+        }));
+      } catch (e) {
+        console.error(`Error leyendo ${name} de la clínica ${c.nombre}:`, e);
+        return [];
+      }
+    }));
+    return porClinica.flat();
+  },
+  // Se suscribe a la misma colección en cada clínica conectada, y junta
+  // todo en una sola lista cada vez que cualquiera de ellas cambia.
+  listen(name, clinicas, onData) {
+    if (!db || !clinicas || clinicas.length === 0) {
+      onData([]);
+      return () => {};
+    }
+    const porClinica = {};
+    const unsubs = clinicas.map(c => {
+      porClinica[c.uid] = [];
+      try {
+        return clinicCollectionRef(c.uid, name).onSnapshot(snap => {
+          porClinica[c.uid] = snap.docs.map(d => ({
+            ...d.data(),
+            _clinicaUid: c.uid,
+            _clinicaNombre: c.nombre
+          }));
+          onData(Object.values(porClinica).flat());
+        }, e => console.error(`Error escuchando ${name} de ${c.nombre}:`, e));
+      } catch (e) {
+        console.error(`Error suscribiéndose a ${name} de ${c.nombre}:`, e);
+        return () => {};
+      }
+    });
+    return () => unsubs.forEach(u => u());
+  },
+  async setOne(clinicaUid, name, id, data) {
+    if (!db || !clinicaUid) return false;
+    try {
+      await withTimeout(clinicCollectionRef(clinicaUid, name).doc(String(id)).set(data));
+      return true;
+    } catch (e) {
+      console.error(`Error guardando en ${name} (clínica ${clinicaUid}):`, e);
+      return false;
+    }
+  },
+  async deleteOne(clinicaUid, name, id) {
+    if (!db || !clinicaUid) return false;
+    try {
+      await withTimeout(clinicCollectionRef(clinicaUid, name).doc(String(id)).delete());
+      return true;
+    } catch (e) {
+      console.error(`Error borrando de ${name} (clínica ${clinicaUid}):`, e);
+      return false;
+    }
+  }
+};
+
 // Hace que el botón/gesto "atrás" del celular cierre PRIMERO una ventana
 // emergente (foto ampliada, QR, confirmaciones, notificaciones) en vez de
 // salir directamente de la pantalla en la que estaba — el comportamiento
@@ -3382,7 +3459,7 @@ function PatientDetail({
       color: patient._esPropio ? "var(--accent-green)" : "var(--accent-orange)",
       background: patient._esPropio ? "var(--accent-green-bg)" : "var(--accent-orange-bg)"
     }
-  }, patient._esPropio ? "🙋 Paciente propio" : `🏥 Paciente de ${config?.colaboradorDe?.nombre || "la clínica"}`), patient.etiquetas && patient.etiquetas.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, patient._esPropio ? "🙋 Paciente propio" : `🏥 Paciente de ${patient._clinicaNombre || config?.colaboradorDe?.nombre || "la clínica"}`), patient.etiquetas && patient.etiquetas.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap gap-1.5 mt-1.5"
   }, patient.etiquetas.map(t => /*#__PURE__*/React.createElement("span", {
     key: t,
@@ -5405,7 +5482,7 @@ function PatientCard({
       color: p._esPropio ? "var(--accent-green)" : "var(--accent-orange)",
       background: p._esPropio ? "var(--accent-green-bg)" : "var(--accent-orange-bg)"
     }
-  }, p._esPropio ? "🙋 Propio" : "🏥 De la clínica"), p.etiquetas && p.etiquetas.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, p._esPropio ? "🙋 Propio" : `🏥 ${p._clinicaNombre || "De la clínica"}`), p.etiquetas && p.etiquetas.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap gap-1 mt-2"
   }, p.etiquetas.map(t => /*#__PURE__*/React.createElement("span", {
     key: t,
@@ -6295,7 +6372,8 @@ const emptyConfig = () => ({
   dateFormat: "YYYY-MM-DD",
   darkMode: false,
   colaboradoresPermitidos: {},
-  colaboradorDe: null
+  colaboradorDe: null,
+  colaboradoresDe: []
 });
 
 // Secciones que se pueden compartir de forma limitada con un colaborador
@@ -6353,6 +6431,20 @@ function migrarConfig(base) {
     ...migrado,
     colaboradoresPermitidos: {}
   };
+  // Migrar de "una sola clínica colaborada" (versión anterior, campo
+  // colaboradorDe con un solo {uid, nombre}) a una LISTA de clínicas
+  // (colaboradoresDe), para que un mismo colaborador/a pueda trabajar
+  // para varias clínicas a la vez sin perder la conexión que ya tenía.
+  if (!Array.isArray(migrado.colaboradoresDe)) {
+    const legacy = migrado.colaboradorDe;
+    migrado = {
+      ...migrado,
+      colaboradoresDe: legacy && legacy.uid ? [{
+        uid: legacy.uid,
+        nombre: legacy.nombre || "Sin nombre"
+      }] : []
+    };
+  }
   // Cuentas creadas antes de que existiera el selector de rol eran todas
   // clínicas veterinarias, así que se les asigna ese rol por defecto para
   // no cambiarles el formulario ni el trato (Dr./Dra.) que ya tenían.
@@ -6525,17 +6617,19 @@ function ConfigForm({
 
   // --- "Trabajar como colaborador de otra cuenta" (lado del peluquero) ---
   // Ya no hace falta un formulario manual de ID aquí: se conecta abriendo el
-  // link de invitación (ver InvitacionColaboradorScreen), que guarda
-  // colaboradorDe directamente. Aquí solo queda mostrar el estado y el
-  // botón para desconectarse.
-  const desconectarComoColaborador = () => {
+  // link de invitación (ver InvitacionColaboradorScreen), que agrega la
+  // clínica a la lista "colaboradoresDe" (se puede estar conectado a varias
+  // a la vez). Aquí solo queda mostrar cada clínica conectada y un botón
+  // para desconectarse de esa una en particular, sin afectar a las demás.
+  const desconectarDeClinica = uidClinica => {
+    const listaNueva = (data.colaboradoresDe || []).filter(cl => cl.uid !== uidClinica);
     setData(d => ({
       ...d,
-      colaboradorDe: null
+      colaboradoresDe: listaNueva
     }));
     onSave({
       ...data,
-      colaboradorDe: null
+      colaboradoresDe: listaNueva
     });
   };
 
@@ -7141,20 +7235,25 @@ function ConfigForm({
   }, /*#__PURE__*/React.createElement("span", {
     className: "block text-[11px] uppercase tracking-wider mb-2 text-[#6B7A72]",
     style: styles.mono
-  }, "Trabajar como colaborador/a de otra cuenta"), data.colaboradorDe ? /*#__PURE__*/React.createElement("div", {
-    className: "p-3 rounded-md",
+  }, "Trabajar como colaborador/a de otra cuenta"), (data.colaboradoresDe || []).length > 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2"
+  }, (data.colaboradoresDe || []).map(cl => /*#__PURE__*/React.createElement("div", {
+    key: cl.uid,
+    className: "p-3 rounded-md flex items-center justify-between gap-3",
     style: {
       background: "var(--accent-green-bg)"
     }
   }, /*#__PURE__*/React.createElement("p", {
-    className: "text-sm mb-2"
-  }, "Estás trabajando como colaborador/a de ", /*#__PURE__*/React.createElement("b", null, data.colaboradorDe.nombre), ". Solo verás las secciones que te compartieron."), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: desconectarComoColaborador,
+    className: "text-sm"
+  }, "Trabajando como colaborador/a de ", /*#__PURE__*/React.createElement("b", null, cl.nombre)), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => desconectarDeClinica(cl.uid),
     danger: true,
     icon: "✕"
-  }, "Dejar de ser colaborador/a")) : /*#__PURE__*/React.createElement("p", {
+  }, "Dejar de trabajar aquí"))), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#6B7A72] mt-1"
+  }, "Solo verás las secciones que cada clínica te compartió. ¿Trabajas para otra clínica más? Pídele su link de invitación y ábrelo para agregarla, sin perder estas conexiones.")) : /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-[#6B7A72]"
-  }, "Si trabajas para otra clínica (por ejemplo, eres peluquero/a externo), pídele su link de invitación y ábrelo para conectarte.")));
+  }, "Si trabajas para otra clínica (por ejemplo, eres peluquero/a externo), pídele su link de invitación y ábrelo para conectarte. Puedes estar conectado/a a varias clínicas a la vez.")));
 }
 
 /* ---------------------------------------------------------
@@ -11355,29 +11454,33 @@ function VetApp() {
     }, () => {}));
     return () => unsubs.forEach(u => u());
   }, [db, currentUid, JSON.stringify(Object.keys(config?.colaboradoresPermitidos || {}))]);
-  // Si soy colaborador/a peluquero/a de una clínica, cada vez que cambien
-  // mis baños PROPIOS (con clientes míos, no de la clínica), dejo
-  // guardado en la cuenta del dueño SOLO qué días/horas ya tengo
-  // ocupados — nunca el paciente ni el propietario. Así la clínica no me
-  // agenda una cita a la misma hora que ya tengo con un cliente mío, sin
-  // necesidad de que vea de quién se trata. (Se usa "config?.colaboradorDe?.uid"
-  // directo en vez de la variable "modoColaborador" porque esta última
-  // todavía no existe en este punto del código — se declara más abajo.)
+  // Si soy colaborador/a peluquero/a de una o varias clínicas, cada vez
+  // que cambien mis baños PROPIOS (con clientes míos, no de la clínica),
+  // dejo guardado en la cuenta de CADA dueño/a conectado SOLO qué
+  // días/horas ya tengo ocupados — nunca el paciente ni el propietario.
+  // Así ninguna de esas clínicas me agenda una cita a la misma hora que ya
+  // tengo con un cliente mío, sin necesidad de que vean de quién se trata.
+  // (Se usa "config?.colaboradoresDe" directo en vez de la variable
+  // "modoColaborador" porque esta última todavía no existe en este punto
+  // del código — se declara más abajo.)
   useEffect(() => {
-    if (!(config?.rol === "peluquero" && config?.colaboradorDe?.uid && db && currentUid)) return;
+    const clinicas = config?.colaboradoresDe || [];
+    if (!(config?.rol === "peluquero" && clinicas.length > 0 && db && currentUid)) return;
     const hoy = new Date().toISOString().slice(0, 10);
     const horarios = banosPropios.filter(b => b.proximoBano && b.proximoBano >= hoy).map(b => ({
       fecha: b.proximoBano,
       hora: b.proximoBanoHora || ""
     }));
-    db.collection("users").doc(config.colaboradorDe.uid).collection("data").doc("horariosOcupados_" + currentUid).set({
-      value: {
-        colaboradorNombre: config.doctorNombres || "Colaborador/a",
-        horarios,
-        actualizadoEn: Date.now()
-      }
-    }).catch(() => {});
-  }, [JSON.stringify(banosPropios.map(b => [b.proximoBano, b.proximoBanoHora])), config?.rol, config?.colaboradorDe?.uid, currentUid]);
+    clinicas.forEach(cl => {
+      db.collection("users").doc(cl.uid).collection("data").doc("horariosOcupados_" + currentUid).set({
+        value: {
+          colaboradorNombre: config.doctorNombres || "Colaborador/a",
+          horarios,
+          actualizadoEn: Date.now()
+        }
+      }).catch(() => {});
+    });
+  }, [JSON.stringify(banosPropios.map(b => [b.proximoBano, b.proximoBanoHora])), config?.rol, JSON.stringify((config?.colaboradoresDe || []).map(c => c.uid)), currentUid]);
   // "¿Qué hay de nuevo?": en vez de una ventana automática al entrar, se
   // muestra un ícono ✨ (al lado de la campanita) con un "1" cuando hay
   // algo nuevo que no se ha visto — comparando con VERSION_NOVEDADES (ver
@@ -11405,7 +11508,13 @@ function VetApp() {
   // carga los datos (más abajo), para saber qué colecciones es seguro pedir
   // antes de intentar leerlas.
   const [seccionesColaborador, setSeccionesColaborador] = useState(null);
-  const modoColaborador = !!config?.colaboradorDe?.uid;
+  // Lista de clínicas a las que esta cuenta está conectada como
+  // colaborador/a (puede ser más de una a la vez), y el subconjunto de
+  // esas mismas clínicas que además le compartieron la sección "Baños".
+  // Se llenan en el mismo efecto que carga los datos (más abajo).
+  const [clinicasConectadas, setClinicasConectadas] = useState([]);
+  const [clinicasConBanos, setClinicasConBanos] = useState([]);
+  const modoColaborador = (config?.colaboradoresDe || []).length > 0;
 
   // Salvaguarda adicional: si por algún motivo (un enlace viejo, etc.) se
   // llega a una sección restringida estando en modo colaborador, se regresa
@@ -11643,43 +11752,77 @@ function VetApp() {
       // La configuración se carga primero: si el doctor/a tiene un código de
       // equipo, hay que fijarlo ANTES de leer pacientes/recetas/etc., para
       // que se lea del espacio compartido correcto desde el principio.
-      const c = await store.get("config");
+      const cCruda = await store.get("config");
       if (cancelled) return;
+      const c = migrarConfig(cCruda);
       currentClinicaId = c?.clinicaId || null;
-      currentColaboradorDeUid = c?.colaboradorDe?.uid || null;
       actualizarCarpetaDoctor(c);
+      const clinicasDeEstaCuenta = c?.colaboradoresDe || [];
 
-      // Si esta cuenta trabaja como colaboradora de otra, hay que saber
-      // primero QUÉ secciones le permitieron ver, antes de pedir ninguna
-      // otra colección — si se intenta leer una sección sin permiso,
-      // Firestore rechaza esa lectura y arrastra a TODAS las demás que
-      // iban juntas en el mismo Promise.all, aunque sí tuvieran permiso.
-      let seccionesPermitidas = null; // null = no aplica (cuenta normal, con acceso a todo)
-      if (c?.colaboradorDe?.uid) {
-        try {
-          const ownerConfigDoc = await db.collection("users").doc(c.colaboradorDe.uid).collection("data").doc("config").get();
-          const ownerConfig = ownerConfigDoc.exists ? ownerConfigDoc.data().value : null;
-          seccionesPermitidas = ownerConfig?.colaboradoresPermitidos?.[currentUid]?.secciones || [];
-        } catch (err) {
-          console.error("No se pudieron leer los permisos de colaborador:", err);
-          seccionesPermitidas = [];
-        }
+      if (clinicasDeEstaCuenta.length > 0) {
+        // Esta cuenta es colaboradora (ej. peluquero/a externo) de una o
+        // varias clínicas a la vez. Antes de pedir "Baños" a cada una, hay
+        // que saber cuáles de ellas se lo compartieron — "patients" en
+        // cambio siempre se puede ver, en TODAS las clínicas conectadas, sin
+        // permiso especial (para saber a quién le corresponde cada baño).
+        const permisos = await Promise.all(clinicasDeEstaCuenta.map(async cl => {
+          try {
+            const ownerConfigDoc = await db.collection("users").doc(cl.uid).collection("data").doc("config").get();
+            const ownerConfig = ownerConfigDoc.exists ? ownerConfigDoc.data().value : null;
+            return ownerConfig?.colaboradoresPermitidos?.[currentUid]?.secciones || [];
+          } catch (err) {
+            console.error(`No se pudieron leer los permisos de colaborador para ${cl.nombre}:`, err);
+            return [];
+          }
+        }));
         if (cancelled) return;
-        setSeccionesColaborador(seccionesPermitidas);
+        const clinicasBanos = clinicasDeEstaCuenta.filter((cl, i) => permisos[i].includes("banos"));
+        // Unión de todas las secciones que AL MENOS una clínica conectada
+        // compartió (hoy solo existe "banos", pero así queda listo si se
+        // agregan más secciones compartibles en el futuro).
+        const seccionesUnion = [...new Set(permisos.flat())];
+        setClinicasConectadas(clinicasDeEstaCuenta);
+        setClinicasConBanos(clinicasBanos);
+        setSeccionesColaborador(seccionesUnion);
+
+        // Solo un colaborador con rol "peluquero" maneja también sus
+        // propios clientes (guardados en su propia cuenta, nunca en la de
+        // ninguna clínica) — otros roles colaboradores no usan esto.
+        const trayendoPropios = c?.rol === "peluquero";
+        const [p, bn, pp, bnp, nt, sc] = await Promise.all([multiClinicStore.getAll("patients", clinicasDeEstaCuenta), multiClinicStore.getAll("banos", clinicasBanos), trayendoPropios ? ownCollectionStore.getAll("patients") : Promise.resolve([]), trayendoPropios ? ownCollectionStore.getAll("banos") : Promise.resolve([]), ownCollectionStore.getAll("notificaciones"), ownCollectionStore.getAll("solicitudesColaborador")]);
+        if (cancelled) return;
+        setPatients(p || []);
+        setPatientsPropios(pp || []);
+        setBanos(bn || []);
+        setBanosPropios(bnp || []);
+        setNotificaciones(nt || []);
+        setSolicitudesColaborador(sc || []);
+        // Las secciones que un colaborador nunca ve (recetas, exámenes,
+        // historial, vacunas, cobros, desparasitación, hospitalizaciones,
+        // cirugías, tratamientos) se dejan vacías.
+        setRecetas([]);
+        setExamenes([]);
+        setHistorial([]);
+        setVacunas([]);
+        setCobros([]);
+        setDesparasitaciones([]);
+        setTratamientos([]);
+        setHospitalizaciones([]);
+        setCirugias([]);
+        setConfig(c || null);
+        setDataLoaded(true);
+        return;
       }
 
-      // Como colaborador, siempre se puede ver "patients" (para saber a
-      // quién le corresponde cada servicio); las demás colecciones solo se
-      // piden si están en la lista de secciones permitidas.
-      const puedeVer = nombreSeccion => seccionesPermitidas === null || seccionesPermitidas.includes(nombreSeccion);
-      // Si esta cuenta es colaboradora Y su rol es peluquero/a, además de los
-      // pacientes compartidos por la clínica, se traen sus propios clientes
-      // (guardados en su propia cuenta, nunca en la del dueño).
-      const trayendoPropios = !!(c?.colaboradorDe?.uid && c?.rol === "peluquero");
-      const [p, r, e, h, v, cb, dw, hp, bn, cg, tr, pp, bnp, nt, sc] = await Promise.all([collectionStore.getAll("patients"), puedeVer("recetas") ? collectionStore.getAll("recetas") : Promise.resolve([]), puedeVer("examenes") ? collectionStore.getAll("examenes") : Promise.resolve([]), puedeVer("historial") ? collectionStore.getAll("historial") : Promise.resolve([]), puedeVer("vacunas") ? collectionStore.getAll("vacunas") : Promise.resolve([]), puedeVer("cobros") ? collectionStore.getAll("cobros") : Promise.resolve([]), puedeVer("desparasitaciones") ? collectionStore.getAll("desparasitaciones") : Promise.resolve([]), puedeVer("hospitalizaciones") ? collectionStore.getAll("hospitalizaciones") : Promise.resolve([]), puedeVer("banos") ? collectionStore.getAll("banos") : Promise.resolve([]), puedeVer("cirugias") ? collectionStore.getAll("cirugias") : Promise.resolve([]), puedeVer("tratamientos") ? collectionStore.getAll("tratamientos") : Promise.resolve([]), trayendoPropios ? ownCollectionStore.getAll("patients") : Promise.resolve([]), trayendoPropios ? ownCollectionStore.getAll("banos") : Promise.resolve([]), ownCollectionStore.getAll("notificaciones"), ownCollectionStore.getAll("solicitudesColaborador")]);
+      // Cuenta normal (doctor/a o clínica), sin conexión a otra cuenta como
+      // colaborador/a: se lee todo del espacio propio (o del equipo, si hay
+      // código de clínica configurado), como siempre.
+      setClinicasConectadas([]);
+      setClinicasConBanos([]);
+      const [p, r, e, h, v, cb, dw, hp, bn, cg, tr, nt, sc] = await Promise.all([collectionStore.getAll("patients"), collectionStore.getAll("recetas"), collectionStore.getAll("examenes"), collectionStore.getAll("historial"), collectionStore.getAll("vacunas"), collectionStore.getAll("cobros"), collectionStore.getAll("desparasitaciones"), collectionStore.getAll("hospitalizaciones"), collectionStore.getAll("banos"), collectionStore.getAll("cirugias"), collectionStore.getAll("tratamientos"), ownCollectionStore.getAll("notificaciones"), ownCollectionStore.getAll("solicitudesColaborador")]);
       if (cancelled) return;
       setPatients(p || []);
-      setPatientsPropios(pp || []);
+      setPatientsPropios([]);
       setRecetas(r || []);
       setExamenes(e || []);
       setHistorial(h || []);
@@ -11689,7 +11832,7 @@ function VetApp() {
       setTratamientos(tr || []);
       setHospitalizaciones(hp || []);
       setBanos(bn || []);
-      setBanosPropios(bnp || []);
+      setBanosPropios([]);
       setNotificaciones(nt || []);
       setSolicitudesColaborador(sc || []);
       setCirugias(cg || []);
@@ -11731,9 +11874,13 @@ function VetApp() {
     // Igual que en la carga inicial: si esta cuenta es colaboradora con
     // acceso limitado, solo nos suscribimos a las secciones permitidas (más
     // "patients", que siempre es visible) para no generar lecturas
-    // rechazadas por las reglas de Firestore.
+    // rechazadas por las reglas de Firestore. Si está conectada a una o
+    // varias clínicas (colaborador/a), "patients" y "banos" se escuchan por
+    // separado en CADA clínica conectada (ver multiClinicStore) en vez del
+    // espacio propio.
     const puedeEscuchar = nombreSeccion => !modoColaborador || (seccionesColaborador || []).includes(nombreSeccion);
-    const unsubPatients = collectionStore.listen("patients", setPatients);
+    const unsubPatients = modoColaborador ? multiClinicStore.listen("patients", clinicasConectadas, setPatients) : collectionStore.listen("patients", setPatients);
+    const unsubBanos = modoColaborador ? multiClinicStore.listen("banos", clinicasConBanos, setBanos) : collectionStore.listen("banos", setBanos);
     const unsubPatientsPropios = modoColaborador && config?.rol === "peluquero" ? ownCollectionStore.listen("patients", setPatientsPropios) : () => {};
     const unsubBanosPropios = modoColaborador && config?.rol === "peluquero" ? ownCollectionStore.listen("banos", setBanosPropios) : () => {};
     const unsubNotificaciones = ownCollectionStore.listen("notificaciones", setNotificaciones);
@@ -11746,7 +11893,6 @@ function VetApp() {
     const unsubDesparasitaciones = puedeEscuchar("desparasitaciones") ? collectionStore.listen("desparasitaciones", setDesparasitaciones) : () => {};
     const unsubTratamientos = puedeEscuchar("tratamientos") ? collectionStore.listen("tratamientos", setTratamientos) : () => {};
     const unsubHospitalizaciones = puedeEscuchar("hospitalizaciones") ? collectionStore.listen("hospitalizaciones", setHospitalizaciones) : () => {};
-    const unsubBanos = puedeEscuchar("banos") ? collectionStore.listen("banos", setBanos) : () => {};
     const unsubCirugias = puedeEscuchar("cirugias") ? collectionStore.listen("cirugias", setCirugias) : () => {};
     let unsubConfig = () => {};
     if (db && currentUid) {
@@ -11778,7 +11924,7 @@ function VetApp() {
       unsubCirugias();
       unsubConfig();
     };
-  }, [user, dataLoaded, modoColaborador, seccionesColaborador, config?.rol]);
+  }, [user, dataLoaded, modoColaborador, seccionesColaborador, config?.rol, clinicasConectadas, clinicasConBanos]);
   const handleSignIn = (forzarSelectorCuenta = true) => {
     setAuthError("");
     if (typeof firebase === "undefined") {
@@ -11960,19 +12106,23 @@ function VetApp() {
     }
   }, [active, selected, editing, showGreeting]);
   // Aceptar un link de invitación hace EXACTAMENTE lo mismo que llenar a mano
-  // "Conectarme como colaborador/a" en Configuración (mismas restricciones,
-  // mismo campo colaboradorDe) — además, deja una solicitud pendiente en la
-  // cuenta del dueño, porque solo él puede decidir qué secciones compartir.
+  // "Conectarme como colaborador/a" en Configuración (mismas restricciones)
+  // — además, deja una solicitud pendiente en la cuenta del dueño, porque
+  // solo él puede decidir qué secciones compartir. Se AGREGA a la lista de
+  // clínicas conectadas (colaboradoresDe), sin perder las que ya tenía.
   const aceptarInvitacion = () => {
     if (!invitacion?.uid) return;
-    const nuevoValor = {
+    const nuevaClinica = {
       uid: invitacion.uid,
       nombre: invitacion.nombre || "Sin nombre"
     };
+    const base = migrarConfig(config);
+    const yaConectado = (base.colaboradoresDe || []).some(cl => cl.uid === nuevaClinica.uid);
+    const colaboradoresDeActualizado = yaConectado ? base.colaboradoresDe.map(cl => cl.uid === nuevaClinica.uid ? nuevaClinica : cl) : [...(base.colaboradoresDe || []), nuevaClinica];
     history.replaceState(null, "", window.location.pathname + window.location.search);
     saveConfig({
-      ...migrarConfig(config),
-      colaboradorDe: nuevoValor
+      ...base,
+      colaboradoresDe: colaboradoresDeActualizado
     });
     db.collection("users").doc(invitacion.uid).collection("solicitudesColaborador").doc(currentUid).set({
       uid: currentUid,
@@ -12012,7 +12162,9 @@ function VetApp() {
   };
   const saveConfig = data => {
     const clinicaIdCambio = (config?.clinicaId || null) !== (data.clinicaId || null);
-    const colaboradorCambio = (config?.colaboradorDe?.uid || null) !== (data.colaboradorDe?.uid || null);
+    const uidsAntes = (config?.colaboradoresDe || []).map(c => c.uid).sort().join(",");
+    const uidsDespues = (data.colaboradoresDe || []).map(c => c.uid).sort().join(",");
+    const colaboradorCambio = uidsAntes !== uidsDespues;
     setConfig(data);
     store.set("config", data);
     setShowGreeting(false);
@@ -12022,7 +12174,6 @@ function VetApp() {
       showToast("Actualizando espacio de equipo...");
       setTimeout(() => window.location.reload(), 900);
     } else if (colaboradorCambio) {
-      currentColaboradorDeUid = data.colaboradorDe?.uid || null;
       showToast("Actualizando espacio de trabajo...");
       setTimeout(() => window.location.reload(), 900);
     } else {
@@ -12457,10 +12608,10 @@ function VetApp() {
   // en modo colaborador sobre un paciente que NO es propio — un peluquero
   // independiente, o cambios en sus propios pacientes, no tienen "clínica"
   // a quién avisar.
-  const notificarClinica = async (tipo, patientId, patientName, detalle) => {
-    if (!modoColaborador) return;
+  const notificarClinica = async (clinicaUid, tipo, patientId, patientName, detalle) => {
+    if (!modoColaborador || !clinicaUid) return;
     const id = uid();
-    const ok = await collectionStore.setOne("avisosClinica", id, {
+    const ok = await multiClinicStore.setOne(clinicaUid, "avisosClinica", id, {
       id,
       tipo,
       patientId,
@@ -12500,7 +12651,15 @@ function VetApp() {
     } else {
       const next = [...banos, b];
       setBanos(next);
-      collectionStore.setOne("banos", b.id, b);
+      // Un colaborador/a conectado a varias clínicas a la vez necesita que
+      // el registro se guarde en la clínica DUEÑA de este paciente en
+      // particular (patient._clinicaUid), no en un solo espacio fijo.
+      const clinicaUid = patients.find(p => p.id === b.patientId)?._clinicaUid;
+      if (modoColaborador && clinicaUid) {
+        multiClinicStore.setOne(clinicaUid, "banos", b.id, b);
+      } else {
+        collectionStore.setOne("banos", b.id, b);
+      }
       if (b.proximoBano) {
         notificarColaboradores("programado", b.patientId, b.patientName, `Baño programado: ${formatDate(b.proximoBano, config?.dateFormat)}${b.proximoBanoHora ? " — " + b.proximoBanoHora : ""}`);
       }
@@ -12513,13 +12672,14 @@ function VetApp() {
       ...cambios
     };
     const esPropio = esPacientePropio(b.patientId);
+    const clinicaUid = !esPropio ? patients.find(p => p.id === b.patientId)?._clinicaUid : null;
     if (!esPropio) {
       const anterior = banos.find(x => x.id === b.id);
       if (anterior) {
         if (!anterior.fechaAtendido && b.fechaAtendido) {
-          notificarClinica("atendido", b.patientId, b.patientName, `${b.tipo || "Baño"} atendido el ${formatDate(b.fechaAtendido, config?.dateFormat)}`);
+          notificarClinica(clinicaUid, "atendido", b.patientId, b.patientName, `${b.tipo || "Baño"} atendido el ${formatDate(b.fechaAtendido, config?.dateFormat)}`);
         } else if (b.proximoBano && b.proximoBano !== anterior.proximoBano) {
-          notificarClinica("reagendado", b.patientId, b.patientName, `Nuevo baño programado: ${formatDate(b.proximoBano, config?.dateFormat)}${b.proximoBanoHora ? " — " + b.proximoBanoHora : ""}`);
+          notificarClinica(clinicaUid, "reagendado", b.patientId, b.patientName, `Nuevo baño programado: ${formatDate(b.proximoBano, config?.dateFormat)}${b.proximoBanoHora ? " — " + b.proximoBanoHora : ""}`);
           notificarColaboradores(anterior.proximoBano ? "reagendado" : "programado", b.patientId, b.patientName, `Baño ${anterior.proximoBano ? "reagendado" : "programado"}: ${formatDate(b.proximoBano, config?.dateFormat)}${b.proximoBanoHora ? " — " + b.proximoBanoHora : ""}`);
         }
       }
@@ -12531,7 +12691,11 @@ function VetApp() {
     } else {
       const next = banos.map(x => x.id === b.id ? b : x);
       setBanos(next);
-      collectionStore.setOne("banos", b.id, b);
+      if (modoColaborador && clinicaUid) {
+        multiClinicStore.setOne(clinicaUid, "banos", b.id, b);
+      } else {
+        collectionStore.setOne("banos", b.id, b);
+      }
     }
     showToast("Servicio actualizado");
   };
@@ -12541,11 +12705,16 @@ function VetApp() {
       ownCollectionStore.deleteOne("banos", id);
     } else {
       const registro = banos.find(b => b.id === id);
+      const clinicaUid = registro ? patients.find(p => p.id === registro.patientId)?._clinicaUid : null;
       if (registro) {
-        notificarClinica("eliminado", registro.patientId, registro.patientName, `Se eliminó un registro de baño (${registro.tipo || "Baño"}, ingreso: ${formatDate(registro.fecha, config?.dateFormat)})`);
+        notificarClinica(clinicaUid, "eliminado", registro.patientId, registro.patientName, `Se eliminó un registro de baño (${registro.tipo || "Baño"}, ingreso: ${formatDate(registro.fecha, config?.dateFormat)})`);
       }
       setBanos(banos.filter(b => b.id !== id));
-      collectionStore.deleteOne("banos", id);
+      if (modoColaborador && clinicaUid) {
+        multiClinicStore.deleteOne(clinicaUid, "banos", id);
+      } else {
+        collectionStore.deleteOne("banos", id);
+      }
     }
   };
   const addCirugia = c => {
@@ -12684,7 +12853,7 @@ function VetApp() {
       text: "Cargando tus datos..."
     });
   }
-  if (invitacion && (!config?.colaboradorDe?.uid || config.colaboradorDe.uid !== invitacion.uid)) {
+  if (invitacion && !(config?.colaboradoresDe || []).some(cl => cl.uid === invitacion.uid)) {
     return /*#__PURE__*/React.createElement(InvitacionColaboradorScreen, {
       invitacion: invitacion,
       onAceptar: aceptarInvitacion,
