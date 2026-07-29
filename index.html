@@ -4919,26 +4919,27 @@ function BanosSection({
     icon: "🛁"
   }, "Registrar servicio")), showForm && /*#__PURE__*/React.createElement("div", {
     className: "bg-white border border-[#DDD5C4] rounded-lg p-6 mb-4"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 gap-4"
   }, /*#__PURE__*/React.createElement(Field, {
     label: "Tipo de servicio"
   }, /*#__PURE__*/React.createElement("select", {
     value: tipo,
     onChange: e => setTipo(e.target.value),
     className: inputClass
-  }, /*#__PURE__*/React.createElement("option", null, "Baño"), /*#__PURE__*/React.createElement("option", null, "Corte de pelo"), /*#__PURE__*/React.createElement("option", null, "Baño y corte"), /*#__PURE__*/React.createElement("option", null, "Desenredado"), /*#__PURE__*/React.createElement("option", null, "Limpieza de oídos"), /*#__PURE__*/React.createElement("option", null, "Corte de uñas"), /*#__PURE__*/React.createElement("option", null, "Otro"))), /*#__PURE__*/React.createElement(Field, {
-    label: "Fecha de ingreso"
+  }, /*#__PURE__*/React.createElement("option", null, "Baño"), /*#__PURE__*/React.createElement("option", null, "Corte de pelo"), /*#__PURE__*/React.createElement("option", null, "Baño y corte"), /*#__PURE__*/React.createElement("option", null, "Desenredado"), /*#__PURE__*/React.createElement("option", null, "Limpieza de oídos"), /*#__PURE__*/React.createElement("option", null, "Corte de uñas"), /*#__PURE__*/React.createElement("option", null, "Otro"))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-4 mt-4"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Fecha para ser atendido (opcional)"
   }, /*#__PURE__*/React.createElement(TextInput, {
     type: "date",
-    value: fecha,
-    onChange: e => setFecha(e.target.value)
+    value: proximoBano,
+    onChange: e => setProximoBano(e.target.value)
   })), /*#__PURE__*/React.createElement(Field, {
-    label: "Fecha atendido (opcional)"
+    label: "Hora"
   }, /*#__PURE__*/React.createElement(TextInput, {
-    type: "date",
-    value: fechaAtendido,
-    onChange: e => setFechaAtendido(e.target.value)
+    type: "time",
+    value: proximoBanoHora,
+    onChange: e => setProximoBanoHora(e.target.value),
+    disabled: !proximoBano
   }))), /*#__PURE__*/React.createElement(Field, {
     label: "Producto usado (opcional)"
   }, /*#__PURE__*/React.createElement(TextInput, {
@@ -4953,21 +4954,6 @@ function BanosSection({
     onChange: e => setNotas(e.target.value),
     placeholder: "Piel sensible, reacciones, observaciones..."
   })), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 gap-4"
-  }, /*#__PURE__*/React.createElement(Field, {
-    label: "Fecha separada para baño (opcional)"
-  }, /*#__PURE__*/React.createElement(TextInput, {
-    type: "date",
-    value: proximoBano,
-    onChange: e => setProximoBano(e.target.value)
-  })), /*#__PURE__*/React.createElement(Field, {
-    label: "Hora"
-  }, /*#__PURE__*/React.createElement(TextInput, {
-    type: "time",
-    value: proximoBanoHora,
-    onChange: e => setProximoBanoHora(e.target.value),
-    disabled: !proximoBano
-  }))), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2 mt-2"
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: save,
@@ -8549,16 +8535,10 @@ function BanosGeneralView({
     value: tipoNuevo,
     onChange: e => setTipoNuevo(e.target.value),
     className: inputClass
-  }, /*#__PURE__*/React.createElement("option", null, "Baño"), /*#__PURE__*/React.createElement("option", null, "Corte de pelo"), /*#__PURE__*/React.createElement("option", null, "Baño y corte"), /*#__PURE__*/React.createElement("option", null, "Desenredado"), /*#__PURE__*/React.createElement("option", null, "Limpieza de oídos"), /*#__PURE__*/React.createElement("option", null, "Corte de uñas"), /*#__PURE__*/React.createElement("option", null, "Otro"))), /*#__PURE__*/React.createElement(Field, {
-    label: "Fecha de ingreso"
-  }, /*#__PURE__*/React.createElement(TextInput, {
-    type: "date",
-    value: fechaNueva,
-    onChange: e => setFechaNueva(e.target.value)
-  }))), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("option", null, "Baño"), /*#__PURE__*/React.createElement("option", null, "Corte de pelo"), /*#__PURE__*/React.createElement("option", null, "Baño y corte"), /*#__PURE__*/React.createElement("option", null, "Desenredado"), /*#__PURE__*/React.createElement("option", null, "Limpieza de oídos"), /*#__PURE__*/React.createElement("option", null, "Corte de uñas"), /*#__PURE__*/React.createElement("option", null, "Otro")))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-4"
   }, /*#__PURE__*/React.createElement(Field, {
-    label: "Fecha separada para baño (opcional)"
+    label: "Fecha para ser atendido (opcional)"
   }, /*#__PURE__*/React.createElement(TextInput, {
     type: "date",
     value: proximoBanoNuevo,
