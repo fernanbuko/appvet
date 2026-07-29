@@ -7763,6 +7763,7 @@ function AgendaView({
   setSelected,
   onSetPestanaInicial,
   onUpdateVisita,
+  onAddBano,
   onUpdateBano,
   onUpdateVacuna,
   onUpdateDesparasitacion,
@@ -8010,11 +8011,27 @@ function AgendaView({
     setHoraAgendar("");
   };
   const guardarCitaRapida = () => {
-    if (!pacienteAgendar || !fechaAgendar || !onUpdateVisita) return;
-    onUpdateVisita(pacienteAgendar, {
-      proximaVisita: fechaAgendar,
-      proximaVisitaHora: horaAgendar
-    });
+    if (!pacienteAgendar || !fechaAgendar) return;
+    if (esPeluquero) {
+      if (!onAddBano) return;
+      onAddBano({
+        id: uid(),
+        patientId: pacienteAgendar.id,
+        patientName: pacienteAgendar.nombre,
+        tipo: "Baño",
+        fecha: new Date().toISOString().slice(0, 10),
+        producto: "",
+        notas: "",
+        proximoBano: fechaAgendar,
+        proximoBanoHora: horaAgendar
+      });
+    } else {
+      if (!onUpdateVisita) return;
+      onUpdateVisita(pacienteAgendar, {
+        proximaVisita: fechaAgendar,
+        proximaVisitaHora: horaAgendar
+      });
+    }
     cerrarAgendarCita();
   };
   // Confirmar/reagendar/cancelar directamente desde la Agenda, mismo
@@ -8105,15 +8122,15 @@ function AgendaView({
   }, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold"
-  }, "Agenda"), onUpdateVisita && /*#__PURE__*/React.createElement(PrimaryButton, {
+  }, "Agenda"), (esPeluquero ? onAddBano : onUpdateVisita) && /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: abrirAgendarCita,
     icon: "＋"
-  }, "Agendar")), agendandoCita && /*#__PURE__*/React.createElement("div", {
+  }, esPeluquero ? "Agendar baño" : "Agendar")), agendandoCita && /*#__PURE__*/React.createElement("div", {
     className: "bg-white border border-[#DDD5C4] rounded-lg p-4 max-w-xl mb-5"
   }, /*#__PURE__*/React.createElement("h4", {
     style: styles.display,
     className: "text-sm font-semibold mb-3"
-  }, "Agendar cita"), !pacienteAgendar ? /*#__PURE__*/React.createElement(SelectorPacienteInline, {
+  }, esPeluquero ? "Agendar baño" : "Agendar cita"), !pacienteAgendar ? /*#__PURE__*/React.createElement(SelectorPacienteInline, {
     patients: patients,
     onSelect: setPacienteAgendar
   }) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
@@ -12987,6 +13004,7 @@ function VetApp() {
     setSelected: setSelected,
     onSetPestanaInicial: setPestanaInicial,
     onUpdateVisita: updatePatientVisita,
+    onAddBano: addBano,
     onUpdateBano: updateBano,
     onUpdateVacuna: updateVacuna,
     onUpdateDesparasitacion: updateDesparasitacion,
