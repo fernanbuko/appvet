@@ -12316,7 +12316,11 @@ function VetApp() {
     collectionStore.setOne("vacunas", v.id, v);
     showToast("Vacuna registrada");
   };
-  const updateVacuna = v => {
+  const updateVacuna = (v, cambios) => {
+    if (cambios) v = {
+      ...v,
+      ...cambios
+    };
     const next = vacunas.map(x => x.id === v.id ? v : x);
     setVacunas(next);
     collectionStore.setOne("vacunas", v.id, v);
@@ -12333,7 +12337,11 @@ function VetApp() {
     collectionStore.setOne("desparasitaciones", d.id, d);
     showToast("Desparasitación registrada");
   };
-  const updateDesparasitacion = d => {
+  const updateDesparasitacion = (d, cambios) => {
+    if (cambios) d = {
+      ...d,
+      ...cambios
+    };
     const next = desparasitaciones.map(x => x.id === d.id ? d : x);
     setDesparasitaciones(next);
     collectionStore.setOne("desparasitaciones", d.id, d);
@@ -12350,7 +12358,11 @@ function VetApp() {
     collectionStore.setOne("tratamientos", t.id, t);
     showToast("Tratamiento registrado");
   };
-  const updateTratamiento = t => {
+  const updateTratamiento = (t, cambios) => {
+    if (cambios) t = {
+      ...t,
+      ...cambios
+    };
     const next = tratamientos.map(x => x.id === t.id ? t : x);
     setTratamientos(next);
     collectionStore.setOne("tratamientos", t.id, t);
@@ -12478,7 +12490,11 @@ function VetApp() {
     }
     showToast("Servicio registrado");
   };
-  const updateBano = b => {
+  const updateBano = (b, cambios) => {
+    if (cambios) b = {
+      ...b,
+      ...cambios
+    };
     const esPropio = esPacientePropio(b.patientId);
     if (!esPropio) {
       const anterior = banos.find(x => x.id === b.id);
