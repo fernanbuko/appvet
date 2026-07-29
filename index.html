@@ -7927,6 +7927,17 @@ function AgendaView({
     };
   });
   const esPeluquero = config?.rol === "peluquero";
+  // Para un peluquero/a que trabaja con varias clínicas (o con clientes
+  // propios), en vez de "Sin propietario" se muestra de quién es el
+  // paciente: su propio cliente, o el nombre de la clínica dueña —
+  // así sabe de un vistazo si el baño programado es de un cliente suyo o
+  // de una de las clínicas para las que colabora.
+  const subtitleAgenda = ev => {
+    if (ev.esPropio !== undefined) {
+      return ev.esPropio ? "🙋 Propio" : `🏥 ${ev.clinicaNombre || "De la clínica"}`;
+    }
+    return ev.propietario || "Sin propietario";
+  };
   const porFecha = useMemo(() => {
     const map = {};
     const agregar = (fecha, hora, entrada, claveExtra) => {
@@ -7959,7 +7970,9 @@ function AgendaView({
             label: "Baño programado",
             tab: "banos",
             registro: b,
-            tipoAccion: "banos"
+            tipoAccion: "banos",
+            esPropio: patient._esPropio,
+            clinicaNombre: patient._clinicaNombre
           }, "prog");
         }
         if (b.fechaAtendido) {
@@ -7970,7 +7983,9 @@ function AgendaView({
             foto: patient.foto,
             icon: "✅",
             label: "Baño realizado",
-            tab: "banos"
+            tab: "banos",
+            esPropio: patient._esPropio,
+            clinicaNombre: patient._clinicaNombre
           }, "hecho");
         }
       });
@@ -8409,7 +8424,7 @@ function AgendaView({
     className: "font-medium text-sm"
   }, ev.icon, " ", ev.label, ": ", ev.nombre), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72]"
-  }, ev.propietario || "Sin propietario")), ev.hora && /*#__PURE__*/React.createElement("span", {
+  }, subtitleAgenda(ev))), ev.hora && /*#__PURE__*/React.createElement("span", {
     className: "text-xs font-semibold text-[#3D6B5C] shrink-0",
     style: styles.mono
   }, ev.hora)) : reagendandoAgendaId === ev.tab + ":" + ev.patientId + ":" + ev.label ? /*#__PURE__*/React.createElement("div", {
@@ -8469,7 +8484,7 @@ function AgendaView({
     className: "font-medium text-sm"
   }, ev.icon, " ", ev.label, ": ", ev.nombre), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72]"
-  }, ev.propietario || "Sin propietario")), ev.hora && /*#__PURE__*/React.createElement("span", {
+  }, subtitleAgenda(ev))), ev.hora && /*#__PURE__*/React.createElement("span", {
     className: "text-xs font-semibold text-[#3D6B5C] shrink-0",
     style: styles.mono
   }, ev.hora)), /*#__PURE__*/React.createElement("div", {
