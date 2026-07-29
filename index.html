@@ -10981,39 +10981,14 @@ function HomeScreen({
     style: styles.mono
   }, "⚠️ ¿Qué pasó con estos pacientes?"), /*#__PURE__*/React.createElement("div", {
     className: "space-y-2 max-w-md"
-  }, vencidosPreview.slice(0, 3).map(ev => /*#__PURE__*/React.createElement("div", {
-    key: ev.id,
-    className: "bg-white border border-[#E08A3E]/40 rounded-lg p-3"
+  }, vencidosPreview.slice(0, 3).map(ev => /*#__PURE__*/React.createElement(React.Fragment, {
+    key: ev.id
+  }, reagendandoVencidoId === ev.id ? /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-3"
   }, /*#__PURE__*/React.createElement("div", {
-    onClick: () => {
-      const paciente = patients.find(p => p.id === ev.patientId);
-      if (!paciente) return;
-      setActive("pacientes");
-      setSelected(paciente);
-      if (ev.tab) onSetPestanaInicial && onSetPestanaInicial(ev.tab);
-    },
-    className: "flex items-center justify-between gap-3 cursor-pointer"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3 min-w-0"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
-  }, ev.foto ? /*#__PURE__*/React.createElement("img", {
-    src: ev.foto,
-    alt: "",
-    className: "w-full h-full object-cover"
-  }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
-    className: "min-w-0"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm truncate"
-  }, ev.icon, " ", ev.label, ": ", ev.nombre), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-[#6B7A72] truncate"
-  }, ev.detalle || ev.propietario || "Sin propietario"), esPeluquero && ev.esPropio !== undefined && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-[#6B7A72] truncate mt-1"
-  }, ev.esPropio ? "🙋 Propio" : `🏥 ${ev.clinicaNombre || "De la clínica"}`))), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs font-semibold text-[#B14E1C] shrink-0 text-right",
-    style: styles.mono
-  }, formatDate(ev.fecha, config?.dateFormat), ev.hora && ` — ${ev.hora}`)), reagendandoVencidoId === ev.id ? /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 flex-wrap mt-2"
+    className: "text-sm font-medium mb-2"
+  }, "Reagendar ", ev.label.toLowerCase(), " de ", ev.nombre), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 flex-wrap"
   }, /*#__PURE__*/React.createElement(TextInput, {
     type: "date",
     value: nuevaFechaVencido,
@@ -11032,29 +11007,66 @@ function HomeScreen({
       setNuevaFechaVencido("");
       setNuevaHoraVencido("");
     }
-  }, "Cancelar")) : /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 flex-wrap mt-2"
-  }, /*#__PURE__*/React.createElement(GhostButton, {
-    icon: "✓",
-    onClick: () => setConfirmando({
+  }, "Cancelar"))) : /*#__PURE__*/React.createElement(SwipeRow, {
+    onConfirmar: () => setConfirmando({
       ejecutar: () => confirmarEventoVencido(ev),
       mensaje: construirMensajeConfirmar(ev.tab, ev.nombre)
-    })
-  }, "Confirmar"), /*#__PURE__*/React.createElement(GhostButton, {
-    icon: "📅",
-    onClick: () => {
+    }),
+    onReagendar: () => {
       setNuevaFechaVencido(hoy);
       setNuevaHoraVencido(ev.hora || "");
       setReagendandoVencidoId(ev.id);
     }
-  }, "Reagendar"), /*#__PURE__*/React.createElement(GhostButton, {
-    icon: "✕",
-    danger: true,
-    onClick: () => setConfirmando({
-      ejecutar: () => cancelarEventoVencido(ev),
-      mensaje: `¿Cancelar ${ev.label.toLowerCase()} de ${ev.nombre}? Se quitará la fecha programada.`
-    })
-  }, "Cancelar")))), vencidosPreview.length > 3 && /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: () => {
+      const paciente = patients.find(p => p.id === ev.patientId);
+      if (!paciente) return;
+      setActive("pacientes");
+      setSelected(paciente);
+      if (ev.tab) onSetPestanaInicial && onSetPestanaInicial(ev.tab);
+    },
+    className: "w-full text-left bg-white border border-[#E08A3E]/40 rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#B14E1C] transition cursor-pointer"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
+  }, ev.foto ? /*#__PURE__*/React.createElement("img", {
+    src: ev.foto,
+    alt: "",
+    className: "w-full h-full object-cover"
+  }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-sm truncate"
+  }, ev.icon, " ", ev.label, ": ", ev.nombre), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72] truncate"
+  }, ev.detalle || ev.propietario || "Sin propietario"), esPeluquero && ev.esPropio !== undefined && /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72] truncate mt-1"
+  }, ev.esPropio ? "🙋 Propio" : `🏥 ${ev.clinicaNombre || "De la clínica"}`))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-1.5 shrink-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-xs font-semibold text-[#B14E1C] shrink-0 text-right",
+    style: styles.mono
+  }, formatDate(ev.fecha, config?.dateFormat), ev.hora && ` — ${ev.hora}`), /*#__PURE__*/React.createElement("button", {
+    title: "Confirmar",
+    onClick: e => {
+      e.stopPropagation();
+      setConfirmando({
+        ejecutar: () => confirmarEventoVencido(ev),
+        mensaje: construirMensajeConfirmar(ev.tab, ev.nombre)
+      });
+    },
+    className: "w-7 h-7 rounded-full flex items-center justify-center text-sm hover:bg-[#EAF0EC] text-[#3D6B5C] transition"
+  }, "✓"), /*#__PURE__*/React.createElement("button", {
+    title: "Reagendar",
+    onClick: e => {
+      e.stopPropagation();
+      setNuevaFechaVencido(hoy);
+      setNuevaHoraVencido(ev.hora || "");
+      setReagendandoVencidoId(ev.id);
+    },
+    className: "w-7 h-7 rounded-full flex items-center justify-center text-sm hover:bg-[#EAF0EC] text-[#B14E1C] transition"
+  }, "📅")))))), vencidosPreview.length > 3 && /*#__PURE__*/React.createElement("button", {
     onClick: () => setActive("tareas"),
     className: "text-xs font-medium text-[#B14E1C] hover:underline mt-1"
   }, "Ver los ", vencidosPreview.length, " pendientes →")));
