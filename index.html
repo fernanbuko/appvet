@@ -10619,7 +10619,7 @@ function HomeScreen({
   // reagendar o cancelar (esas acciones ya viven allá).
   const vencidosPreview = useMemo(() => {
     const lista = [];
-    const agregar = (patientId, hora, icon, label, detalle, tab, fecha) => {
+    const agregar = (registro, patientId, hora, icon, label, detalle, tab, fecha) => {
       const patient = patients.find(p => p.id === patientId);
       if (!patient || !fecha || fecha >= hoy) return;
       lista.push({
@@ -10634,21 +10634,81 @@ function HomeScreen({
         label,
         detalle: detalle || "",
         tab,
+        registro,
         esPropio: patient._esPropio,
         clinicaNombre: patient._clinicaNombre
       });
     };
     if (esPeluquero) {
-      (banos || []).forEach(b => agregar(b.patientId, b.proximoBanoHora, "🛁", "Baño", b.tipo, "banos", b.proximoBano));
+      (banos || []).forEach(b => agregar(b, b.patientId, b.proximoBanoHora, "🛁", "Baño", b.tipo, "banos", b.proximoBano));
     } else {
-      patients.forEach(p => agregar(p.id, p.proximaVisitaHora, "📅", "Cita", "", null, p.proximaVisita));
-      (banos || []).forEach(b => agregar(b.patientId, b.proximoBanoHora, "🛁", "Baño", b.tipo, "banos", b.proximoBano));
-      (vacunas || []).forEach(v => agregar(v.patientId, v.proximaDosisHora, "💉", "Vacuna", v.nombre, "vacunas", v.proximaDosis));
-      (desparasitaciones || []).forEach(d => agregar(d.patientId, d.proximaDosisHora, "🐛", "Desparasitación", d.tipo, "desparasitacion", d.proximaDosis));
-      (tratamientos || []).forEach(t => agregar(t.patientId, t.proximaAplicacionHora, "🩹", "Tratamiento", t.descripcion, "tratamientos", t.proximaAplicacion));
+      patients.forEach(p => agregar(p, p.id, p.proximaVisitaHora, "📅", "Cita", "", null, p.proximaVisita));
+      (banos || []).forEach(b => agregar(b, b.patientId, b.proximoBanoHora, "🛁", "Baño", b.tipo, "banos", b.proximoBano));
+      (vacunas || []).forEach(v => agregar(v, v.patientId, v.proximaDosisHora, "💉", "Vacuna", v.nombre, "vacunas", v.proximaDosis));
+      (desparasitaciones || []).forEach(d => agregar(d, d.patientId, d.proximaDosisHora, "🐛", "Desparasitación", d.tipo, "desparasitacion", d.proximaDosis));
+      (tratamientos || []).forEach(t => agregar(t, t.patientId, t.proximaAplicacionHora, "🩹", "Tratamiento", t.descripcion, "tratamientos", t.proximaAplicacion));
     }
     return lista.sort((a, b) => a.fecha < b.fecha ? -1 : 1);
   }, [patients, banos, vacunas, desparasitaciones, tratamientos, esPeluquero, hoy]);
+  // Confirmar/Reagendar/Cancelar directo desde la vista rápida de arriba,
+  // reutilizando el mismo CONFIG_EVENTO_HOY (mismos campos por tipo) que ya
+  // usa la sección "Hoy" — así no hace falta otra configuración aparte.
+  const [reagendandoVencidoId, setReagendandoVencidoId] = useState(null);
+  const [nuevaFechaVencido, setNuevaFechaVencido] = useState("");
+  const [nuevaHoraVencido, setNuevaHoraVencido] = useState("");
+  const confirmarEventoVencido = ev => {
+    if (!ev.tab) {
+      onUpdateVisita && onUpdateVisita(ev.registro, {
+        proximaVisita: "",
+        proximaVisitaHora: ""
+      });
+      return;
+    }
+    const cfg = CONFIG_EVENTO_HOY[ev.tab];
+    if (!cfg || !cfg.onUpdate) return;
+    cfg.onUpdate({
+      ...ev.registro,
+      [cfg.campoConfirmado]: hoy,
+      [cfg.campoFecha]: "",
+      [cfg.campoHora]: ""
+    });
+  };
+  const cancelarEventoVencido = ev => {
+    if (!ev.tab) {
+      onUpdateVisita && onUpdateVisita(ev.registro, {
+        proximaVisita: "",
+        proximaVisitaHora: ""
+      });
+      return;
+    }
+    const cfg = CONFIG_EVENTO_HOY[ev.tab];
+    if (!cfg || !cfg.onUpdate) return;
+    cfg.onUpdate({
+      ...ev.registro,
+      [cfg.campoFecha]: "",
+      [cfg.campoHora]: ""
+    });
+  };
+  const guardarReagendarVencido = ev => {
+    if (!nuevaFechaVencido) return;
+    if (!ev.tab) {
+      onUpdateVisita && onUpdateVisita(ev.registro, {
+        proximaVisita: nuevaFechaVencido,
+        proximaVisitaHora: nuevaHoraVencido
+      });
+    } else {
+      const cfg = CONFIG_EVENTO_HOY[ev.tab];
+      if (!cfg || !cfg.onUpdate) return;
+      cfg.onUpdate({
+        ...ev.registro,
+        [cfg.campoFecha]: nuevaFechaVencido,
+        [cfg.campoHora]: nuevaHoraVencido
+      });
+    }
+    setReagendandoVencidoId(null);
+    setNuevaFechaVencido("");
+    setNuevaHoraVencido("");
+  };
   // Confirmar/reagendar cualquier evento de "Hoy" desde ahí mismo, sin
   // entrar a la ficha — igual que ya funciona en "Próximas visitas". Cada
   // tipo de evento usa su propio campo de fecha/hora y su propia función
@@ -10921,10 +10981,18 @@ function HomeScreen({
     style: styles.mono
   }, "⚠️ ¿Qué pasó con estos pacientes?"), /*#__PURE__*/React.createElement("div", {
     className: "space-y-2 max-w-md"
-  }, vencidosPreview.slice(0, 3).map(ev => /*#__PURE__*/React.createElement("button", {
+  }, vencidosPreview.slice(0, 3).map(ev => /*#__PURE__*/React.createElement("div", {
     key: ev.id,
-    onClick: () => setActive("tareas"),
-    className: "w-full text-left bg-white border border-[#E08A3E]/40 rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#B14E1C] transition"
+    className: "bg-white border border-[#E08A3E]/40 rounded-lg p-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: () => {
+      const paciente = patients.find(p => p.id === ev.patientId);
+      if (!paciente) return;
+      setActive("pacientes");
+      setSelected(paciente);
+      if (ev.tab) onSetPestanaInicial && onSetPestanaInicial(ev.tab);
+    },
+    className: "flex items-center justify-between gap-3 cursor-pointer"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-3 min-w-0"
   }, /*#__PURE__*/React.createElement("div", {
@@ -10944,7 +11012,49 @@ function HomeScreen({
   }, ev.esPropio ? "🙋 Propio" : `🏥 ${ev.clinicaNombre || "De la clínica"}`))), /*#__PURE__*/React.createElement("div", {
     className: "text-xs font-semibold text-[#B14E1C] shrink-0 text-right",
     style: styles.mono
-  }, formatDate(ev.fecha, config?.dateFormat), ev.hora && ` — ${ev.hora}`))), vencidosPreview.length > 3 && /*#__PURE__*/React.createElement("button", {
+  }, formatDate(ev.fecha, config?.dateFormat), ev.hora && ` — ${ev.hora}`)), reagendandoVencidoId === ev.id ? /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 flex-wrap mt-2"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "date",
+    value: nuevaFechaVencido,
+    onChange: e => setNuevaFechaVencido(e.target.value)
+  }), /*#__PURE__*/React.createElement(TextInput, {
+    type: "time",
+    value: nuevaHoraVencido,
+    onChange: e => setNuevaHoraVencido(e.target.value)
+  }), /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: () => guardarReagendarVencido(ev),
+    disabled: !nuevaFechaVencido,
+    icon: "✓"
+  }, "Guardar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => {
+      setReagendandoVencidoId(null);
+      setNuevaFechaVencido("");
+      setNuevaHoraVencido("");
+    }
+  }, "Cancelar")) : /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 flex-wrap mt-2"
+  }, /*#__PURE__*/React.createElement(GhostButton, {
+    icon: "✓",
+    onClick: () => setConfirmando({
+      ejecutar: () => confirmarEventoVencido(ev),
+      mensaje: construirMensajeConfirmar(ev.tab, ev.nombre)
+    })
+  }, "Confirmar"), /*#__PURE__*/React.createElement(GhostButton, {
+    icon: "📅",
+    onClick: () => {
+      setNuevaFechaVencido(hoy);
+      setNuevaHoraVencido(ev.hora || "");
+      setReagendandoVencidoId(ev.id);
+    }
+  }, "Reagendar"), /*#__PURE__*/React.createElement(GhostButton, {
+    icon: "✕",
+    danger: true,
+    onClick: () => setConfirmando({
+      ejecutar: () => cancelarEventoVencido(ev),
+      mensaje: `¿Cancelar ${ev.label.toLowerCase()} de ${ev.nombre}? Se quitará la fecha programada.`
+    })
+  }, "Cancelar")))), vencidosPreview.length > 3 && /*#__PURE__*/React.createElement("button", {
     onClick: () => setActive("tareas"),
     className: "text-xs font-medium text-[#B14E1C] hover:underline mt-1"
   }, "Ver los ", vencidosPreview.length, " pendientes →")));
