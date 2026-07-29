@@ -8174,6 +8174,9 @@ function AgendaView({
     key: "cita",
     label: "Cita general"
   }, {
+    key: "banos",
+    label: "Baño"
+  }, {
     key: "vacunas",
     label: "Vacuna"
   }, {
@@ -8202,6 +8205,19 @@ function AgendaView({
   const guardarCitaRapida = () => {
     if (!pacienteAgendar || !fechaAgendar) return;
     if (esPeluquero) {
+      if (!onAddBano) return;
+      onAddBano({
+        id: uid(),
+        patientId: pacienteAgendar.id,
+        patientName: pacienteAgendar.nombre,
+        tipo: "Baño",
+        fecha: fechaLocalISO(),
+        producto: "",
+        notas: "",
+        proximoBano: fechaAgendar,
+        proximoBanoHora: horaAgendar
+      });
+    } else if (tipoAgendar === "banos") {
       if (!onAddBano) return;
       onAddBano({
         id: uid(),
@@ -8378,7 +8394,7 @@ function AgendaView({
   }, TIPOS_AGENDAR_VET.map(t => /*#__PURE__*/React.createElement("option", {
     key: t.key,
     value: t.key
-  }, t.label)))), !esPeluquero && tipoAgendar !== "cita" && /*#__PURE__*/React.createElement(Field, {
+  }, t.label)))), !esPeluquero && tipoAgendar !== "cita" && tipoAgendar !== "banos" && /*#__PURE__*/React.createElement(Field, {
     label: tipoAgendar === "vacunas" ? "Nombre de la vacuna" : tipoAgendar === "desparasitacion" ? "Producto" : "Descripción del tratamiento"
   }, /*#__PURE__*/React.createElement(TextInput, {
     value: nombreEventoAgendar,
@@ -8402,7 +8418,7 @@ function AgendaView({
     className: "flex gap-2 mt-3"
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: guardarCitaRapida,
-    disabled: !fechaAgendar || !esPeluquero && tipoAgendar !== "cita" && !nombreEventoAgendar.trim(),
+    disabled: !fechaAgendar || !esPeluquero && tipoAgendar !== "cita" && tipoAgendar !== "banos" && !nombreEventoAgendar.trim(),
     icon: "✓"
   }, "Agendar"), /*#__PURE__*/React.createElement(GhostButton, {
     onClick: cerrarAgendarCita
