@@ -7725,7 +7725,9 @@ function TareasView({
         icon,
         label,
         detalle: detalle || "",
-        tab
+        tab,
+        esPropio: patient._esPropio,
+        clinicaNombre: patient._clinicaNombre
       });
     };
     if (esPeluquero) {
@@ -7793,7 +7795,9 @@ function TareasView({
       className: "font-medium text-sm truncate"
     }, ev.icon, " ", ev.label, ": ", ev.nombre), /*#__PURE__*/React.createElement("div", {
       className: "text-xs text-[#6B7A72] truncate"
-    }, ev.detalle || ev.propietario || "Sin propietario"))), ev.hora && /*#__PURE__*/React.createElement("div", {
+    }, ev.detalle || ev.propietario || "Sin propietario"), esPeluquero && ev.esPropio !== undefined && /*#__PURE__*/React.createElement("div", {
+      className: "text-xs text-[#6B7A72] truncate mt-1"
+    }, ev.esPropio ? "🙋 Propio" : `🏥 ${ev.clinicaNombre || "De la clínica"}`))), ev.hora && /*#__PURE__*/React.createElement("div", {
       className: "text-xs font-semibold text-[#3D6B5C] shrink-0",
       style: styles.mono
     }, ev.hora)))));
