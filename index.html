@@ -11809,6 +11809,20 @@ function VetApp() {
       actualizarCarpetaDoctor(c);
       const clinicasDeEstaCuenta = c?.colaboradoresDe || [];
 
+      // Cuentas que ya eran colaboradoras ANTES de que existiera
+      // "colaboradoresDeUids" (la lista plana de uids que usan las reglas de
+      // seguridad para permitirle a la clínica leer el nombre actualizado
+      // de su colaborador/a) se quedaron sin ese dato guardado — nadie
+      // disparó un nuevo guardado que lo generara. Se corrige solo, aquí,
+      // sin que la persona tenga que volver a guardar nada a mano.
+      if (clinicasDeEstaCuenta.length > 0) {
+        const uidsGuardados = (cCruda?.colaboradoresDeUids || []).slice().sort().join(",");
+        const uidsEsperados = clinicasDeEstaCuenta.map(cl => cl.uid).slice().sort().join(",");
+        if (uidsGuardados !== uidsEsperados) {
+          store.set("config", c).catch(() => {});
+        }
+      }
+
       if (clinicasDeEstaCuenta.length > 0) {
         // Esta cuenta es colaboradora (ej. peluquero/a externo) de una o
         // varias clínicas a la vez. Antes de pedir "Baños" a cada una, hay
