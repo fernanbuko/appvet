@@ -1954,7 +1954,12 @@ function PhotoAdjustModal({
         onConfirm(url);
       } catch (e) {
         console.error(e);
-        setUploadError("No se pudo subir la imagen. Revisa tu conexión e intenta de nuevo.");
+        // Sin conexión (u otro fallo de subida): en vez de bloquear a la
+        // persona, se guarda la foto igual, localmente, como respaldo —
+        // la próxima vez que edite esta foto con internet, se subirá bien
+        // a Cloudinary. Así "modo sin conexión" nunca impide guardar una foto.
+        onConfirm(canvas.toDataURL("image/jpeg", 0.88));
+      } finally {
         setUploading(false);
       }
     }, "image/jpeg", 0.88);
@@ -3446,15 +3451,21 @@ function PatientDetail({
     try {
       let url;
       if (cloudinaryReady) {
-        const result = await uploadToCloudinary(file, `${carpetaDePaciente(patient.id, patient.nombre)}/galeria`);
-        url = result.url;
+        try {
+          const result = await uploadToCloudinary(file, `${carpetaDePaciente(patient.id, patient.nombre)}/galeria`);
+          url = result.url;
+        } catch (err) {
+          // Sin conexión (u otro fallo de subida): se guarda la foto igual,
+          // localmente, como respaldo, en vez de bloquear a la persona.
+          url = await resizeImage(file, 900);
+        }
       } else {
         url = await resizeImage(file, 900);
       }
       const nuevas = [...(patient.fotos || []), url];
       onUpdateFotos(patient, nuevas);
     } catch (err) {
-      alert("No se pudo subir la foto. Intenta de nuevo.");
+      alert("No se pudo agregar la foto. Intenta de nuevo.");
     } finally {
       setUploadingFoto(false);
       e.target.value = "";
