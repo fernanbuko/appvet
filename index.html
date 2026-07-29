@@ -9642,7 +9642,9 @@ function PanelPropietarioView({
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#6B7A72] mb-5",
     style: styles.mono
-  }, "Actualizado: ", panel.actualizadoEn ? new Date(panel.actualizadoEn).toLocaleString("es-EC") : "—"), /*#__PURE__*/React.createElement("div", {
+  }, "Actualizado: ", panel.actualizadoEn ? new Date(panel.actualizadoEn).toLocaleString("es-EC", {
+    hour12: false
+  }) : "—"), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-3 mb-8 max-w-sm"
   }, /*#__PURE__*/React.createElement(StatCard, {
     label: "Clínicas",
