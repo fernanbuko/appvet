@@ -2454,7 +2454,7 @@ const emptyPatient = () => ({
   fotos: []
 });
 const HOJAS_TODAS = ["Identificación", "Consulta", "Plan", "Seguimiento"];
-const RAZAS_PERRO = ["Labrador Retriever", "Golden Retriever", "Pastor Aleman", "Bulldog Frances", "Bulldog Ingles", "Poodle Caniche", "Beagle", "Rottweiler", "Yorkshire Terrier", "Boxer", "Dachshund Salchicha", "Chihuahua", "Husky Siberiano", "Gran Danes", "Doberman", "Shih Tzu", "Pomerania", "Border Collie", "Schnauzer", "Cocker Spaniel", "Pug Carlino", "Maltes", "Akita", "San Bernardo", "Basset Hound", "Bull Terrier", "Pit Bull Terrier", "Dalmata", "Chow Chow", "Shar Pei", "Weimaraner", "Galgo", "Mastin", "Bichon Frise", "Pointer", "Setter Irlandes", "Terranova", "Cane Corso", "Perro de Agua Espanol", "Fox Terrier", "Jack Russell Terrier", "Whippet", "Basenji", "Boyero de Berna", "Collie", "Papillon", "Lhasa Apso", "Rhodesian Ridgeback", "Mestizo Criollo", "Otra"];
+const RAZAS_PERRO = ["Labrador Retriever", "Golden Retriever", "Pastor Aleman", "Bulldog Frances", "Bulldog Ingles", "Poodle Caniche", "Beagle", "Rottweiler", "Yorkshire Terrier", "Boxer", "Dachshund Salchicha", "Chihuahua", "Husky Siberiano", "Gran Danes", "Doberman", "Shih Tzu", "Pomerania", "Border Collie", "Schnauzer", "Cocker Spaniel", "Pug Carlino", "Maltes", "Akita", "San Bernardo", "Basset Hound", "Bull Terrier", "Pit Bull Terrier", "Dalmata", "Chow Chow", "Shar Pei", "Weimaraner", "Galgo", "Mastin", "Bichon Frise", "Pointer", "Setter Irlandes", "Terranova", "Cane Corso", "Perro de Agua Espanol", "Fox Terrier", "Jack Russell Terrier", "Whippet", "Basenji", "Boyero de Berna", "Collie", "Papillon", "Lhasa Apso", "Rhodesian Ridgeback", "Dogo Argentino", "Mestizo Criollo", "Otra"];
 const RAZAS_GATO = ["Comun Europeo Mestizo", "Persa", "Siames", "Maine Coon", "Angora Turco", "Bengali", "British Shorthair", "Ragdoll", "Sphynx Esfinge", "Abisinio", "Exotico de Pelo Corto", "Devon Rex", "Cornish Rex", "Azul Ruso", "Scottish Fold", "Himalayo", "Bombay", "Birmano", "Manx", "Munchkin", "Ocicat", "Somali", "Tonkines", "Van Turco", "Chartreux", "Korat", "Burmes", "Selkirk Rex", "Egyptian Mau", "Otra"];
 
 // Antiparasitarios (internos, externos y combinados) más usados en la
@@ -2857,7 +2857,7 @@ function PatientForm({
     label: "Etiquetas rápidas"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap gap-2"
-  }, ["Esterilizado", "Alergias", "Agresivo", "Crónico", "Geriátrico", "Dócil"].map(t => {
+  }, ["Esterilizado", "Alergias", "Agresivo", "Crónico", "Geriátrico", "Dócil", "Nervioso"].map(t => {
     const activo = (data.etiquetas || []).includes(t);
     return /*#__PURE__*/React.createElement("button", {
       key: t,
