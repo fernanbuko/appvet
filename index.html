@@ -1431,25 +1431,34 @@ function fechaLocalISO(d = new Date()) {
 }
 
 // Convierte una fecha guardada como AAAA-MM-DD al formato que el usuario eligió
-// en Configuración, solo para mostrarla (los datos se guardan siempre en
+// en Configuración, para mostrarla — y le antepone el día de la semana (Lun,
+// Mar, etc.), para saber de un vistazo qué día cae cada cita/vacuna/baño sin
+// tener que ir a revisar el calendario (los datos se guardan siempre en
 // AAAA-MM-DD internamente, para que el ordenamiento y los cálculos sigan
 // funcionando igual).
+const DIAS_SEMANA_ABREV = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 function formatDate(dateStr, dateFormat) {
   if (!dateStr) return dateStr;
   const parts = dateStr.split("-");
   if (parts.length !== 3) return dateStr;
   const [y, m, d] = parts;
+  const diaSemana = DIAS_SEMANA_ABREV[new Date(Number(y), Number(m) - 1, Number(d)).getDay()];
+  let fechaFormateada;
   switch (dateFormat) {
     case "DD/MM/YYYY":
-      return `${d}/${m}/${y}`;
+      fechaFormateada = `${d}/${m}/${y}`;
+      break;
     case "MM/DD/YYYY":
-      return `${m}/${d}/${y}`;
+      fechaFormateada = `${m}/${d}/${y}`;
+      break;
     case "DD-MM-YYYY":
-      return `${d}-${m}-${y}`;
+      fechaFormateada = `${d}-${m}-${y}`;
+      break;
     default:
-      return dateStr;
+      fechaFormateada = dateStr;
     // YYYY-MM-DD
   }
+  return `${diaSemana} ${fechaFormateada}`;
 }
 function makeICS({
   title,
