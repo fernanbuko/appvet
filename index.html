@@ -11419,12 +11419,22 @@ function HomeScreen({
         }
       },
       className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between hover:border-[#3D6B5C] transition"
-    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-      className: "font-medium text-sm"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-3 min-w-0"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
+    }, paciente?.foto ? /*#__PURE__*/React.createElement("img", {
+      src: paciente.foto,
+      alt: "",
+      className: "w-full h-full object-cover"
+    }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
+      className: "min-w-0"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "font-medium text-sm truncate"
     }, h.patientName), /*#__PURE__*/React.createElement("div", {
-      className: "text-xs text-[#6B7A72]"
-    }, h.motivo)), /*#__PURE__*/React.createElement("div", {
-      className: "text-xs px-2 py-1 rounded",
+      className: "text-xs text-[#6B7A72] truncate"
+    }, h.motivo))), /*#__PURE__*/React.createElement("div", {
+      className: "text-xs px-2 py-1 rounded shrink-0",
       style: {
         ...styles.mono,
         color: "var(--accent-orange)",
