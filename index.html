@@ -13447,7 +13447,7 @@ function VetApp() {
       text: "Cargando tus datos..."
     });
   }
-  if (invitacion && !(configEfectivo?.colaboradoresDe || []).some(cl => cl.uid === invitacion.uid)) {
+  if (invitacion && !(config?.colaboradoresDe || []).some(cl => cl.uid === invitacion.uid)) {
     return /*#__PURE__*/React.createElement(InvitacionColaboradorScreen, {
       invitacion: invitacion,
       onAceptar: aceptarInvitacion,
@@ -13456,7 +13456,7 @@ function VetApp() {
   }
   if (showGreeting) {
     return /*#__PURE__*/React.createElement(GreetingScreen, {
-      config: configEfectivo,
+      config: config,
       onEnter: () => setShowGreeting(false),
       onSetup: data => saveConfig(data),
       onEdit: () => {
