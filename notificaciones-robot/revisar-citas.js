@@ -946,10 +946,17 @@ async function actualizarPanelPropietario() {
       // nada y se deja en blanco, sin romper el resto del panel.
       let correo = "";
       let bloqueado = false;
+      let fechaCreacionAuth = null;
       try {
         const authUser = await admin.auth().getUser(usuarioRef.id);
         correo = authUser.email || "";
         bloqueado = !!authUser.disabled;
+        // Respaldo para cuentas creadas ANTES de que existiera el campo
+        // "fechaRegistro" en la configuración (se agregó después, así que
+        // esas cuentas viejas nunca lo llegaron a guardar) — Firebase
+        // Authentication sí sabe, de forma confiable, cuándo se creó
+        // realmente cada cuenta, sin depender de ningún campo nuestro.
+        fechaCreacionAuth = authUser.metadata?.creationTime ? new Date(authUser.metadata.creationTime).getTime() : null;
       } catch (e) {
         correo = "";
       }
@@ -975,7 +982,7 @@ async function actualizarPanelPropietario() {
         logo: config.logo || "",
         doctorNombres: config.doctorNombres || "",
         rol: config.rol || "veterinario",
-        fechaRegistro: config.fechaRegistro || null,
+        fechaRegistro: config.fechaRegistro || fechaCreacionAuth,
         ultimaConexion,
         pacientes: numPacientes,
         colaboradores: numColaboradores
