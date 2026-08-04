@@ -1430,6 +1430,27 @@ function fechaLocalISO(d = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+// Convierte una marca de tiempo (ms) en un texto relativo tipo "hace 5
+// minutos" / "hace 3 días" — usado en el Panel del propietario para mostrar
+// la última conexión y la antigüedad de cada cuenta de un vistazo, sin
+// tener que hacer la cuenta mentalmente a partir de una fecha exacta.
+function tiempoRelativo(ms) {
+  if (!ms) return null;
+  const diffMs = Date.now() - ms;
+  if (diffMs < 0) return "hace un momento";
+  const minutos = Math.floor(diffMs / 60000);
+  if (minutos < 1) return "hace un momento";
+  if (minutos < 60) return `hace ${minutos} minuto${minutos === 1 ? "" : "s"}`;
+  const horas = Math.floor(minutos / 60);
+  if (horas < 24) return `hace ${horas} hora${horas === 1 ? "" : "s"}`;
+  const dias = Math.floor(horas / 24);
+  if (dias < 30) return `hace ${dias} día${dias === 1 ? "" : "s"}`;
+  const meses = Math.floor(dias / 30);
+  if (meses < 12) return `hace ${meses} mes${meses === 1 ? "" : "es"}`;
+  const anios = Math.floor(meses / 12);
+  return `hace ${anios} año${anios === 1 ? "" : "s"}`;
+}
+
 // Convierte una fecha guardada como AAAA-MM-DD al formato que el usuario eligió
 // en Configuración, para mostrarla — y le antepone el día de la semana (Lun,
 // Mar, etc.), para saber de un vistazo qué día cae cada cita/vacuna/baño sin
@@ -9945,7 +9966,10 @@ function PanelPropietarioView({
   }, "✉️ ", c.correo), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#A6A08F] mt-0.5",
     style: styles.mono
-  }, c.fechaRegistro ? new Date(c.fechaRegistro).toLocaleDateString("es-EC") : "Fecha de registro no disponible"), (() => {
+  }, c.fechaRegistro ? new Date(c.fechaRegistro).toLocaleDateString("es-EC") : "Fecha de registro no disponible", c.fechaRegistro && ` (${tiempoRelativo(c.fechaRegistro)})`), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#A6A08F]",
+    style: styles.mono
+  }, "🟢 Última conexión: ", c.ultimaConexion ? tiempoRelativo(c.ultimaConexion) : "No disponible"), (() => {
     const bloqueadoEfectivo = bloqueosSolicitados[c.uid] !== undefined ? bloqueosSolicitados[c.uid] : c.bloqueado;
     return /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-3 mt-1.5 flex-wrap"
@@ -12348,6 +12372,16 @@ function VetApp() {
     return () => {
       cancelled = true;
     };
+  }, [user]);
+
+  // Deja guardada la hora de esta conexión, en un documento propio y
+  // liviano (no dentro de "config", para no disparar ningún otro efecto ni
+  // recarga) — el robot (revisar-citas.js) la lee al armar el panel del
+  // propietario, para mostrar "última conexión" de cada cuenta. Se guarda
+  // una sola vez por apertura de la app, no en cada cambio de pantalla.
+  useEffect(() => {
+    if (!user || !db || !currentUid) return;
+    store.set("ultimaConexion", Date.now()).catch(() => {});
   }, [user]);
 
   // Si se entró desde un código QR o desde tocar una notificación (enlace
