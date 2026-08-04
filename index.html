@@ -9966,10 +9966,23 @@ function PanelPropietarioView({
   }, "✉️ ", c.correo), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#A6A08F] mt-0.5",
     style: styles.mono
-  }, c.fechaRegistro ? new Date(c.fechaRegistro).toLocaleDateString("es-EC") : "Fecha de registro no disponible", c.fechaRegistro && ` (${tiempoRelativo(c.fechaRegistro)})`), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-[#A6A08F]",
-    style: styles.mono
-  }, "🟢 Última conexión: ", c.ultimaConexion ? tiempoRelativo(c.ultimaConexion) : "No disponible"), (() => {
+  }, c.fechaRegistro ? new Date(c.fechaRegistro).toLocaleDateString("es-EC") : "Fecha de registro no disponible", c.fechaRegistro && ` (${tiempoRelativo(c.fechaRegistro)})`), (() => {
+    // Se resalta en naranja si no se conecta hace 30 días o más, para
+    // saber a quién conviene contactar antes de que "abandone" la app. Si
+    // nunca hay registro de conexión, se usa la fecha en que se registró
+    // como referencia (para no marcar como inactiva a una cuenta nueva que
+    // recién se está configurando).
+    const referencia = c.ultimaConexion || c.fechaRegistro;
+    const diasSinActividad = referencia ? (Date.now() - referencia) / 86400000 : null;
+    const inactiva = diasSinActividad !== null && diasSinActividad >= 30;
+    return /*#__PURE__*/React.createElement("div", {
+      className: "text-xs",
+      style: {
+        ...styles.mono,
+        color: inactiva ? "var(--accent-orange)" : "#A6A08F"
+      }
+    }, inactiva ? "⚠️ " : "🟢 ", "Última conexión: ", c.ultimaConexion ? tiempoRelativo(c.ultimaConexion) : "No disponible", inactiva && " — contactar");
+  })(), (() => {
     const bloqueadoEfectivo = bloqueosSolicitados[c.uid] !== undefined ? bloqueosSolicitados[c.uid] : c.bloqueado;
     return /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-3 mt-1.5 flex-wrap"
