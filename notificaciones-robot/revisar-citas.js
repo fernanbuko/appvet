@@ -953,6 +953,17 @@ async function actualizarPanelPropietario() {
       } catch (e) {
         correo = "";
       }
+      // "Última conexión": la deja guardada la propia app (index.html) cada
+      // vez que alguien la abre, en un documento aparte y liviano. Si por
+      // algún motivo no existe (cuenta muy vieja, de antes de este cambio),
+      // simplemente se deja en null y el panel muestra "No disponible".
+      let ultimaConexion = null;
+      try {
+        const ultimaConexionDoc = await usuarioRef.collection("data").doc("ultimaConexion").get();
+        ultimaConexion = ultimaConexionDoc.exists ? ultimaConexionDoc.data()?.value || null : null;
+      } catch (e) {
+        ultimaConexion = null;
+      }
       const numColaboradores = config.colaboradoresPermitidos ? Object.keys(config.colaboradoresPermitidos).length : 0;
       totalPacientes += numPacientes;
       totalColaboradores += numColaboradores;
@@ -965,6 +976,7 @@ async function actualizarPanelPropietario() {
         doctorNombres: config.doctorNombres || "",
         rol: config.rol || "veterinario",
         fechaRegistro: config.fechaRegistro || null,
+        ultimaConexion,
         pacientes: numPacientes,
         colaboradores: numColaboradores
       });
