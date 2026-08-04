@@ -7489,9 +7489,20 @@ function GreetingScreen({
   onUpdateInmediato
 }) {
   const hasConfig = !!(config && nombreCompletoDoctor(config));
+  // Prueba: si la persona no toca nada, entra sola a la app después de 2
+  // segundos — pero si toca la pantalla antes (para entrar ya, o para ir a
+  // "Editar mis datos"), no espera nada. Si esto no se siente bien, se
+  // puede revertir quitando este useEffect y el onClick de más abajo.
+  useEffect(() => {
+    if (!hasConfig) return;
+    const t = setTimeout(onEnter, 2000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasConfig]);
   return /*#__PURE__*/React.createElement("div", {
     className: "min-h-screen flex items-center justify-center px-6",
-    style: styles.page
+    style: styles.page,
+    onClick: hasConfig ? onEnter : undefined
   }, /*#__PURE__*/React.createElement("div", {
     className: "max-w-md w-full text-center"
   }, config?.logo ? /*#__PURE__*/React.createElement("img", {
@@ -7513,9 +7524,15 @@ function GreetingScreen({
   }, config.clinica), /*#__PURE__*/React.createElement("div", {
     className: "mt-8"
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
-    onClick: onEnter
+    onClick: e => {
+      e.stopPropagation();
+      onEnter();
+    }
   }, "Entrar a la app")), /*#__PURE__*/React.createElement("button", {
-    onClick: onEdit,
+    onClick: e => {
+      e.stopPropagation();
+      onEdit();
+    },
     className: "text-xs text-[#A6A08F] mt-4 hover:text-[#6B7A72] hover:underline"
   }, "Editar mis datos")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h1", {
     style: styles.display,
