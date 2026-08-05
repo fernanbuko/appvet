@@ -2286,7 +2286,7 @@ function MobileTopBar({
   onAbrirNovedades
 }) {
   return /*#__PURE__*/React.createElement("div", {
-    className: "md:hidden flex items-center justify-between bg-[#23342F] text-white px-4 py-3"
+    className: "md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between bg-[#23342F] text-white px-4 py-3"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setActive("inicio"),
     className: "flex items-center gap-2 text-left"
@@ -13593,7 +13593,7 @@ function VetApp() {
     config: configEfectivo,
     modoColaborador: modoColaborador
   }), /*#__PURE__*/React.createElement("div", {
-    className: "flex-1 px-5 sm:px-8 pt-8 pb-24 md:pb-8 max-w-5xl md:ml-60"
+    className: "flex-1 px-5 sm:px-8 pt-24 md:pt-8 pb-24 md:pb-8 max-w-5xl md:ml-60"
   }, toast && /*#__PURE__*/React.createElement("div", {
     className: "fixed top-4 right-4 z-50 bg-[#23342F] text-white text-sm px-4 py-2.5 rounded-md shadow-lg flex items-center gap-2"
   }, "✓ ", toast), /*#__PURE__*/React.createElement("div", {
