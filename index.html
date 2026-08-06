@@ -7510,13 +7510,13 @@ function GreetingScreen({
   onUpdateInmediato
 }) {
   const hasConfig = !!(config && nombreCompletoDoctor(config));
-  // Prueba: si la persona no toca nada, entra sola a la app después de 1
-  // segundo — pero si toca la pantalla antes (para entrar ya, o para ir a
+  // Prueba: si la persona no toca nada, entra sola a la app después de 1.5
+  // segundos — pero si toca la pantalla antes (para entrar ya, o para ir a
   // "Editar mis datos"), no espera nada. Si esto no se siente bien, se
   // puede revertir quitando este useEffect y el onClick de más abajo.
   useEffect(() => {
     if (!hasConfig) return;
-    const t = setTimeout(onEnter, 1000);
+    const t = setTimeout(onEnter, 1500);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasConfig]);
