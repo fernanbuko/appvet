@@ -2964,7 +2964,11 @@ function PatientForm({
     className: "flex items-center gap-2"
   }, /*#__PURE__*/React.createElement(GhostButton, {
     onClick: onCancel
-  }, "Cancelar"), !isLast ? /*#__PURE__*/React.createElement(PrimaryButton, {
+  }, "Cancelar"), !isLast && /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => data.nombre.trim() && onSave(data),
+    icon: "✓",
+    disabled: !data.nombre.trim()
+  }, "Guardar"), !isLast ? /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: () => canGoNext && setStep(s => s + 1),
     disabled: !canGoNext,
     icon: "▶"
@@ -7510,13 +7514,13 @@ function GreetingScreen({
   onUpdateInmediato
 }) {
   const hasConfig = !!(config && nombreCompletoDoctor(config));
-  // Prueba: si la persona no toca nada, entra sola a la app después de 1.5
+  // Prueba: si la persona no toca nada, entra sola a la app después de 2
   // segundos — pero si toca la pantalla antes (para entrar ya, o para ir a
   // "Editar mis datos"), no espera nada. Si esto no se siente bien, se
   // puede revertir quitando este useEffect y el onClick de más abajo.
   useEffect(() => {
     if (!hasConfig) return;
-    const t = setTimeout(onEnter, 1500);
+    const t = setTimeout(onEnter, 1000);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasConfig]);
