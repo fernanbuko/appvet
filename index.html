@@ -30,6 +30,10 @@
 <meta name="mobile-web-app-capable" content="yes" />
 
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" />
+<!-- Leaflet: mapa interactivo para marcar la ubicación exacta de la casa
+     del propietario (selector de pin en el formulario de paciente). -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   /* Reset y utilidades propias (sin depender de ningún CDN de estilos) */
   * { box-sizing: border-box; }
@@ -1769,6 +1773,96 @@ function ConfirmModal({
 }
 
 /* ---------------------------------------------------------
+   Selector de ubicación exacta en un mapa interactivo (Leaflet):
+   toca el mapa o arrastra el pin para marcar dónde vive el
+   propietario, o usa el botón para tomar la ubicación actual del
+   celular. Se guarda como lat/lng en el paciente (aparte del
+   cantón, que sigue siendo un campo de texto normal).
+----------------------------------------------------------*/
+const MAPA_UBICACION_DEFAULT = {
+  lat: -2.170998,
+  lng: -79.922359
+}; // Guayaquil, EC — solo como referencia inicial si no hay pin puesto
+function MapPicker({
+  lat,
+  lng,
+  onChange
+}) {
+  const containerRef = useRef(null);
+  const mapRef = useRef(null);
+  const markerRef = useRef(null);
+  const [mensaje, setMensaje] = useState("");
+  useEffect(() => {
+    if (typeof L === "undefined" || !containerRef.current) return;
+    const startLat = lat ?? MAPA_UBICACION_DEFAULT.lat;
+    const startLng = lng ?? MAPA_UBICACION_DEFAULT.lng;
+    const map = L.map(containerRef.current, {
+      attributionControl: true
+    }).setView([startLat, startLng], lat != null ? 16 : 13);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap"
+    }).addTo(map);
+    const marker = L.marker([startLat, startLng], {
+      draggable: true
+    }).addTo(map);
+    map.on("click", e => {
+      marker.setLatLng(e.latlng);
+      onChange(e.latlng.lat, e.latlng.lng);
+    });
+    marker.on("dragend", () => {
+      const ll = marker.getLatLng();
+      onChange(ll.lat, ll.lng);
+    });
+    mapRef.current = map;
+    markerRef.current = marker;
+    // Leaflet necesita recalcular su tamaño si el contenedor no tenía
+    // dimensiones todavía en el momento de crear el mapa.
+    setTimeout(() => map.invalidateSize(), 150);
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      markerRef.current = null;
+    };
+  }, []);
+  const usarUbicacionActual = () => {
+    if (!navigator.geolocation) {
+      setMensaje("Tu navegador no soporta geolocalización");
+      return;
+    }
+    setMensaje("Buscando tu ubicación...");
+    navigator.geolocation.getCurrentPosition(pos => {
+      const {
+        latitude,
+        longitude
+      } = pos.coords;
+      if (mapRef.current && markerRef.current) {
+        mapRef.current.setView([latitude, longitude], 16);
+        markerRef.current.setLatLng([latitude, longitude]);
+      }
+      onChange(latitude, longitude);
+      setMensaje("Ubicación encontrada — ajusta el pin si hace falta.");
+    }, () => {
+      setMensaje("No se pudo obtener tu ubicación.");
+    }, {
+      enableHighAccuracy: true,
+      timeout: 8000
+    });
+  };
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    ref: containerRef,
+    className: "w-full h-56 rounded-lg overflow-hidden border border-[#DDD5C4]"
+  }), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#6B7A72] mt-1.5"
+  }, "Toca el mapa o arrastra el pin para marcar la ubicación exacta de la casa del propietario."), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: usarUbicacionActual,
+    icon: "📍"
+  }, "Usar mi ubicación actual"), mensaje && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#3D6B5C] mt-1"
+  }, mensaje));
+}
+
+/* ---------------------------------------------------------
    Campo de texto con sugerencias filtradas en tiempo real
    (ej. razas): a partir de 2 letras muestra las coincidencias,
    pero siempre permite escribir un valor propio si no aparece.
@@ -2469,6 +2563,8 @@ const emptyPatient = () => ({
   propietario: "",
   telefonoPropietario: "",
   ubicacion: "",
+  lat: null,
+  lng: null,
   motivoConsulta: "",
   signos: "",
   tratamientoInyectable: "",
@@ -2798,6 +2894,17 @@ function PatientForm({
       ubicacion: v
     })),
     placeholder: "Escribe o elige un cantón..."
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Ubicación exacta en el mapa (opcional)"
+  }, /*#__PURE__*/React.createElement(MapPicker, {
+    key: initial?.id || "nuevo",
+    lat: data.lat,
+    lng: data.lng,
+    onChange: (lat, lng) => setData(d => ({
+      ...d,
+      lat,
+      lng
+    }))
   })))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-4"
   }, /*#__PURE__*/React.createElement(Field, {
@@ -3150,6 +3257,7 @@ function exportPatientPDF(patient, config, recetas, examenes, historial) {
       <div class="row"><span class="label">Nombre</span><div class="value">${esc(patient.nombre)}</div></div>
       ${row("Propietario", patient.propietario)}
       ${row("Ubicación", patient.ubicacion)}
+      ${patient.lat != null && patient.lng != null ? row("Ubicación exacta", `https://www.google.com/maps?q=${patient.lat},${patient.lng}`) : ""}
       ${row("Especie", patient.especie)}
       ${row("Sexo", patient.sexo)}
       ${row("Raza", patient.raza)}
@@ -3641,6 +3749,14 @@ function PatientDetail({
   }), /*#__PURE__*/React.createElement(DetailRow, {
     label: "Ubicación",
     value: patient.ubicacion
+  }), /*#__PURE__*/React.createElement(DetailRow, {
+    label: "Ubicación exacta",
+    value: patient.lat != null && patient.lng != null ? /*#__PURE__*/React.createElement("a", {
+      href: `https://www.google.com/maps?q=${patient.lat},${patient.lng}`,
+      target: "_blank",
+      rel: "noopener noreferrer",
+      className: "text-[#3D6B5C] hover:underline"
+    }, "📍 Ver en Google Maps") : ""
   }), /*#__PURE__*/React.createElement(DetailRow, {
     label: "Teléfono propietario",
     value: esPacienteAjeno ? "" : patient.telefonoPropietario
