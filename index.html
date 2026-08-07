@@ -2287,7 +2287,21 @@ function Sidebar({
   // permiso de verlas. Si no es colaborador, el rol de la propia cuenta
   // decide qué secciones aplican (ej. un peluquero no usa Recetas).
   const keysPermitidosPorRol = itemsNavPermitidos(config?.rol);
-  const itemsMenu = (modoColaborador ? NAV.filter(item => ["inicio", "nuevo", "pacientes", "tareas", "agenda", "banos", "config"].includes(item.key)) : keysPermitidosPorRol ? NAV.filter(item => keysPermitidosPorRol.includes(item.key)) : NAV).filter(item => item.key !== "panel" || currentUid === OWNER_UID_APP).map(item => config?.rol === "peluquero" ? {
+  let itemsMenu = modoColaborador ? NAV.filter(item => ["inicio", "nuevo", "pacientes", "tareas", "agenda", "banos", "config"].includes(item.key)) : keysPermitidosPorRol ? NAV.filter(item => keysPermitidosPorRol.includes(item.key)) : NAV;
+  // "Panel" es una excepción especial solo de la cuenta de soporte: tiene
+  // que verse siempre para ella, sin importar el rol (incluida la vista de
+  // previsualización) ni si está en modo colaborador — las listas por rol
+  // de arriba nunca lo incluyen, así que si no se agrega aparte, se pierde
+  // sin forma de volver (por eso desaparecía al probar "Peluquería" o
+  // "Vendedor" y no dejaba regresar a "Real").
+  if (currentUid === OWNER_UID_APP) {
+    if (!itemsMenu.some(item => item.key === "panel")) {
+      itemsMenu = [...itemsMenu, NAV.find(item => item.key === "panel")];
+    }
+  } else {
+    itemsMenu = itemsMenu.filter(item => item.key !== "panel");
+  }
+  itemsMenu = itemsMenu.map(item => config?.rol === "peluquero" ? {
     ...item,
     label: item.key === "pacientes" ? "Clientes" : item.key === "nuevo" ? "Nuevo cliente" : item.label
   } : item);
@@ -10668,6 +10682,21 @@ function HomeScreen({
       tiempoPulsadoRef.current = null;
     }
   };
+  // Salvaguarda: si el clic/toque se suelta en cualquier parte de la
+  // pantalla (no exactamente sobre la tarjeta original — algo que pasa
+  // seguido con mouse, ya que basta con moverse un poco), esto igual
+  // cancela la "pulsación larga" pendiente en vez de dejarla activarse
+  // sola 400ms después sin que la persona ya tenga el botón presionado.
+  useEffect(() => {
+    document.addEventListener("mouseup", cancelarPulsacionLarga);
+    document.addEventListener("touchend", cancelarPulsacionLarga);
+    document.addEventListener("touchcancel", cancelarPulsacionLarga);
+    return () => {
+      document.removeEventListener("mouseup", cancelarPulsacionLarga);
+      document.removeEventListener("touchend", cancelarPulsacionLarga);
+      document.removeEventListener("touchcancel", cancelarPulsacionLarga);
+    };
+  }, []);
   const targetArrastreRef = useRef(null);
   const sinDestinoDesdeRef = useRef(null);
   useEffect(() => {
@@ -11505,7 +11534,6 @@ function HomeScreen({
       },
       onMouseDown: e => iniciarPulsacionLarga(key, e),
       onMouseUp: cancelarPulsacionLarga,
-      onMouseLeave: cancelarPulsacionLarga,
       onClickCapture: e => {
         if (modoEdicionAccesos) {
           e.preventDefault();
