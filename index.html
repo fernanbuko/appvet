@@ -50,7 +50,7 @@
   .grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
   .gap-1\.5{gap:.375rem}.gap-2{gap:.5rem}.gap-2\.5{gap:.625rem}.gap-3{gap:.75rem}.gap-4{gap:1rem}.gap-5{gap:1.25rem}.gap-x-6{column-gap:1.5rem}
   .w-4{width:1rem}.w-11{width:2.75rem}.w-16{width:4rem}.w-28{width:7rem}.w-full{width:100%}
-  .h-4{height:1rem}.h-11{height:2.75rem}.h-16{height:4rem}.h-28{height:7rem}.h-56{height:14rem}.h-full{height:100%}.h-px{height:1px}
+  .h-4{height:1rem}.h-11{height:2.75rem}.h-16{height:4rem}.h-28{height:7rem}.h-56{height:14rem}.h-72{height:18rem}.h-80{height:20rem}.h-full{height:100%}.h-px{height:1px}
   .min-w-0{min-width:0}
   .max-w-sm{max-width:24rem}.max-w-xl{max-width:36rem}.max-w-2xl{max-width:42rem}.max-w-5xl{max-width:64rem}
   .rounded{border-radius:.25rem}.rounded-md{border-radius:.375rem}.rounded-lg{border-radius:.5rem}.rounded-full{border-radius:9999px}
@@ -1786,7 +1786,8 @@ const MAPA_UBICACION_DEFAULT = {
 function MapPicker({
   lat,
   lng,
-  onChange
+  onChange,
+  heightClass
 }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
@@ -1851,7 +1852,7 @@ function MapPicker({
   };
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     ref: containerRef,
-    className: "w-full h-56 rounded-lg overflow-hidden border border-[#DDD5C4]"
+    className: "w-full rounded-lg overflow-hidden border border-[#DDD5C4] " + (heightClass || "h-56")
   }), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#6B7A72] mt-1.5"
   }, "Toca el mapa o arrastra el pin para marcar la ubicación exacta de la casa del propietario."), /*#__PURE__*/React.createElement(GhostButton, {
@@ -1860,6 +1861,49 @@ function MapPicker({
   }, "Usar mi ubicación actual"), mensaje && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#3D6B5C] mt-1"
   }, mensaje));
+}
+
+// Ventana (modal) que envuelve el MapPicker de arriba — en vez de mostrar
+// el mapa metido dentro del formulario largo (donde en el celular queda
+// chiquito y apretado), se abre en su propia ventana grande, cómoda para
+// tocar/arrastrar el pin, con sus propios botones de Guardar/Cancelar.
+function MapPickerModal({
+  lat,
+  lng,
+  onSave,
+  onCancel
+}) {
+  const [tempLat, setTempLat] = useState(lat);
+  const [tempLng, setTempLng] = useState(lng);
+  useCerrarConAtras(true, onCancel);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 flex items-center justify-center p-4",
+    style: {
+      background: "rgba(0,0,0,.5)"
+    },
+    onClick: onCancel
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-lg p-4 max-w-md w-full",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("h3", {
+    style: styles.display,
+    className: "text-lg font-semibold text-[#23342F] mb-3"
+  }, "Ubicación exacta"), /*#__PURE__*/React.createElement(MapPicker, {
+    lat: tempLat,
+    lng: tempLng,
+    heightClass: "h-72",
+    onChange: (la, ln) => {
+      setTempLat(la);
+      setTempLng(ln);
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 justify-end flex-wrap mt-4"
+  }, /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: onCancel
+  }, "Cancelar"), /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: () => onSave(tempLat, tempLng),
+    disabled: tempLat == null || tempLng == null
+  }, "Guardar ubicación"))));
 }
 
 /* ---------------------------------------------------------
@@ -2606,6 +2650,7 @@ function PatientForm({
 }) {
   const [step, setStep] = useState(0);
   const [data, setData] = useState(initial || emptyPatient());
+  const [mostrandoMapa, setMostrandoMapa] = useState(false);
   // Creación rápida: solo para pacientes NUEVOS — se salta las hojas y
   // solo pide lo esencial (nombre, especie, propietario, teléfono), para
   // crear la ficha en segundos y completar el resto después con "Editar
@@ -2681,6 +2726,18 @@ function PatientForm({
         foto: dataUrl
       }));
       setCropSrc(null);
+    }
+  }), mostrandoMapa && /*#__PURE__*/React.createElement(MapPickerModal, {
+    lat: data.lat,
+    lng: data.lng,
+    onCancel: () => setMostrandoMapa(false),
+    onSave: (lat, lng) => {
+      setData(d => ({
+        ...d,
+        lat,
+        lng
+      }));
+      setMostrandoMapa(false);
     }
   }), !initial && /*#__PURE__*/React.createElement("div", {
     className: "flex justify-end mb-3"
@@ -2896,16 +2953,12 @@ function PatientForm({
     placeholder: "Escribe o elige un cantón..."
   })), /*#__PURE__*/React.createElement(Field, {
     label: "Ubicación exacta en el mapa (opcional)"
-  }, /*#__PURE__*/React.createElement(MapPicker, {
-    key: initial?.id || "nuevo",
-    lat: data.lat,
-    lng: data.lng,
-    onChange: (lat, lng) => setData(d => ({
-      ...d,
-      lat,
-      lng
-    }))
-  })))), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => setMostrandoMapa(true),
+    icon: "📍"
+  }, data.lat != null && data.lng != null ? "Cambiar ubicación en el mapa" : "Elegir ubicación en el mapa"), data.lat != null && data.lng != null && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#3D6B5C] mt-1.5"
+  }, "✓ Ubicación guardada")))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-4"
   }, /*#__PURE__*/React.createElement(Field, {
     label: "Peso (kg)"
