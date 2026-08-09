@@ -2660,11 +2660,21 @@ function PatientForm({
   initial,
   onSave,
   onCancel,
-  config
+  config,
+  patients
 }) {
   const [step, setStep] = useState(0);
   const [data, setData] = useState(initial || emptyPatient());
   const [mostrandoMapa, setMostrandoMapa] = useState(false);
+  // Si el nombre (y, de haberlo, el teléfono) del propietario coincide con
+  // el de OTRO paciente que ya tiene una ubicación exacta guardada, se
+  // ofrece copiarla en vez de obligar a marcar el pin de nuevo — es común
+  // que un mismo dueño tenga varias mascotas y viva en un solo lugar.
+  const otroPacienteMismoDueno = useMemo(() => {
+    const nombrePropio = normalizeText(data.propietario);
+    if (!nombrePropio || !(patients || []).length) return null;
+    return (patients || []).find(p => p.id !== data.id && normalizeText(p.propietario) === nombrePropio && (!data.telefonoPropietario || !p.telefonoPropietario || p.telefonoPropietario === data.telefonoPropietario) && p.lat != null && p.lng != null) || null;
+  }, [data.propietario, data.telefonoPropietario, data.id, patients]);
   // Creación rápida: solo para pacientes NUEVOS — se salta las hojas y
   // solo pide lo esencial (nombre, especie, propietario, teléfono), para
   // crear la ficha en segundos y completar el resto después con "Editar
@@ -2972,7 +2982,14 @@ function PatientForm({
     icon: "📍"
   }, data.lat != null && data.lng != null ? "Cambiar ubicación en el mapa" : "Elegir ubicación en el mapa"), data.lat != null && data.lng != null && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#3D6B5C] mt-1.5"
-  }, "✓ Ubicación guardada")))), /*#__PURE__*/React.createElement("div", {
+  }, "✓ Ubicación guardada"), otroPacienteMismoDueno && (data.lat !== otroPacienteMismoDueno.lat || data.lng !== otroPacienteMismoDueno.lng) && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setData(d => ({
+      ...d,
+      lat: otroPacienteMismoDueno.lat,
+      lng: otroPacienteMismoDueno.lng
+    })),
+    className: "text-xs text-[#3D6B5C] hover:underline mt-1.5 block"
+  }, "📍 Usar la misma ubicación de ", otroPacienteMismoDueno.nombre)))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-4"
   }, /*#__PURE__*/React.createElement(Field, {
     label: "Peso (kg)"
@@ -13889,7 +13906,8 @@ function VetApp() {
     initial: null,
     onSave: savePatient,
     onCancel: () => setActive("pacientes"),
-    config: configEfectivo
+    config: configEfectivo,
+    patients: activePatients
   })), active === "pacientes" && !editing && !selected && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold mb-5"
@@ -13969,7 +13987,8 @@ function VetApp() {
     initial: editing,
     onSave: savePatient,
     onCancel: () => setEditing(null),
-    config: configEfectivo
+    config: configEfectivo,
+    patients: activePatients
   })), active === "recetas" && /*#__PURE__*/React.createElement(RecetasView, {
     patients: activePatients,
     recetas: recetas,
