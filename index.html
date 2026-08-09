@@ -2691,6 +2691,7 @@ function PatientForm({
   const cameraRef = useRef(null);
   const [imgError, setImgError] = useState("");
   const [cropSrc, setCropSrc] = useState(null);
+  const [lightboxSrc, setLightboxSrc] = useState(null);
 
   // Día y mes de nacimiento (se ponen a mano); el año se calcula solo
   // restando la edad al año actual. Si ya había una fecha de nacimiento
@@ -2752,6 +2753,9 @@ function PatientForm({
       }));
       setCropSrc(null);
     }
+  }), lightboxSrc && /*#__PURE__*/React.createElement(ImageLightbox, {
+    src: lightboxSrc,
+    onClose: () => setLightboxSrc(null)
   }), mostrandoMapa && /*#__PURE__*/React.createElement(MapPickerModal, {
     lat: data.lat,
     lng: data.lng,
@@ -2857,7 +2861,7 @@ function PatientForm({
   }, step === 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "flex items-start gap-5 mb-5"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    onClick: () => fileRef.current?.click(),
+    onClick: () => data.foto ? setLightboxSrc(data.foto) : fileRef.current?.click(),
     className: "w-28 h-28 rounded-full bg-[#EAF0EC] border-2 border-dashed border-[#B9C4BD] flex items-center justify-center cursor-pointer overflow-hidden hover:border-[#3D6B5C] transition"
   }, data.foto ? /*#__PURE__*/React.createElement("img", {
     src: data.foto,
@@ -6913,6 +6917,7 @@ function ConfigForm({
   const [cropSrc, setCropSrc] = useState(null);
   const [fotoError, setFotoError] = useState("");
   const [cropSrcFoto, setCropSrcFoto] = useState(null);
+  const [lightboxSrc, setLightboxSrc] = useState(null);
   // El campo de escritura de redes sociales siempre empieza vacío: al
   // presionar Enter se agrega una cuenta nueva a la lista de esa red (sin
   // límite), y el campo queda listo para escribir otra.
@@ -7155,6 +7160,9 @@ function ConfigForm({
       }));
       setCropSrcFoto(null);
     }
+  }), lightboxSrc && /*#__PURE__*/React.createElement(ImageLightbox, {
+    src: lightboxSrc,
+    onClose: () => setLightboxSrc(null)
   }), isSetup && /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-[#6B7A72] mb-5"
   }, "Antes de empezar, cuéntanos a qué te dedicas, quién eres y el nombre de tu negocio. Esto se usará para saludarte y para identificar la app cuando compartas información con tus clientes."), /*#__PURE__*/React.createElement("div", {
@@ -7167,7 +7175,7 @@ function ConfigForm({
   }, etiquetaLogoNegocio(data.rol)), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-4"
   }, /*#__PURE__*/React.createElement("div", {
-    onClick: () => fileRef.current?.click(),
+    onClick: () => data.logo ? setLightboxSrc(data.logo) : fileRef.current?.click(),
     className: "w-16 h-16 rounded-lg bg-[#EAF0EC] border-2 border-dashed border-[#B9C4BD] flex items-center justify-center cursor-pointer overflow-hidden hover:border-[#3D6B5C] transition shrink-0"
   }, data.logo ? /*#__PURE__*/React.createElement("img", {
     src: data.logo,
@@ -7210,7 +7218,7 @@ function ConfigForm({
   }, "Tu foto de perfil (aparece en una esquina de la app)"), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-4"
   }, /*#__PURE__*/React.createElement("div", {
-    onClick: () => fotoFileRef.current?.click(),
+    onClick: () => data.doctorFoto ? setLightboxSrc(data.doctorFoto) : fotoFileRef.current?.click(),
     className: "w-16 h-16 rounded-full bg-[#EAF0EC] border-2 border-dashed border-[#B9C4BD] flex items-center justify-center cursor-pointer overflow-hidden hover:border-[#3D6B5C] transition shrink-0"
   }, data.doctorFoto ? /*#__PURE__*/React.createElement("img", {
     src: data.doctorFoto,
