@@ -12307,6 +12307,19 @@ function parseHash(hash) {
 ----------------------------------------------------------*/
 function VetApp() {
   const [active, setActive] = useState("inicio");
+  // Al cambiar de sección (Inicio, Pacientes, Recetas, etc.) la página
+  // siempre vuelve a empezar desde arriba. Si no se hiciera esto, el
+  // scroll se quedaba donde estaba en la sección anterior y, como la
+  // barra de búsqueda es "sticky" (se queda fija arriba), el encabezado
+  // de Inicio (logo + nombre de la clínica) podía aparecer tapado detrás
+  // de ella.
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "auto"
+    });
+  }, [active]);
   const [patients, setPatients] = useState([]);
   // Pacientes "propios" de un colaborador (ej. un peluquero que consigue un
   // cliente por su cuenta): viven en SU PROPIA cuenta, no en la del dueño de
