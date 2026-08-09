@@ -10649,39 +10649,71 @@ function HomeScreen({
     setTargetArrastre(null);
     arrastrandoRef.current = false;
   };
+  // Agarra la tarjeta y toma la "foto" de dónde está CADA una en ese
+  // momento (no solo la que se arrastra) — así, si hay que calcular hacia
+  // dónde se desliza la tarjeta destino, siempre se usa esta posición fija
+  // original, en vez de volver a medir en vivo (que podría estar a media
+  // transición y dar medidas inconsistentes, causando ese temblor).
+  const activarArrastre = key => {
+    arrastrandoRef.current = true;
+    setModoEdicionAccesos(true);
+    setArrastrandoKey(key);
+    const rects = {};
+    document.querySelectorAll("[data-orden-key]").forEach(elemento => {
+      rects[elemento.getAttribute("data-orden-key")] = elemento.getBoundingClientRect();
+    });
+    rectsOriginalesRef.current = rects;
+    origenArrastreRectRef.current = rects[key] || null;
+    sinDestinoDesdeRef.current = null;
+    if (navigator.vibrate) navigator.vibrate(15);
+  };
+  const pendienteMouseKeyRef = useRef(null);
   const iniciarPulsacionLarga = (key, e) => {
-    const touch = e.touches ? e.touches[0] : e;
+    const esTouch = !!e.touches;
+    const touch = esTouch ? e.touches[0] : e;
     inicioToqueRef.current = {
       x: touch.clientX,
       y: touch.clientY
     };
-    tiempoPulsadoRef.current = setTimeout(() => {
-      arrastrandoRef.current = true;
-      setModoEdicionAccesos(true);
-      setArrastrandoKey(key);
-      // Se toma una "foto" de dónde está CADA tarjeta justo antes de
-      // empezar a arrastrar (no solo la que se agarra) — así, si más
-      // adelante hay que calcular hacia dónde se desliza la tarjeta
-      // destino, siempre se usa esta posición fija original, en vez de
-      // volver a medir la tarjeta EN VIVO (que podría estar a media
-      // transición en ese momento, dando medidas inconsistentes y
-      // causando ese temblor).
-      const rects = {};
-      document.querySelectorAll("[data-orden-key]").forEach(elemento => {
-        rects[elemento.getAttribute("data-orden-key")] = elemento.getBoundingClientRect();
-      });
-      rectsOriginalesRef.current = rects;
-      origenArrastreRectRef.current = rects[key] || null;
-      sinDestinoDesdeRef.current = null;
-      if (navigator.vibrate) navigator.vibrate(15);
-    }, 400);
+    if (esTouch) {
+      // En celular sí hace falta esperar un rato sin soltar (para no
+      // confundir un "arrastrar tarjeta" con un simple scroll de la
+      // pantalla, que también se hace con el dedo).
+      tiempoPulsadoRef.current = setTimeout(() => activarArrastre(key), 400);
+    } else {
+      // En PC no hay ese conflicto con el scroll (que se hace con la
+      // rueda del mouse, no con clic sostenido) — así que en vez de
+      // obligar a mantener el clic apretado sin moverse durante 400ms sin
+      // ninguna señal en pantalla (lo cual se sentía como que "no
+      // funcionaba"), basta con que el mouse se mueva un poco mientras
+      // el botón sigue presionado para activar el arrastre al instante.
+      pendienteMouseKeyRef.current = key;
+    }
   };
   const cancelarPulsacionLarga = () => {
     if (tiempoPulsadoRef.current) {
       clearTimeout(tiempoPulsadoRef.current);
       tiempoPulsadoRef.current = null;
     }
+    pendienteMouseKeyRef.current = null;
   };
+  // Detecta, mientras el botón del mouse sigue presionado sobre una
+  // tarjeta (sin haber activado el arrastre todavía), si se movió lo
+  // suficiente como para considerarlo un arrastre y no un simple clic.
+  useEffect(() => {
+    const alMoverPendiente = e => {
+      if (!pendienteMouseKeyRef.current || arrastrandoKey) return;
+      const dx = e.clientX - inicioToqueRef.current.x;
+      const dy = e.clientY - inicioToqueRef.current.y;
+      if (Math.hypot(dx, dy) > 6) {
+        const key = pendienteMouseKeyRef.current;
+        pendienteMouseKeyRef.current = null;
+        activarArrastre(key);
+      }
+    };
+    document.addEventListener("mousemove", alMoverPendiente);
+    return () => document.removeEventListener("mousemove", alMoverPendiente);
+  }, [arrastrandoKey]);
   // Salvaguarda: si el clic/toque se suelta en cualquier parte de la
   // pantalla (no exactamente sobre la tarjeta original — algo que pasa
   // seguido con mouse, ya que basta con moverse un poco), esto igual
