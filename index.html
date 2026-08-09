@@ -4246,6 +4246,14 @@ function whatsappLink(telefono, mensaje) {
   if (limpio.startsWith("+")) limpio = limpio.slice(1);
   return `https://wa.me/${limpio}?text=${encodeURIComponent(mensaje)}`;
 }
+// Arma un enlace a Google Maps para la ubicación del propietario: usa el pin
+// exacto (lat/lng) guardado en el mapa si existe; si no, busca por el texto
+// de ubicación (cantón) que se haya escrito en la ficha.
+function ubicacionLink(p) {
+  if (p.lat != null && p.lng != null) return `https://www.google.com/maps?q=${p.lat},${p.lng}`;
+  if (p.ubicacion) return `https://www.google.com/maps/search/${encodeURIComponent(p.ubicacion)}`;
+  return null;
+}
 function shareCarnetVacunas(patient, entries, config) {
   const df = config?.dateFormat;
   const lines = [`CARNET DE VACUNACIÓN`, config?.clinica || "", `Paciente: ${patient.nombre}`, patient.propietario ? `Propietario: ${patient.propietario}` : null, "", ...entries.map(v => `• ${v.nombre} — Aplicada: ${formatDate(v.fechaAplicada, df)}${v.proximaDosis ? " — Próxima: " + formatDate(v.proximaDosis, df) : ""}`)].filter(Boolean);
@@ -5734,9 +5742,18 @@ function PatientCard({
   config,
   modoColaborador
 }) {
-  return /*#__PURE__*/React.createElement("button", {
+  const ubicLink = ubicacionLink(p);
+  return /*#__PURE__*/React.createElement("div", {
+    role: "button",
+    tabIndex: 0,
     onClick: () => onSelect(p),
-    className: "text-left bg-white border border-[#DDD5C4] rounded-lg p-4 hover:border-[#3D6B5C] hover:shadow-sm transition"
+    onKeyDown: e => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onSelect(p);
+      }
+    },
+    className: "text-left bg-white border border-[#DDD5C4] rounded-lg p-4 hover:border-[#3D6B5C] hover:shadow-sm transition cursor-pointer"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-3"
   }, /*#__PURE__*/React.createElement("div", {
@@ -5773,7 +5790,22 @@ function PatientCard({
   }, t))), config?.rol !== "peluquero" && p.proximaVisita && /*#__PURE__*/React.createElement("div", {
     className: "mt-3 inline-flex items-center gap-1.5 text-[11px] text-[#B14E1C] bg-[#E08A3E]/10 px-2 py-1 rounded",
     style: styles.mono
-  }, "📅 ", formatDate(p.proximaVisita, config?.dateFormat)));
+  }, "📅 ", formatDate(p.proximaVisita, config?.dateFormat)), (p.telefonoPropietario || ubicLink) && /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 mt-3 pt-3 border-t border-[#EFEAE0]"
+  }, p.telefonoPropietario && /*#__PURE__*/React.createElement("button", {
+    onClick: e => {
+      e.stopPropagation();
+      const mensaje = `Hola${p.propietario && p.propietario !== "Sin propietario" ? " " + p.propietario : ""}, le escribimos de ${config?.clinica || "la clínica"}. `;
+      window.open(whatsappLink(p.telefonoPropietario, mensaje), "_blank");
+    },
+    className: "text-xs text-[#3D6B5C] hover:underline"
+  }, "💬 WhatsApp"), ubicLink && /*#__PURE__*/React.createElement("button", {
+    onClick: e => {
+      e.stopPropagation();
+      window.open(ubicLink, "_blank");
+    },
+    className: "text-xs text-[#3D6B5C] hover:underline"
+  }, "📍 Ubicación")));
 }
 function PatientsList({
   patients,
@@ -5885,6 +5917,7 @@ function PatientsList({
     className: "space-y-6"
   }, groups.map(([propietario, list]) => {
     const telefono = list.find(p => p.telefonoPropietario)?.telefonoPropietario;
+    const conUbicacion = list.find(p => ubicacionLink(p));
     return /*#__PURE__*/React.createElement("div", {
       key: propietario
     }, /*#__PURE__*/React.createElement("div", {
@@ -5895,7 +5928,10 @@ function PatientsList({
     }, propietario), telefono && /*#__PURE__*/React.createElement("button", {
       onClick: () => window.open(whatsappLink(telefono, `Hola${propietario && propietario !== "Sin propietario" ? " " + propietario : ""}, le escribimos de ${config?.clinica || "la clínica"}. `), "_blank"),
       className: "text-xs text-[#3D6B5C] hover:underline"
-    }, "💬 WhatsApp")), /*#__PURE__*/React.createElement("div", {
+    }, "💬 WhatsApp"), conUbicacion && /*#__PURE__*/React.createElement("button", {
+      onClick: () => window.open(ubicacionLink(conUbicacion), "_blank"),
+      className: "text-xs text-[#3D6B5C] hover:underline"
+    }, "📍 Ubicación")), /*#__PURE__*/React.createElement("div", {
       className: "grid sm:grid-cols-2 lg:grid-cols-3 gap-3"
     }, list.map(p => /*#__PURE__*/React.createElement(PatientCard, {
       key: p.id,
@@ -5959,7 +5995,8 @@ function PatientsList({
 }
 function GlobalSearch({
   patients,
-  onSelect
+  onSelect,
+  config
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -6000,7 +6037,7 @@ function GlobalSearch({
     }
   };
   return /*#__PURE__*/React.createElement("div", {
-    className: "relative max-w-sm mb-6",
+    className: "relative max-w-sm flex-1",
     ref: wrapperRef
   }, /*#__PURE__*/React.createElement("input", {
     type: "text",
@@ -6017,28 +6054,59 @@ function GlobalSearch({
     autoComplete: "off"
   }), open && results.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "absolute z-20 left-0 right-0 mt-1 bg-white border border-[#DDD5C4] rounded-md shadow-lg max-h-64 overflow-y-auto"
-  }, results.map((p, i) => /*#__PURE__*/React.createElement("button", {
-    key: p.id,
-    type: "button",
-    onMouseDown: e => e.preventDefault(),
-    onMouseEnter: () => setResaltado(i),
-    onClick: () => elegir(p),
-    className: "flex items-center gap-3 w-full text-left px-3 py-2 transition " + (i === resaltado ? "bg-[#EAF0EC]" : "hover:bg-[#EAF0EC]")
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "w-8 h-8 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
-  }, p.foto ? /*#__PURE__*/React.createElement("img", {
-    src: p.foto,
-    alt: "",
-    className: "w-full h-full object-cover"
-  }) : /*#__PURE__*/React.createElement("span", {
-    className: "text-sm"
-  }, "🐾")), /*#__PURE__*/React.createElement("div", {
-    className: "min-w-0"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-sm font-medium truncate"
-  }, p.nombre), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-[#6B7A72] truncate"
-  }, p.propietario || "Sin propietario"))))), open && q.length >= 2 && results.length === 0 && /*#__PURE__*/React.createElement("div", {
+  }, results.map((p, i) => {
+    const ubicLink = ubicacionLink(p);
+    return /*#__PURE__*/React.createElement("div", {
+      key: p.id,
+      role: "button",
+      tabIndex: 0,
+      onMouseDown: e => e.preventDefault(),
+      onMouseEnter: () => setResaltado(i),
+      onClick: () => elegir(p),
+      onKeyDown: e => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          elegir(p);
+        }
+      },
+      className: "flex items-center gap-3 w-full text-left px-3 py-2 transition cursor-pointer " + (i === resaltado ? "bg-[#EAF0EC]" : "hover:bg-[#EAF0EC]")
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "w-8 h-8 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
+    }, p.foto ? /*#__PURE__*/React.createElement("img", {
+      src: p.foto,
+      alt: "",
+      className: "w-full h-full object-cover"
+    }) : /*#__PURE__*/React.createElement("span", {
+      className: "text-sm"
+    }, "🐾")), /*#__PURE__*/React.createElement("div", {
+      className: "min-w-0 flex-1"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "text-sm font-medium truncate"
+    }, p.nombre), /*#__PURE__*/React.createElement("div", {
+      className: "text-xs text-[#6B7A72] truncate"
+    }, p.propietario || "Sin propietario")), (p.telefonoPropietario || ubicLink) && /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-2 shrink-0"
+    }, p.telefonoPropietario && /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      title: "WhatsApp",
+      onMouseDown: e => e.preventDefault(),
+      onClick: e => {
+        e.stopPropagation();
+        const mensaje = `Hola${p.propietario && p.propietario !== "Sin propietario" ? " " + p.propietario : ""}, le escribimos de ${config?.clinica || "la clínica"}. `;
+        window.open(whatsappLink(p.telefonoPropietario, mensaje), "_blank");
+      },
+      className: "text-xs text-[#3D6B5C] hover:underline"
+    }, "💬"), ubicLink && /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      title: "Ubicación",
+      onMouseDown: e => e.preventDefault(),
+      onClick: e => {
+        e.stopPropagation();
+        window.open(ubicLink, "_blank");
+      },
+      className: "text-xs text-[#3D6B5C] hover:underline"
+    }, "📍")));
+  })), open && q.length >= 2 && results.length === 0 && /*#__PURE__*/React.createElement("div", {
     className: "absolute z-20 left-0 right-0 mt-1 bg-white border border-[#DDD5C4] rounded-md shadow-lg px-3 py-3 text-sm text-[#6B7A72]"
   }, "Sin resultados para \"", query, "\""));
 }
@@ -13863,14 +13931,15 @@ function VetApp() {
   }, toast && /*#__PURE__*/React.createElement("div", {
     className: "fixed top-4 right-4 z-50 bg-[#23342F] text-white text-sm px-4 py-2.5 rounded-md shadow-lg flex items-center gap-2"
   }, "✓ ", toast), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-start gap-3"
+    className: "flex items-center gap-3 mb-6"
   }, /*#__PURE__*/React.createElement(GlobalSearch, {
     patients: activePatients,
     onSelect: p => {
       setActive("pacientes");
       setSelected(p);
       setEditing(null);
-    }
+    },
+    config: configEfectivo
   }), hayNovedad && /*#__PURE__*/React.createElement("div", {
     className: "hidden md:block"
   }, /*#__PURE__*/React.createElement("button", {
