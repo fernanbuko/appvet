@@ -1884,7 +1884,7 @@ function MapPickerModal({
     },
     onClick: onCancel
   }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-lg p-4 max-w-md md:max-w-2xl w-full",
+    className: "bg-white rounded-lg p-4 max-w-md md:max-w-4xl w-full",
     onClick: e => e.stopPropagation()
   }, /*#__PURE__*/React.createElement("h3", {
     style: styles.display,
@@ -4246,12 +4246,12 @@ function whatsappLink(telefono, mensaje) {
   if (limpio.startsWith("+")) limpio = limpio.slice(1);
   return `https://wa.me/${limpio}?text=${encodeURIComponent(mensaje)}`;
 }
-// Arma un enlace a Google Maps para la ubicación del propietario: usa el pin
-// exacto (lat/lng) guardado en el mapa si existe; si no, busca por el texto
-// de ubicación (cantón) que se haya escrito en la ficha.
+// Arma un enlace a Google Maps para la ubicación del propietario: solo si
+// hay un pin exacto (lat/lng) guardado en el mapa. Si únicamente se llenó
+// el texto de ubicación (cantón) pero no se marcó el pin en el mapa, no
+// se genera enlace (no alcanza para llevar a alguien a un punto exacto).
 function ubicacionLink(p) {
   if (p.lat != null && p.lng != null) return `https://www.google.com/maps?q=${p.lat},${p.lng}`;
-  if (p.ubicacion) return `https://www.google.com/maps/search/${encodeURIComponent(p.ubicacion)}`;
   return null;
 }
 function shareCarnetVacunas(patient, entries, config) {
@@ -5916,22 +5916,12 @@ function PatientsList({
   }) : groups ? /*#__PURE__*/React.createElement("div", {
     className: "space-y-6"
   }, groups.map(([propietario, list]) => {
-    const telefono = list.find(p => p.telefonoPropietario)?.telefonoPropietario;
-    const conUbicacion = list.find(p => ubicacionLink(p));
     return /*#__PURE__*/React.createElement("div", {
       key: propietario
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-3 mb-2 flex-wrap"
     }, /*#__PURE__*/React.createElement("h3", {
-      className: "text-xs uppercase tracking-wider text-[#6B7A72]",
+      className: "text-xs uppercase tracking-wider text-[#6B7A72] mb-2",
       style: styles.mono
-    }, propietario), telefono && /*#__PURE__*/React.createElement("button", {
-      onClick: () => window.open(whatsappLink(telefono, `Hola${propietario && propietario !== "Sin propietario" ? " " + propietario : ""}, le escribimos de ${config?.clinica || "la clínica"}. `), "_blank"),
-      className: "text-xs text-[#3D6B5C] hover:underline"
-    }, "💬 WhatsApp"), conUbicacion && /*#__PURE__*/React.createElement("button", {
-      onClick: () => window.open(ubicacionLink(conUbicacion), "_blank"),
-      className: "text-xs text-[#3D6B5C] hover:underline"
-    }, "📍 Ubicación")), /*#__PURE__*/React.createElement("div", {
+    }, propietario), /*#__PURE__*/React.createElement("div", {
       className: "grid sm:grid-cols-2 lg:grid-cols-3 gap-3"
     }, list.map(p => /*#__PURE__*/React.createElement(PatientCard, {
       key: p.id,
