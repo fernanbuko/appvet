@@ -1,4 +1,4 @@
-const CACHE_NAME = "vetdata-v5";
+const CACHE_NAME = "vetdata-v6";
 // Los 4 scripts de Firebase se cargan desde el servidor de Google
 // (gstatic.com), no desde este mismo sitio — por eso hay que guardarlos
 // aparte a propósito. Sin ellos guardados, sin internet la librería de
