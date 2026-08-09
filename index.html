@@ -148,6 +148,7 @@
     .md\:h-screen{height:100vh}.md\:sticky{position:sticky}.md\:top-0{top:0}
     .md\:self-start{align-self:flex-start}.md\:overflow-y-auto{overflow-y:auto}
     .md\:fixed{position:fixed}.md\:left-0{left:0}.md\:ml-60{margin-left:15rem}
+    .md\:max-w-2xl{max-width:42rem}.md\:h-\[32rem\]{height:32rem}
   }
   @media (min-width:1024px){
     .lg\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -1883,7 +1884,7 @@ function MapPickerModal({
     },
     onClick: onCancel
   }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-lg p-4 max-w-md w-full",
+    className: "bg-white rounded-lg p-4 max-w-md md:max-w-2xl w-full",
     onClick: e => e.stopPropagation()
   }, /*#__PURE__*/React.createElement("h3", {
     style: styles.display,
@@ -1891,7 +1892,7 @@ function MapPickerModal({
   }, "Ubicación exacta"), /*#__PURE__*/React.createElement(MapPicker, {
     lat: tempLat,
     lng: tempLng,
-    heightClass: "h-72",
+    heightClass: "h-72 md:h-[32rem]",
     onChange: (la, ln) => {
       setTempLat(la);
       setTempLng(ln);
@@ -3577,6 +3578,21 @@ function PatientDetail({
   const [nuevaHoraVisita, setNuevaHoraVisita] = useState("");
   const galeriaFileRef = useRef(null);
   const galeriaCameraRef = useRef(null);
+
+  // Al abrir un paciente (o cambiar a otro distinto), la página siempre
+  // empieza desde arriba — de lo contrario se queda con el scroll donde
+  // estaba antes (viendo la lista larga de pacientes, o al fondo de la
+  // ficha anterior), y parece que "abre directo en Historial" o en
+  // cualquier otra sección de más abajo. En celular casi no se nota, pero
+  // en pantallas grandes (PC) sí, porque hay mucho más contenido visible
+  // de una vez.
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "auto"
+    });
+  }, [patient?.id]);
 
   // Para un peluquero/a, la ficha completa (motivo de consulta, diagnóstico,
   // tratamiento, próxima visita médica, etc.) no aplica — solo necesita ver
