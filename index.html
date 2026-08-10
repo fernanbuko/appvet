@@ -208,6 +208,7 @@
   .-top-1{top:-0.25rem}
   .-right-1{right:-0.25rem}
   .opacity-60{opacity:.6}
+  .opacity-0{opacity:0}
   .sticky{position:sticky}
   .static{position:static}
   @media (min-width:768px){ .md\:fixed{position:fixed} }
@@ -299,13 +300,6 @@
     background: #16181B !important;
     color: #ECEDEE !important;
     border-color: rgba(255,255,255,.1) !important;
-  }
-  /* Selectores de mes/año de la Agenda: deben verse como texto suelto
-     (igual que antes, cuando era un <span>), no como un campo de
-     formulario "hundido". */
-  [data-theme="dark"] select.selector-mes-agenda {
-    background: transparent !important;
-    border-color: transparent !important;
   }
   [data-theme="dark"] ::placeholder { color: #5B6166 !important; }
 
@@ -8521,6 +8515,10 @@ function AgendaView({
   const primerDia = new Date(year, month, 1);
   const diasEnMes = new Date(year, month + 1, 0).getDate();
   const offset = primerDia.getDay(); // 0 = domingo
+  const nombreMes = primerDia.toLocaleDateString("es-ES", {
+    month: "long",
+    year: "numeric"
+  });
   const celdas = [];
   for (let i = 0; i < offset; i++) celdas.push(null);
   for (let d = 1; d <= diasEnMes; d++) celdas.push(d);
@@ -8809,37 +8807,25 @@ function AgendaView({
       setDiaSeleccionado(null);
     },
     className: "text-[#6B7A72] hover:text-[#23342F] px-2"
-  }, "◀"), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-1"
-  }, /*#__PURE__*/React.createElement("select", {
-    value: month,
+  }, "◀"), /*#__PURE__*/React.createElement("label", {
+    className: "font-semibold capitalize relative cursor-pointer px-2"
+  }, nombreMes, /*#__PURE__*/React.createElement("input", {
+    type: "month",
+    value: `${year}-${String(month + 1).padStart(2, "0")}`,
     onChange: e => {
-      setMesActual(m => ({
-        ...m,
-        month: Number(e.target.value)
-      }));
+      if (!e.target.value) return;
+      const [y, m] = e.target.value.split("-").map(Number);
+      setMesActual({
+        year: y,
+        month: m - 1
+      });
       setDiaSeleccionado(null);
     },
-    className: "font-semibold capitalize bg-transparent border-none focus:outline-none cursor-pointer text-center selector-mes-agenda"
-  }, ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].map((m, i) => /*#__PURE__*/React.createElement("option", {
-    key: i,
-    value: i
-  }, m))), /*#__PURE__*/React.createElement("select", {
-    value: year,
-    onChange: e => {
-      setMesActual(m => ({
-        ...m,
-        year: Number(e.target.value)
-      }));
-      setDiaSeleccionado(null);
+    onClick: e => {
+      if (e.target.showPicker) e.target.showPicker();
     },
-    className: "font-semibold bg-transparent border-none focus:outline-none cursor-pointer selector-mes-agenda"
-  }, Array.from({
-    length: 11
-  }, (_, i) => year - 5 + i).map(y => /*#__PURE__*/React.createElement("option", {
-    key: y,
-    value: y
-  }, y)))), /*#__PURE__*/React.createElement("button", {
+    className: "absolute inset-0 opacity-0 cursor-pointer"
+  })), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       setMesActual(m => m.month === 11 ? {
         year: m.year + 1,
