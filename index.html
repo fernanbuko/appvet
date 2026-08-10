@@ -153,6 +153,7 @@
     .md\:max-w-2xl{max-width:42rem}.md\:h-\[32rem\]{height:32rem}
     .md\:left-60{left:15rem}.md\:right-0{right:0}.md\:border-b{border-bottom-width:1px;border-bottom-style:solid}
     .md\:px-8{padding-left:2rem;padding-right:2rem}.md\:py-3{padding-top:.75rem;padding-bottom:.75rem}.md\:mb-0{margin-bottom:0}
+    .md\:flex-wrap{flex-wrap:wrap}.md\:min-w-\[150px\]{min-width:150px}
   }
   @media (min-width:1024px){
     .lg\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -8145,7 +8146,7 @@ function TareasView({
     }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
       className: "min-w-0"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "font-medium text-sm break-words"
+      className: "font-medium text-sm truncate md:whitespace-normal break-words"
     }, ev.icon, " ", ev.label, ": ", ev.nombre), /*#__PURE__*/React.createElement("div", {
       className: "text-xs text-[#6B7A72] truncate"
     }, ev.detalle || ev.propietario || "Sin propietario"), esPeluquero && ev.esPropio !== undefined && /*#__PURE__*/React.createElement("div", {
@@ -8205,7 +8206,7 @@ function TareasView({
   }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm break-words"
+    className: "font-medium text-sm truncate md:whitespace-normal break-words"
   }, ev.nombre), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72] truncate"
   }, ev.propietario || "Sin propietario"))), /*#__PURE__*/React.createElement("div", {
@@ -8878,7 +8879,7 @@ function AgendaView({
   }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0 flex-1"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm break-words"
+    className: "font-medium text-sm"
   }, ev.icon, " ", ev.label, ": ", ev.nombre), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72] mt-1"
   }, subtitleAgenda(ev))), ev.hora && /*#__PURE__*/React.createElement("span", {
@@ -8938,7 +8939,7 @@ function AgendaView({
   }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0 flex-1"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm break-words"
+    className: "font-medium text-sm"
   }, ev.icon, " ", ev.label, ": ", ev.nombre), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72] mt-1"
   }, subtitleAgenda(ev))), ev.hora && /*#__PURE__*/React.createElement("span", {
@@ -9210,7 +9211,7 @@ function BanosGeneralView({
   }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0 flex-1"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm break-words"
+    className: "font-medium text-sm"
   }, b._patient.nombre, " ", /*#__PURE__*/React.createElement("span", {
     className: "text-[#6B7A72] font-normal"
   }, "· ", b.tipo)), /*#__PURE__*/React.createElement("div", {
@@ -9274,7 +9275,7 @@ function BanosGeneralView({
   }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm break-words"
+    className: "font-medium text-sm truncate md:whitespace-normal break-words"
   }, b._patient.nombre, " · ", b.tipo), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72] truncate"
   }, b._patient.propietario || "Sin propietario"))), /*#__PURE__*/React.createElement("div", {
@@ -9490,7 +9491,7 @@ function DesparasitacionesGeneralView({
   }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0 flex-1"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm break-words"
+    className: "font-medium text-sm"
   }, d._patient.nombre, " ", /*#__PURE__*/React.createElement("span", {
     className: "text-[#6B7A72] font-normal"
   }, "· ", d.tipo)), /*#__PURE__*/React.createElement("div", {
@@ -9554,7 +9555,7 @@ function DesparasitacionesGeneralView({
   }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm break-words"
+    className: "font-medium text-sm truncate md:whitespace-normal break-words"
   }, d._patient.nombre, " · ", d.tipo), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72] truncate"
   }, d._patient.propietario || "Sin propietario"))), /*#__PURE__*/React.createElement("div", {
@@ -9755,7 +9756,7 @@ function VacunasGeneralView({
   }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0 flex-1"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm break-words"
+    className: "font-medium text-sm"
   }, v._patient.nombre, " ", /*#__PURE__*/React.createElement("span", {
     className: "text-[#6B7A72] font-normal"
   }, "· ", v.nombre)), /*#__PURE__*/React.createElement("div", {
@@ -9819,7 +9820,7 @@ function VacunasGeneralView({
   }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm break-words"
+    className: "font-medium text-sm truncate md:whitespace-normal break-words"
   }, v._patient.nombre, " · ", v.nombre), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72] truncate"
   }, v._patient.propietario || "Sin propietario"))), /*#__PURE__*/React.createElement("div", {
@@ -10032,7 +10033,7 @@ function TratamientosInyectablesGeneralView({
   }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0 flex-1"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm break-words"
+    className: "font-medium text-sm"
   }, t._patient.nombre, " ", /*#__PURE__*/React.createElement("span", {
     className: "text-[#6B7A72] font-normal"
   }, "· ", t.descripcion)), /*#__PURE__*/React.createElement("div", {
@@ -10094,7 +10095,7 @@ function TratamientosInyectablesGeneralView({
   }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0 flex-1"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm break-words"
+    className: "font-medium text-sm"
   }, t._patient.nombre, " ", /*#__PURE__*/React.createElement("span", {
     className: "text-[#6B7A72] font-normal"
   }, "· ", t.descripcion)), /*#__PURE__*/React.createElement("div", {
@@ -10289,7 +10290,7 @@ function PanelPropietarioView({
   }) : c.rol === "peluquero" ? "🧴" : "🏥"), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0 flex-1"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm break-words"
+    className: "font-medium text-sm truncate md:whitespace-normal break-words"
   }, c.clinica), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72] truncate"
   }, c.doctorNombres || "Sin nombre", " · ", c.rol || "veterinario"), c.correo && /*#__PURE__*/React.createElement("div", {
@@ -11345,9 +11346,9 @@ function HomeScreen({
       setSelected(paciente);
       if (ev.tab) onSetPestanaInicial && onSetPestanaInicial(ev.tab);
     },
-    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center flex-wrap justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
+    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center md:flex-wrap justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3 min-w-[150px]"
+    className: "flex items-center gap-3 min-w-0 md:min-w-[150px]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
   }, ev.foto ? /*#__PURE__*/React.createElement("img", {
@@ -11357,7 +11358,7 @@ function HomeScreen({
   }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm break-words"
+    className: "font-medium text-sm truncate md:whitespace-normal break-words"
   }, ev.icon, " ", ev.label, ": ", ev.nombre), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72] truncate"
   }, ev.detalle || ev.propietario || "Sin propietario"), esPeluquero && ev.esPropio !== undefined && /*#__PURE__*/React.createElement("div", {
@@ -11452,7 +11453,7 @@ function HomeScreen({
   }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm break-words"
+    className: "font-medium text-sm truncate md:whitespace-normal break-words"
   }, ev.icon, " ", ev.label, ": ", ev.nombre), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72] truncate"
   }, ev.detalle || ev.propietario || "Sin propietario"), esPeluquero && ev.esPropio !== undefined && /*#__PURE__*/React.createElement("div", {
@@ -11751,9 +11752,9 @@ function HomeScreen({
       setActive("pacientes");
       setSelected(p);
     },
-    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center flex-wrap justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
+    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center md:flex-wrap justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3 min-w-[150px]"
+    className: "flex items-center gap-3 min-w-0 md:min-w-[150px]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
   }, p.foto ? /*#__PURE__*/React.createElement("img", {
@@ -11763,7 +11764,7 @@ function HomeScreen({
   }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm break-words"
+    className: "font-medium text-sm truncate md:whitespace-normal break-words"
   }, p.nombre), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72] truncate"
   }, p.propietario || "Sin propietario"))), /*#__PURE__*/React.createElement("div", {
@@ -11811,9 +11812,9 @@ function HomeScreen({
       setSelected(patient);
       onSetPestanaInicial && onSetPestanaInicial("banos");
     },
-    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center flex-wrap justify-between gap-3 hover:border-[#3D6B5C] transition"
+    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center md:flex-wrap justify-between gap-3 hover:border-[#3D6B5C] transition"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3 min-w-[150px]"
+    className: "flex items-center gap-3 min-w-0 md:min-w-[150px]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
   }, patient.foto ? /*#__PURE__*/React.createElement("img", {
@@ -11823,7 +11824,7 @@ function HomeScreen({
   }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm break-words"
+    className: "font-medium text-sm truncate md:whitespace-normal break-words"
   }, patient.nombre), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72] truncate"
   }, patient.propietario || "Sin propietario"), esPeluquero && /*#__PURE__*/React.createElement("div", {
@@ -11849,9 +11850,9 @@ function HomeScreen({
           onSetPestanaInicial && onSetPestanaInicial("hospitalizacion");
         }
       },
-      className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center flex-wrap justify-between hover:border-[#3D6B5C] transition"
+      className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center md:flex-wrap justify-between hover:border-[#3D6B5C] transition"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-3 min-w-[150px]"
+      className: "flex items-center gap-3 min-w-0 md:min-w-[150px]"
     }, /*#__PURE__*/React.createElement("div", {
       className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
     }, paciente?.foto ? /*#__PURE__*/React.createElement("img", {
@@ -11861,7 +11862,7 @@ function HomeScreen({
     }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
       className: "min-w-0"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "font-medium text-sm break-words"
+      className: "font-medium text-sm truncate md:whitespace-normal break-words"
     }, h.patientName), /*#__PURE__*/React.createElement("div", {
       className: "text-xs text-[#6B7A72] truncate"
     }, h.motivo))), /*#__PURE__*/React.createElement("div", {
@@ -11923,9 +11924,9 @@ function HomeScreen({
       setSelected(paciente);
       onSetPestanaInicial && onSetPestanaInicial("vacunas");
     },
-    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center flex-wrap justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center md:flex-wrap justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3 min-w-[150px]"
+    className: "flex items-center gap-3 min-w-0 md:min-w-[150px]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
   }, patients.find(p => p.id === v.patientId)?.foto ? /*#__PURE__*/React.createElement("img", {
@@ -11935,7 +11936,7 @@ function HomeScreen({
   }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm break-words"
+    className: "font-medium text-sm truncate md:whitespace-normal break-words"
   }, v.patientName), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72] truncate"
   }, v.nombre))), /*#__PURE__*/React.createElement("div", {
@@ -12017,9 +12018,9 @@ function HomeScreen({
       setSelected(paciente);
       onSetPestanaInicial && onSetPestanaInicial("desparasitacion");
     },
-    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center flex-wrap justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center md:flex-wrap justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3 min-w-[150px]"
+    className: "flex items-center gap-3 min-w-0 md:min-w-[150px]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
   }, patients.find(p => p.id === d.patientId)?.foto ? /*#__PURE__*/React.createElement("img", {
@@ -12029,7 +12030,7 @@ function HomeScreen({
   }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm break-words"
+    className: "font-medium text-sm truncate md:whitespace-normal break-words"
   }, d.patientName), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72] truncate"
   }, d.producto, " · ", d.tipo))), /*#__PURE__*/React.createElement("div", {
@@ -12111,9 +12112,9 @@ function HomeScreen({
       setSelected(paciente);
       onSetPestanaInicial && onSetPestanaInicial("tratamientos");
     },
-    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center flex-wrap justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center md:flex-wrap justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3 min-w-[150px]"
+    className: "flex items-center gap-3 min-w-0 md:min-w-[150px]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
   }, patients.find(p => p.id === t.patientId)?.foto ? /*#__PURE__*/React.createElement("img", {
@@ -12123,7 +12124,7 @@ function HomeScreen({
   }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm break-words"
+    className: "font-medium text-sm truncate md:whitespace-normal break-words"
   }, t.patientName), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72] truncate"
   }, t.descripcion))), /*#__PURE__*/React.createElement("div", {
@@ -12205,9 +12206,9 @@ function HomeScreen({
       setSelected(paciente);
       onSetPestanaInicial && onSetPestanaInicial("banos");
     },
-    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center flex-wrap justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center md:flex-wrap justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3 min-w-[150px]"
+    className: "flex items-center gap-3 min-w-0 md:min-w-[150px]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
   }, patients.find(p => p.id === b.patientId)?.foto ? /*#__PURE__*/React.createElement("img", {
@@ -12217,7 +12218,7 @@ function HomeScreen({
   }) : /*#__PURE__*/React.createElement("span", null, "🐾")), /*#__PURE__*/React.createElement("div", {
     className: "min-w-0"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm break-words"
+    className: "font-medium text-sm truncate md:whitespace-normal break-words"
   }, b.patientName), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72] truncate"
   }, b.tipo))), /*#__PURE__*/React.createElement("div", {
@@ -12255,9 +12256,9 @@ function HomeScreen({
     className: "space-y-2"
   }, cumpleanosProximos.map(p => /*#__PURE__*/React.createElement("div", {
     key: p.id,
-    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center flex-wrap justify-between"
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center md:flex-wrap justify-between"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "font-medium text-sm break-words"
+    className: "font-medium text-sm"
   }, p.nombre), /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-[#6B7A72]"
   }, p.propietario || "Sin propietario")), /*#__PURE__*/React.createElement("div", {
