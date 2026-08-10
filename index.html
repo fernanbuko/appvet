@@ -300,6 +300,13 @@
     color: #ECEDEE !important;
     border-color: rgba(255,255,255,.1) !important;
   }
+  /* Selectores de mes/año de la Agenda: deben verse como texto suelto
+     (igual que antes, cuando era un <span>), no como un campo de
+     formulario "hundido". */
+  [data-theme="dark"] select.selector-mes-agenda {
+    background: transparent !important;
+    border-color: transparent !important;
+  }
   [data-theme="dark"] ::placeholder { color: #5B6166 !important; }
 
   /* Quita el resplandor de foco en color crema y usa uno acorde al tema oscuro */
@@ -8514,10 +8521,6 @@ function AgendaView({
   const primerDia = new Date(year, month, 1);
   const diasEnMes = new Date(year, month + 1, 0).getDate();
   const offset = primerDia.getDay(); // 0 = domingo
-  const nombreMes = primerDia.toLocaleDateString("es-ES", {
-    month: "long",
-    year: "numeric"
-  });
   const celdas = [];
   for (let i = 0; i < offset; i++) celdas.push(null);
   for (let d = 1; d <= diasEnMes; d++) celdas.push(d);
@@ -8806,9 +8809,37 @@ function AgendaView({
       setDiaSeleccionado(null);
     },
     className: "text-[#6B7A72] hover:text-[#23342F] px-2"
-  }, "◀"), /*#__PURE__*/React.createElement("span", {
-    className: "font-semibold capitalize"
-  }, nombreMes), /*#__PURE__*/React.createElement("button", {
+  }, "◀"), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-1"
+  }, /*#__PURE__*/React.createElement("select", {
+    value: month,
+    onChange: e => {
+      setMesActual(m => ({
+        ...m,
+        month: Number(e.target.value)
+      }));
+      setDiaSeleccionado(null);
+    },
+    className: "font-semibold capitalize bg-transparent border-none focus:outline-none cursor-pointer text-center selector-mes-agenda"
+  }, ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].map((m, i) => /*#__PURE__*/React.createElement("option", {
+    key: i,
+    value: i
+  }, m))), /*#__PURE__*/React.createElement("select", {
+    value: year,
+    onChange: e => {
+      setMesActual(m => ({
+        ...m,
+        year: Number(e.target.value)
+      }));
+      setDiaSeleccionado(null);
+    },
+    className: "font-semibold bg-transparent border-none focus:outline-none cursor-pointer selector-mes-agenda"
+  }, Array.from({
+    length: 11
+  }, (_, i) => year - 5 + i).map(y => /*#__PURE__*/React.createElement("option", {
+    key: y,
+    value: y
+  }, y)))), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       setMesActual(m => m.month === 11 ? {
         year: m.year + 1,
