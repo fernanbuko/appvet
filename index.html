@@ -232,6 +232,7 @@
   .max-h-full{max-height:100%}
 
   .z-20{z-index:20}
+  .z-30{z-index:30}
   .left-0{left:0}
   .right-0{right:0}
   .max-h-48{max-height:12rem}
@@ -11485,7 +11486,7 @@ function HomeScreen({
   }, /*#__PURE__*/React.createElement("div", {
     className: "mb-8"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-4 mb-3"
+    className: "flex items-center gap-4 mb-3 relative z-30 bg-[#F7F4EC]"
   }, config?.logo ? /*#__PURE__*/React.createElement("img", {
     src: config.logo,
     alt: "",
@@ -13944,7 +13945,7 @@ function VetApp() {
   }, toast && /*#__PURE__*/React.createElement("div", {
     className: "fixed top-4 right-4 z-50 bg-[#23342F] text-white text-sm px-4 py-2.5 rounded-md shadow-lg flex items-center gap-2"
   }, "✓ ", toast), /*#__PURE__*/React.createElement("div", {
-    className: "static md:sticky md:top-0 z-20 bg-[#F7F4EC] py-4 mb-3 flex items-center gap-3",
+    className: "sticky top-16 md:top-0 z-20 bg-[#F7F4EC] py-4 mb-3 flex items-center gap-3",
     style: {
       background: "#F7F4EC"
     }
