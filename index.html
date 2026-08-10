@@ -11298,7 +11298,7 @@ function HomeScreen({
   }, "Hoy"), eventosHoy.length === 0 ? /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-[#A6A08F] bg-white border border-dashed border-[#DDD5C4] rounded-lg p-3"
   }, "Nada pendiente para hoy.") : /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2 max-w-md"
+    className: "space-y-2"
   }, eventosHoy.map(ev => /*#__PURE__*/React.createElement(React.Fragment, {
     key: ev.id
   }, reagendandoHoyId === ev.id ? /*#__PURE__*/React.createElement("div", {
@@ -11393,7 +11393,7 @@ function HomeScreen({
     className: "text-[11px] uppercase tracking-wider text-[#B14E1C] mb-3",
     style: styles.mono
   }, "⚠️ ¿Qué pasó con estos pacientes?"), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2 max-w-md"
+    className: "space-y-2"
   }, vencidosPreview.slice(0, 3).map(ev => /*#__PURE__*/React.createElement(React.Fragment, {
     key: ev.id
   }, reagendandoVencidoId === ev.id ? /*#__PURE__*/React.createElement("div", {
@@ -11701,7 +11701,7 @@ function HomeScreen({
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
     style: styles.mono
   }, "Próximas visitas"), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2 max-w-md"
+    className: "space-y-2"
   }, proximas.map(p => /*#__PURE__*/React.createElement(React.Fragment, {
     key: p.id
   }, reagendandoVisitaId === p.id ? /*#__PURE__*/React.createElement("div", {
@@ -11797,7 +11797,7 @@ function HomeScreen({
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
     style: styles.mono
   }, "Próximos baños"), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2 max-w-md"
+    className: "space-y-2"
   }, proximosBanos.map(({
     patient,
     fecha,
@@ -11835,7 +11835,7 @@ function HomeScreen({
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
     style: styles.mono
   }, "🏥 Actualmente hospitalizados"), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2 max-w-md"
+    className: "space-y-2"
   }, actualmenteHospitalizados.map(h => {
     const paciente = patients.find(p => p.id === h.patientId);
     return /*#__PURE__*/React.createElement("button", {
@@ -11876,7 +11876,7 @@ function HomeScreen({
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
     style: styles.mono
   }, "💉 Próximas vacunaciones"), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2 max-w-md"
+    className: "space-y-2"
   }, vacunasProximas.map(v => /*#__PURE__*/React.createElement(React.Fragment, {
     key: v.id
   }, reagendandoProximoId === "vacunas:" + v.id ? /*#__PURE__*/React.createElement("div", {
@@ -11970,7 +11970,7 @@ function HomeScreen({
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
     style: styles.mono
   }, "🐛 Próximas desparasitaciones"), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2 max-w-md"
+    className: "space-y-2"
   }, desparasitacionesProximas.map(d => /*#__PURE__*/React.createElement(React.Fragment, {
     key: d.id
   }, reagendandoProximoId === "desparasitacion:" + d.id ? /*#__PURE__*/React.createElement("div", {
@@ -12064,7 +12064,7 @@ function HomeScreen({
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
     style: styles.mono
   }, "🩹 Próximos tratamientos"), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2 max-w-md"
+    className: "space-y-2"
   }, tratamientosProximos.map(t => /*#__PURE__*/React.createElement(React.Fragment, {
     key: t.id
   }, reagendandoProximoId === "tratamientos:" + t.id ? /*#__PURE__*/React.createElement("div", {
@@ -12158,7 +12158,7 @@ function HomeScreen({
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
     style: styles.mono
   }, "🛁 Próximos baños"), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2 max-w-md"
+    className: "space-y-2"
   }, banosProximosGeneral.map(b => /*#__PURE__*/React.createElement(React.Fragment, {
     key: b.id
   }, reagendandoProximoId === "banos:" + b.id ? /*#__PURE__*/React.createElement("div", {
@@ -12250,7 +12250,7 @@ function HomeScreen({
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72] mb-3",
     style: styles.mono
   }, "Cumpleaños próximos"), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-2 max-w-md"
+    className: "space-y-2"
   }, cumpleanosProximos.map(p => /*#__PURE__*/React.createElement("div", {
     key: p.id,
     className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between"
