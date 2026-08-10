@@ -150,6 +150,9 @@
     .md\:self-start{align-self:flex-start}.md\:overflow-y-auto{overflow-y:auto}
     .md\:fixed{position:fixed}.md\:left-0{left:0}.md\:ml-60{margin-left:15rem}.md\:pl-60{padding-left:15rem}.md\:mx-auto{margin-left:auto;margin-right:auto}
     .md\:max-w-2xl{max-width:42rem}.md\:h-\[32rem\]{height:32rem}
+    .md\:left-60{left:15rem}.md\:right-0{right:0}.md\:border-b{border-bottom-width:1px;border-bottom-style:solid}
+    .md\:py-6{padding-top:1.5rem;padding-bottom:1.5rem}.md\:px-8{padding-left:2rem;padding-right:2rem}
+    .md\:mb-0{margin-bottom:0}
   }
   @media (min-width:1024px){
     .lg\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -13942,11 +13945,11 @@ function VetApp() {
     config: configEfectivo,
     modoColaborador: modoColaborador
   }), /*#__PURE__*/React.createElement("div", {
-    className: "flex-1 px-5 sm:px-8 pt-24 md:pt-8 pb-24 md:pb-8 max-w-5xl md:mx-auto"
+    className: "flex-1 px-5 sm:px-8 pt-24 pb-24 md:pb-8 max-w-5xl md:mx-auto"
   }, toast && /*#__PURE__*/React.createElement("div", {
     className: "fixed top-4 right-4 z-50 bg-[#23342F] text-white text-sm px-4 py-2.5 rounded-md shadow-lg flex items-center gap-2"
   }, "✓ ", toast), /*#__PURE__*/React.createElement("div", {
-    className: "sticky top-16 md:top-0 z-20 bg-[#F7F4EC] py-4 mb-3 flex items-center gap-3",
+    className: "sticky top-16 md:fixed md:top-0 md:left-60 md:right-0 md:border-b md:border-[#DDD5C4] md:px-8 md:py-6 md:mb-0 z-20 bg-[#F7F4EC] py-4 mb-3 flex items-center gap-3",
     style: {
       background: "#F7F4EC"
     }
