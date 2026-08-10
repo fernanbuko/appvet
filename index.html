@@ -52,6 +52,7 @@
   .w-4{width:1rem}.w-11{width:2.75rem}.w-16{width:4rem}.w-28{width:7rem}.w-full{width:100%}
   .h-4{height:1rem}.h-11{height:2.75rem}.h-16{height:4rem}.h-28{height:7rem}.h-56{height:14rem}.h-72{height:18rem}.h-80{height:20rem}.h-full{height:100%}.h-px{height:1px}
   .min-w-0{min-width:0}
+  .min-w-\[150px\]{min-width:150px}
   .max-w-sm{max-width:24rem}.max-w-xl{max-width:36rem}.max-w-2xl{max-width:42rem}.max-w-5xl{max-width:64rem}
   .rounded{border-radius:.25rem}.rounded-md{border-radius:.375rem}.rounded-lg{border-radius:.5rem}.rounded-full{border-radius:9999px}
   .border{border-width:1px;border-style:solid}.border-2{border-width:2px;border-style:solid}.border-b{border-bottom-width:1px;border-bottom-style:solid}.border-dashed{border-style:dashed}
@@ -11343,9 +11344,9 @@ function HomeScreen({
       setSelected(paciente);
       if (ev.tab) onSetPestanaInicial && onSetPestanaInicial(ev.tab);
     },
-    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
+    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center flex-wrap justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3 min-w-0"
+    className: "flex items-center gap-3 min-w-[150px]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
   }, ev.foto ? /*#__PURE__*/React.createElement("img", {
@@ -11749,9 +11750,9 @@ function HomeScreen({
       setActive("pacientes");
       setSelected(p);
     },
-    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
+    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center flex-wrap justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3 min-w-0"
+    className: "flex items-center gap-3 min-w-[150px]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
   }, p.foto ? /*#__PURE__*/React.createElement("img", {
@@ -11809,9 +11810,9 @@ function HomeScreen({
       setSelected(patient);
       onSetPestanaInicial && onSetPestanaInicial("banos");
     },
-    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#3D6B5C] transition"
+    className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center flex-wrap justify-between gap-3 hover:border-[#3D6B5C] transition"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3 min-w-0"
+    className: "flex items-center gap-3 min-w-[150px]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
   }, patient.foto ? /*#__PURE__*/React.createElement("img", {
@@ -11847,9 +11848,9 @@ function HomeScreen({
           onSetPestanaInicial && onSetPestanaInicial("hospitalizacion");
         }
       },
-      className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between hover:border-[#3D6B5C] transition"
+      className: "w-full text-left bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center flex-wrap justify-between hover:border-[#3D6B5C] transition"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-3 min-w-0"
+      className: "flex items-center gap-3 min-w-[150px]"
     }, /*#__PURE__*/React.createElement("div", {
       className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
     }, paciente?.foto ? /*#__PURE__*/React.createElement("img", {
@@ -11921,9 +11922,9 @@ function HomeScreen({
       setSelected(paciente);
       onSetPestanaInicial && onSetPestanaInicial("vacunas");
     },
-    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center flex-wrap justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3 min-w-0"
+    className: "flex items-center gap-3 min-w-[150px]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
   }, patients.find(p => p.id === v.patientId)?.foto ? /*#__PURE__*/React.createElement("img", {
@@ -12015,9 +12016,9 @@ function HomeScreen({
       setSelected(paciente);
       onSetPestanaInicial && onSetPestanaInicial("desparasitacion");
     },
-    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center flex-wrap justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3 min-w-0"
+    className: "flex items-center gap-3 min-w-[150px]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
   }, patients.find(p => p.id === d.patientId)?.foto ? /*#__PURE__*/React.createElement("img", {
@@ -12109,9 +12110,9 @@ function HomeScreen({
       setSelected(paciente);
       onSetPestanaInicial && onSetPestanaInicial("tratamientos");
     },
-    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center flex-wrap justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3 min-w-0"
+    className: "flex items-center gap-3 min-w-[150px]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
   }, patients.find(p => p.id === t.patientId)?.foto ? /*#__PURE__*/React.createElement("img", {
@@ -12203,9 +12204,9 @@ function HomeScreen({
       setSelected(paciente);
       onSetPestanaInicial && onSetPestanaInicial("banos");
     },
-    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center flex-wrap justify-between gap-3 hover:border-[#3D6B5C] transition cursor-pointer"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3 min-w-0"
+    className: "flex items-center gap-3 min-w-[150px]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-9 h-9 rounded-full bg-[#EAF0EC] overflow-hidden flex items-center justify-center shrink-0"
   }, patients.find(p => p.id === b.patientId)?.foto ? /*#__PURE__*/React.createElement("img", {
@@ -12253,7 +12254,7 @@ function HomeScreen({
     className: "space-y-2"
   }, cumpleanosProximos.map(p => /*#__PURE__*/React.createElement("div", {
     key: p.id,
-    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center justify-between"
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 flex items-center flex-wrap justify-between"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "font-medium text-sm break-words"
   }, p.nombre), /*#__PURE__*/React.createElement("div", {
