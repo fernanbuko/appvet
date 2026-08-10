@@ -8302,6 +8302,7 @@ function AgendaView({
       if (!existente || (hora || "") < (existente.hora || "")) {
         map[fecha][clave] = {
           ...entrada,
+          estado: claveExtra || "prog",
           hora: hora || ""
         };
       }
@@ -8831,6 +8832,7 @@ function AgendaView({
     });
     const iso = fechaISO(d);
     const eventos = porFecha[iso] || [];
+    const hayPendientes = eventos.some(e => e.estado !== "hecho");
     const esHoy = iso === fechaLocalISO();
     const seleccionado = diaSeleccionado === iso;
     return /*#__PURE__*/React.createElement("button", {
@@ -8838,9 +8840,25 @@ function AgendaView({
       onClick: () => setDiaSeleccionado(seleccionado ? null : iso),
       className: "aspect-square rounded-md flex flex-col items-center justify-center text-xs relative " + (seleccionado ? "bg-[#3D6B5C] text-white" : esHoy ? "bg-[#EAF0EC] text-[#23342F]" : "text-[#23342F] hover:bg-[#EAF0EC]")
     }, d, eventos.length > 0 && /*#__PURE__*/React.createElement("span", {
-      className: "w-1.5 h-1.5 rounded-full mt-0.5 " + (seleccionado ? "bg-white" : "bg-[#E08A3E]")
+      className: "w-1.5 h-1.5 rounded-full mt-0.5" + (seleccionado ? " bg-white" : hayPendientes ? " bg-[#E08A3E]" : ""),
+      style: seleccionado || hayPendientes ? undefined : {
+        background: "var(--accent-green)"
+      }
     }));
-  }))), diaSeleccionado && /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-4 mt-3 text-xs text-[#6B7A72]"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "flex items-center gap-1.5"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "w-1.5 h-1.5 rounded-full bg-[#E08A3E]"
+  }), "Pendiente"), /*#__PURE__*/React.createElement("span", {
+    className: "flex items-center gap-1.5"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "w-1.5 h-1.5 rounded-full",
+    style: {
+      background: "var(--accent-green)"
+    }
+  }), "Realizado"))), diaSeleccionado && /*#__PURE__*/React.createElement("div", {
     className: "mt-4 max-w-xl"
   }, /*#__PURE__*/React.createElement("h3", {
     className: "text-sm font-semibold mb-2"
