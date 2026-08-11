@@ -60,6 +60,7 @@
   .bg-white{background-color:#fff}.bg-white\/15{background-color:rgba(255,255,255,.15)}
   .bg-\[\#23342F\]{background-color:#23342F}.bg-\[\#3D6B5C\]{background-color:#3D6B5C}.bg-\[\#DDD5C4\]{background-color:#DDD5C4}
   .bg-\[\#EAF0EC\]{background-color:#EAF0EC}.bg-\[\#E08A3E\]\/10{background-color:rgba(224,138,62,.1)}
+  .bg-\[\#FDF3E3\]{background-color:#FDF3E3}.border-\[\#F3DFAE\]{border-color:#F3DFAE}
   .text-white{color:#fff}.text-\[\#F7F4EC\]{color:#F7F4EC}.text-\[\#23342F\]{color:#23342F}.text-\[\#3D6B5C\]{color:#3D6B5C}
   .text-\[\#6B7A72\]{color:#6B7A72}.text-\[\#A6A08F\]{color:#A6A08F}.text-\[\#B14E1C\]{color:#B14E1C}.bg-\[\#B14E1C\]{background-color:#B14E1C}
   .text-xs{font-size:.75rem}.text-sm{font-size:.875rem}.text-lg{font-size:1.125rem}.text-xl{font-size:1.25rem}.text-2xl{font-size:1.5rem}.text-3xl{font-size:1.875rem}
@@ -7734,6 +7735,7 @@ function GoogleIcon() {
 }
 function LoginScreen({
   onSignIn,
+  onInvitado,
   error,
   loading
 }) {
@@ -7755,7 +7757,10 @@ function LoginScreen({
     onClick: onSignIn,
     disabled: loading,
     className: "inline-flex items-center gap-3 bg-white border border-[#DDD5C4] rounded-md px-5 py-3 text-sm font-medium hover:shadow-sm transition disabled:opacity-50"
-  }, /*#__PURE__*/React.createElement(GoogleIcon, null), loading ? "Conectando..." : "Iniciar sesión con Google")), error && /*#__PURE__*/React.createElement("p", {
+  }, /*#__PURE__*/React.createElement(GoogleIcon, null), loading ? "Conectando..." : "Iniciar sesión con Google")), onInvitado && /*#__PURE__*/React.createElement("button", {
+    onClick: onInvitado,
+    className: "text-sm font-medium text-[#3D6B5C] hover:underline mt-4"
+  }, "Probar sin crear cuenta"), error && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#B14E1C] mt-4"
   }, error)));
 }
@@ -12553,6 +12558,13 @@ function VetApp() {
   // Sesión (Firebase Auth con Google) y estado de carga de datos
   const [user, setUser] = useState(undefined); // undefined = comprobando sesión, null = sin sesión
   const [dataLoaded, setDataLoaded] = useState(false);
+  // Modo invitado: deja explorar la app con datos de ejemplo, sin cuenta y
+  // sin guardar nada (ni en la nube ni en este dispositivo) — currentUid se
+  // queda en null a propósito, así que todas las funciones de guardado
+  // (store, collectionStore, ownCollectionStore) ya no hacen nada por sí
+  // solas al comprobar "if (!currentUid) return". Se usa para que alguien
+  // nuevo vea cómo funciona la app antes de decidirse a crear una cuenta.
+  const [modoInvitado, setModoInvitado] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
   // Pantallas especiales para cuentas bloqueadas (Firebase Authentication
@@ -12935,6 +12947,140 @@ function VetApp() {
         setAuthError("No se pudo iniciar sesión: " + (err.message || "intenta de nuevo."));
       }
     }).finally(() => setAuthLoading(false));
+  };
+  // Modo invitado: arma pacientes de ejemplo (con recetas, exámenes,
+  // vacunas, desparasitación y baños) y los carga directo en el estado —
+  // currentUid se queda en null a propósito, así que ningún dato de este
+  // recorrido llega a guardarse en Firebase.
+  const entrarComoInvitado = () => {
+    const f = dias => {
+      const d = new Date();
+      d.setDate(d.getDate() + dias);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    };
+    const idMilo = uid();
+    const idNala = uid();
+    const idRocky = uid();
+    setConfig({
+      ...emptyConfig(),
+      clinica: "Clínica Demo",
+      doctorNombres: "Doctor/a",
+      doctorApellidos: "Demo"
+    });
+    setPatients([{
+      ...emptyPatient(),
+      id: idMilo,
+      nombre: "Milo",
+      especie: "Perro",
+      sexo: "Macho",
+      raza: "Golden Retriever",
+      edad: "3 años",
+      peso: "28",
+      propietario: "Ana Torres",
+      telefonoPropietario: "0991234567",
+      motivoConsulta: "Chequeo general",
+      diagnosticoPresuntivo: "Paciente sano",
+      proximaVisita: f(2),
+      proximaVisitaHora: "10:30",
+      creadoEn: Date.now()
+    }, {
+      ...emptyPatient(),
+      id: idNala,
+      nombre: "Nala",
+      especie: "Gato",
+      sexo: "Hembra",
+      raza: "Común Europeo Mestizo",
+      edad: "1 año",
+      peso: "3.5",
+      propietario: "Carlos Mendoza",
+      telefonoPropietario: "0987654321",
+      motivoConsulta: "Control post-vacunación",
+      ultimaVisitaAtendida: f(-1),
+      creadoEn: Date.now()
+    }, {
+      ...emptyPatient(),
+      id: idRocky,
+      nombre: "Rocky",
+      especie: "Perro",
+      sexo: "Macho",
+      raza: "Mestizo Criollo",
+      edad: "5 años",
+      peso: "18",
+      propietario: "Sofía Ramírez",
+      telefonoPropietario: "0998765432",
+      motivoConsulta: "Baño y estética",
+      creadoEn: Date.now()
+    }]);
+    setRecetas([{
+      id: uid(),
+      patientId: idMilo,
+      patientName: "Milo",
+      medicamentos: "Doxipet tabletas 100mg (#42)",
+      indicaciones: "1 tableta cada 12 horas, con comida, por 7 días",
+      recomendaciones: "Reposo y control de agua fresca",
+      fecha: f(-3)
+    }]);
+    setExamenes([{
+      id: uid(),
+      patientId: idMilo,
+      patientName: "Milo",
+      tipo: "Hemograma completo",
+      resultados: "Valores dentro de rango normal",
+      fecha: f(-3),
+      attachments: []
+    }]);
+    setVacunas([{
+      id: uid(),
+      patientId: idMilo,
+      patientName: "Milo",
+      nombre: "Óctuple canina (Polivalente)",
+      fechaAplicada: f(-30),
+      proximaDosis: f(10),
+      proximaDosisHora: "",
+      notas: ""
+    }]);
+    setDesparasitaciones([{
+      id: uid(),
+      patientId: idNala,
+      patientName: "Nala",
+      tipo: "Interna y externa",
+      producto: "Nexgard Spectra",
+      fechaAplicada: f(-60),
+      proximaDosis: f(0),
+      proximaDosisHora: "",
+      notas: ""
+    }]);
+    setTratamientos([]);
+    setBanos([{
+      id: uid(),
+      patientId: idRocky,
+      patientName: "Rocky",
+      tipo: "Baño y corte",
+      fecha: f(-20),
+      producto: "",
+      notas: "",
+      proximoBano: f(3),
+      proximoBanoHora: "15:00"
+    }]);
+    setHospitalizaciones([]);
+    setCirugias([]);
+    setModoInvitado(true);
+    setShowGreeting(false);
+    showToast("Estás en modo invitado: nada de esto se guarda");
+  };
+  const salirModoInvitado = () => {
+    setModoInvitado(false);
+    setPatients([]);
+    setRecetas([]);
+    setExamenes([]);
+    setVacunas([]);
+    setDesparasitaciones([]);
+    setTratamientos([]);
+    setBanos([]);
+    setHospitalizaciones([]);
+    setCirugias([]);
+    setConfig(null);
+    setActive("inicio");
   };
   const handleSignOut = async () => {
     // Apaga la suscripción de notificaciones de ESTE dispositivo antes de
@@ -13803,15 +13949,15 @@ function VetApp() {
     store.set("config", nextConfig);
     showToast("Respaldo restaurado");
   };
-  if (!firebaseReady) {
+  if (!firebaseReady && !modoInvitado) {
     return /*#__PURE__*/React.createElement(FirebaseNotConfigured, null);
   }
-  if (user === undefined) {
+  if (user === undefined && !modoInvitado) {
     return /*#__PURE__*/React.createElement(LoadingScreen, {
       text: "Comprobando sesión..."
     });
   }
-  if (cuentaBloqueada) {
+  if (cuentaBloqueada && !modoInvitado) {
     return /*#__PURE__*/React.createElement(CuentaEspecialScreen, {
       tipo: "bloqueada",
       onVolver: () => {
@@ -13820,32 +13966,33 @@ function VetApp() {
       }
     });
   }
-  if (cuentaEliminada) {
+  if (cuentaEliminada && !modoInvitado) {
     return /*#__PURE__*/React.createElement(CuentaEspecialScreen, {
       tipo: "eliminada",
       onVolver: () => setCuentaEliminada(false)
     });
   }
-  if (user === null) {
+  if (user === null && !modoInvitado) {
     return /*#__PURE__*/React.createElement(LoginScreen, {
       onSignIn: handleSignIn,
+      onInvitado: entrarComoInvitado,
       error: authError,
       loading: authLoading
     });
   }
-  if (!dataLoaded) {
+  if (!dataLoaded && !modoInvitado) {
     return /*#__PURE__*/React.createElement(LoadingScreen, {
       text: "Cargando tus datos..."
     });
   }
-  if (invitacion && !(config?.colaboradoresDe || []).some(cl => cl.uid === invitacion.uid)) {
+  if (invitacion && !(config?.colaboradoresDe || []).some(cl => cl.uid === invitacion.uid) && !modoInvitado) {
     return /*#__PURE__*/React.createElement(InvitacionColaboradorScreen, {
       invitacion: invitacion,
       onAceptar: aceptarInvitacion,
       onRechazar: rechazarInvitacion
     });
   }
-  if (showGreeting) {
+  if (showGreeting && !modoInvitado) {
     return /*#__PURE__*/React.createElement(GreetingScreen, {
       config: config,
       onEnter: () => setShowGreeting(false),
@@ -13987,7 +14134,17 @@ function VetApp() {
     className: "flex-1 px-5 sm:px-8 pt-24 pb-24 md:pb-8 max-w-5xl md:mx-auto"
   }, toast && /*#__PURE__*/React.createElement("div", {
     className: "fixed top-4 right-4 z-50 bg-[#23342F] text-white text-sm px-4 py-2.5 rounded-md shadow-lg flex items-center gap-2"
-  }, "✓ ", toast), /*#__PURE__*/React.createElement("div", {
+  }, "✓ ", toast), modoInvitado && /*#__PURE__*/React.createElement("div", {
+    className: "bg-[#FDF3E3] border border-[#F3DFAE] rounded-lg p-3 mb-3 flex items-center gap-3 flex-wrap"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-sm"
+  }, "Estás probando el modo invitado"), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-[#6B7A72]"
+  }, "Es una demo con datos de ejemplo — nada de esto se guarda.")), /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: salirModoInvitado
+  }, "Crear cuenta")), /*#__PURE__*/React.createElement("div", {
     className: "sticky top-16 md:fixed md:top-0 md:left-60 md:right-0 md:px-8 md:py-3 md:mb-0 z-20 bg-[#F7F4EC] py-4 mb-3 flex items-center gap-3",
     style: {
       background: "#F7F4EC"
