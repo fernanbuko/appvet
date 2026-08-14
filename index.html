@@ -3230,6 +3230,59 @@ function ImageLightbox({
     onClick: e => e.stopPropagation()
   }));
 }
+
+// Igual que ImageLightbox, pero para una galería de varias fotos (ej. la
+// "Galería de fotos" de un paciente): deja pasar a la anterior/siguiente
+// con los botones ‹ › o las flechas del teclado, sin tener que cerrar y
+// volver a abrir cada foto una por una.
+function GalleryLightbox({
+  fotos,
+  index,
+  onIndexChange,
+  onClose
+}) {
+  useCerrarConAtras(true, onClose);
+  const anterior = () => onIndexChange((index - 1 + fotos.length) % fotos.length);
+  const siguiente = () => onIndexChange((index + 1) % fotos.length);
+  useEffect(() => {
+    const onKey = e => {
+      if (e.key === "ArrowLeft") anterior();else if (e.key === "ArrowRight") siguiente();else if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, fotos.length]);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 flex items-center justify-center px-4",
+    style: {
+      background: "rgba(0,0,0,.85)"
+    },
+    onClick: onClose
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "absolute top-4 right-4 text-white text-3xl leading-none"
+  }, "✕"), fotos.length > 1 && /*#__PURE__*/React.createElement("button", {
+    onClick: e => {
+      e.stopPropagation();
+      anterior();
+    },
+    className: "absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white text-2xl flex items-center justify-center"
+  }, "‹"), /*#__PURE__*/React.createElement("img", {
+    src: fotos[index],
+    alt: "",
+    className: "max-w-full max-h-full object-contain rounded-lg",
+    onClick: e => e.stopPropagation()
+  }), fotos.length > 1 && /*#__PURE__*/React.createElement("button", {
+    onClick: e => {
+      e.stopPropagation();
+      siguiente();
+    },
+    className: "absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white text-2xl flex items-center justify-center"
+  }, "›"), fotos.length > 1 && /*#__PURE__*/React.createElement("div", {
+    className: "absolute bottom-4 text-white text-xs",
+    style: styles.mono
+  }, index + 1, " / ", fotos.length));
+}
 function WeightChart({
   patient,
   historial
@@ -3591,6 +3644,7 @@ function PatientDetail({
   historial
 }) {
   const [lightboxSrc, setLightboxSrc] = useState(null);
+  const [lightboxIndex, setLightboxIndex] = useState(null);
   const [uploadingFoto, setUploadingFoto] = useState(false);
   const [showQR, setShowQR] = useState(false);
   useCerrarConAtras(showQR, () => setShowQR(false));
@@ -3743,6 +3797,11 @@ function PatientDetail({
   }, lightboxSrc && /*#__PURE__*/React.createElement(ImageLightbox, {
     src: lightboxSrc,
     onClose: () => setLightboxSrc(null)
+  }), lightboxIndex !== null && /*#__PURE__*/React.createElement(GalleryLightbox, {
+    fotos: patient.fotos || [],
+    index: lightboxIndex,
+    onIndexChange: setLightboxIndex,
+    onClose: () => setLightboxIndex(null)
   }), showQR && /*#__PURE__*/React.createElement("div", {
     className: "fixed inset-0 z-50 flex items-center justify-center px-4",
     style: {
@@ -3946,7 +4005,7 @@ function PatientDetail({
     key: idx,
     className: "relative group"
   }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => setLightboxSrc(src),
+    onClick: () => setLightboxIndex(idx),
     className: "block w-full aspect-square rounded-md overflow-hidden bg-[#EAF0EC]"
   }, /*#__PURE__*/React.createElement("img", {
     src: src,
