@@ -144,6 +144,7 @@
     .sm\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
     .sm\:px-8{padding-left:2rem;padding-right:2rem}
     .sm\:text-4xl{font-size:2.25rem}
+    .sm\:flex-row{flex-direction:row}.sm\:items-start{align-items:flex-start}.sm\:w-auto{width:auto}
   }
   @media (min-width:768px){
     .md\:flex{display:flex}.md\:flex-col{flex-direction:column}.md\:flex-row{flex-direction:row}
@@ -2873,7 +2874,7 @@ function PatientForm({
   }, h)))), /*#__PURE__*/React.createElement("div", {
     className: "bg-white border border-[#DDD5C4] rounded-lg p-6 min-h-[380px]"
   }, step === 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-start gap-5 mb-5"
+    className: "flex flex-col items-center sm:flex-row sm:items-start gap-5 mb-5"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     onClick: () => data.foto ? setLightboxSrc(data.foto) : fileRef.current?.click(),
     className: "w-28 h-28 rounded-full bg-[#EAF0EC] border-2 border-dashed border-[#B9C4BD] flex items-center justify-center cursor-pointer overflow-hidden hover:border-[#3D6B5C] transition"
@@ -2907,7 +2908,7 @@ function PatientForm({
   }, "📷 Tomar foto")), imgError && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#B14E1C] mt-1"
   }, imgError)), /*#__PURE__*/React.createElement("div", {
-    className: "flex-1"
+    className: "w-full sm:flex-1 sm:w-auto"
   }, /*#__PURE__*/React.createElement(Field, {
     label: "Nombre del paciente"
   }, /*#__PURE__*/React.createElement(TextInput, {
