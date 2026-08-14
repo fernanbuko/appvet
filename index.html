@@ -8704,7 +8704,10 @@ function AgendaView({
       if (!onUpdateVisita) return;
       onUpdateVisita(pacienteAgendar, {
         proximaVisita: fechaAgendar,
-        proximaVisitaHora: horaAgendar
+        proximaVisitaHora: horaAgendar,
+        ...(nombreEventoAgendar.trim() ? {
+          motivoConsulta: nombreEventoAgendar.trim()
+        } : {})
       });
     }
     cerrarAgendarCita();
@@ -8827,12 +8830,12 @@ function AgendaView({
   }, TIPOS_AGENDAR_VET.map(t => /*#__PURE__*/React.createElement("option", {
     key: t.key,
     value: t.key
-  }, t.label)))), !esPeluquero && tipoAgendar !== "cita" && tipoAgendar !== "banos" && /*#__PURE__*/React.createElement(Field, {
-    label: tipoAgendar === "vacunas" ? "Nombre de la vacuna" : tipoAgendar === "desparasitacion" ? "Producto" : "Descripción del tratamiento"
+  }, t.label)))), !esPeluquero && tipoAgendar !== "banos" && /*#__PURE__*/React.createElement(Field, {
+    label: tipoAgendar === "vacunas" ? "Nombre de la vacuna" : tipoAgendar === "desparasitacion" ? "Producto" : tipoAgendar === "cita" ? "Motivo de la cita (opcional)" : "Descripción del tratamiento"
   }, /*#__PURE__*/React.createElement(TextInput, {
     value: nombreEventoAgendar,
     onChange: e => setNombreEventoAgendar(e.target.value),
-    placeholder: tipoAgendar === "vacunas" ? "Ej. Rabia, Óctuple..." : tipoAgendar === "desparasitacion" ? "Ej. Drontal, Ivermectina..." : "Ej. Suero, antiinflamatorio..."
+    placeholder: tipoAgendar === "vacunas" ? "Ej. Rabia, Óctuple..." : tipoAgendar === "desparasitacion" ? "Ej. Drontal, Ivermectina..." : tipoAgendar === "cita" ? "Ej. Quitar puntos, limpieza de oídos, control..." : "Ej. Suero, antiinflamatorio..."
   })), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-3"
   }, /*#__PURE__*/React.createElement(Field, {
@@ -10795,7 +10798,10 @@ function HomeScreen({
     } else {
       onUpdateVisita(pacienteAgendar, {
         proximaVisita: fechaAgendar,
-        proximaVisitaHora: horaAgendar
+        proximaVisitaHora: horaAgendar,
+        ...(nombreEventoAgendar.trim() ? {
+          motivoConsulta: nombreEventoAgendar.trim()
+        } : {})
       });
     }
     cerrarAgendarCita();
@@ -11681,12 +11687,12 @@ function HomeScreen({
   }, TIPOS_AGENDAR_VET.map(t => /*#__PURE__*/React.createElement("option", {
     key: t.key,
     value: t.key
-  }, t.label)))), !esPeluquero && tipoAgendar !== "cita" && tipoAgendar !== "banos" && /*#__PURE__*/React.createElement(Field, {
-    label: tipoAgendar === "vacunas" ? "Nombre de la vacuna" : tipoAgendar === "desparasitacion" ? "Producto" : "Descripción del tratamiento"
+  }, t.label)))), !esPeluquero && tipoAgendar !== "banos" && /*#__PURE__*/React.createElement(Field, {
+    label: tipoAgendar === "vacunas" ? "Nombre de la vacuna" : tipoAgendar === "desparasitacion" ? "Producto" : tipoAgendar === "cita" ? "Motivo de la cita (opcional)" : "Descripción del tratamiento"
   }, /*#__PURE__*/React.createElement(TextInput, {
     value: nombreEventoAgendar,
     onChange: e => setNombreEventoAgendar(e.target.value),
-    placeholder: tipoAgendar === "vacunas" ? "Ej. Rabia, Óctuple..." : tipoAgendar === "desparasitacion" ? "Ej. Drontal, Ivermectina..." : "Ej. Suero, antiinflamatorio..."
+    placeholder: tipoAgendar === "vacunas" ? "Ej. Rabia, Óctuple..." : tipoAgendar === "desparasitacion" ? "Ej. Drontal, Ivermectina..." : tipoAgendar === "cita" ? "Ej. Quitar puntos, limpieza de oídos, control..." : "Ej. Suero, antiinflamatorio..."
   })), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-3"
   }, /*#__PURE__*/React.createElement(Field, {
