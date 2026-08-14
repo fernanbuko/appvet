@@ -8618,6 +8618,9 @@ function AgendaView({
   }, {
     key: "tratamientos",
     label: "Tratamiento inyectable"
+  }, {
+    key: "otro",
+    label: "Otro"
   }];
   const abrirAgendarCita = () => {
     setFechaAgendar(diaSeleccionado || fechaLocalISO());
@@ -8831,11 +8834,11 @@ function AgendaView({
     key: t.key,
     value: t.key
   }, t.label)))), !esPeluquero && tipoAgendar !== "banos" && /*#__PURE__*/React.createElement(Field, {
-    label: tipoAgendar === "vacunas" ? "Nombre de la vacuna" : tipoAgendar === "desparasitacion" ? "Producto" : tipoAgendar === "cita" ? "Motivo de la cita (opcional)" : "Descripción del tratamiento"
+    label: tipoAgendar === "vacunas" ? "Nombre de la vacuna" : tipoAgendar === "desparasitacion" ? "Producto" : tipoAgendar === "cita" ? "Motivo de la cita (opcional)" : tipoAgendar === "otro" ? "¿Qué se va a hacer?" : "Descripción del tratamiento"
   }, /*#__PURE__*/React.createElement(TextInput, {
     value: nombreEventoAgendar,
     onChange: e => setNombreEventoAgendar(e.target.value),
-    placeholder: tipoAgendar === "vacunas" ? "Ej. Rabia, Óctuple..." : tipoAgendar === "desparasitacion" ? "Ej. Drontal, Ivermectina..." : tipoAgendar === "cita" ? "Ej. Quitar puntos, limpieza de oídos, control..." : "Ej. Suero, antiinflamatorio..."
+    placeholder: tipoAgendar === "vacunas" ? "Ej. Rabia, Óctuple..." : tipoAgendar === "desparasitacion" ? "Ej. Drontal, Ivermectina..." : tipoAgendar === "cita" ? "Ej. Control, revisión general..." : tipoAgendar === "otro" ? "Ej. Quitar puntos, limpieza de oídos, corte de uñas..." : "Ej. Suero, antiinflamatorio..."
   })), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-3"
   }, /*#__PURE__*/React.createElement(Field, {
@@ -10721,6 +10724,9 @@ function HomeScreen({
   }, {
     key: "tratamientos",
     label: "Tratamiento inyectable"
+  }, {
+    key: "otro",
+    label: "Otro"
   }];
   const cerrarAgendarCita = () => {
     setAgendandoCita(false);
@@ -11688,11 +11694,11 @@ function HomeScreen({
     key: t.key,
     value: t.key
   }, t.label)))), !esPeluquero && tipoAgendar !== "banos" && /*#__PURE__*/React.createElement(Field, {
-    label: tipoAgendar === "vacunas" ? "Nombre de la vacuna" : tipoAgendar === "desparasitacion" ? "Producto" : tipoAgendar === "cita" ? "Motivo de la cita (opcional)" : "Descripción del tratamiento"
+    label: tipoAgendar === "vacunas" ? "Nombre de la vacuna" : tipoAgendar === "desparasitacion" ? "Producto" : tipoAgendar === "cita" ? "Motivo de la cita (opcional)" : tipoAgendar === "otro" ? "¿Qué se va a hacer?" : "Descripción del tratamiento"
   }, /*#__PURE__*/React.createElement(TextInput, {
     value: nombreEventoAgendar,
     onChange: e => setNombreEventoAgendar(e.target.value),
-    placeholder: tipoAgendar === "vacunas" ? "Ej. Rabia, Óctuple..." : tipoAgendar === "desparasitacion" ? "Ej. Drontal, Ivermectina..." : tipoAgendar === "cita" ? "Ej. Quitar puntos, limpieza de oídos, control..." : "Ej. Suero, antiinflamatorio..."
+    placeholder: tipoAgendar === "vacunas" ? "Ej. Rabia, Óctuple..." : tipoAgendar === "desparasitacion" ? "Ej. Drontal, Ivermectina..." : tipoAgendar === "cita" ? "Ej. Control, revisión general..." : tipoAgendar === "otro" ? "Ej. Quitar puntos, limpieza de oídos, corte de uñas..." : "Ej. Suero, antiinflamatorio..."
   })), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-3"
   }, /*#__PURE__*/React.createElement(Field, {
