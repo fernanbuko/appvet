@@ -1314,6 +1314,26 @@ async function marcarCarpetaCloudinariaParaBorrar(carpeta) {
   }
 }
 
+// Igual que marcarCloudinaryParaBorrar (archivo suelto), pero para TODA la
+// carpeta de un paciente (foto, galería y adjuntos de exámenes) cuando se
+// lo elimina definitivamente — además de los archivos que ya se conocían
+// (marcados uno por uno), esto le pide al robot que borre también la
+// carpeta vacía que Cloudinary deja después (las carpetas dinámicas no
+// desaparecen solas al quedarse sin archivos adentro). Se guarda con
+// teamCollection, igual que los archivos sueltos, para que quede en el
+// mismo lugar donde de verdad se subieron las fotos de este paciente.
+async function marcarCarpetaCloudinariaDePacienteParaBorrar(carpeta) {
+  if (!carpeta) return;
+  try {
+    await withTimeout(teamCollection("cloudinaryPendientes").add({
+      carpeta,
+      creadoEn: Date.now()
+    }));
+  } catch (e) {
+    console.error("No se pudo encolar el borrado de la carpeta del paciente en Cloudinary:", e);
+  }
+}
+
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
 // Un colaborador/a (ej. peluquero/a externo) puede trabajar para VARIAS
@@ -13700,6 +13720,7 @@ function VetApp() {
       setBanosPropios(cur => cur.filter(b => b.patientId !== patient.id));
       if (patient.foto) marcarCloudinaryParaBorrar(patient.foto);
       (patient.fotos || []).forEach(url => marcarCloudinaryParaBorrar(url));
+      marcarCarpetaCloudinariaDePacienteParaBorrar(`${carpetaCloudinariaDeEsteUsuario()}/${carpetaDePaciente(patient.id, patient.nombre)}`);
       showToast("Paciente y sus registros eliminados definitivamente");
       return;
     }
@@ -13708,6 +13729,7 @@ function VetApp() {
     collectionStore.deleteOne("patients", patient.id);
     if (patient.foto) marcarCloudinaryParaBorrar(patient.foto);
     (patient.fotos || []).forEach(url => marcarCloudinaryParaBorrar(url));
+    marcarCarpetaCloudinariaDePacienteParaBorrar(`${carpetaCloudinariaDeEsteUsuario()}/${carpetaDePaciente(patient.id, patient.nombre)}`);
 
     // Borrado en cascada: también se eliminan las recetas, exámenes, historial,
     // vacunas y cobros asociados a este paciente, para no dejar registros

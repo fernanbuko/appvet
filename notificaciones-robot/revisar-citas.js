@@ -881,18 +881,17 @@ async function borrarDeCloudinary(publicIds, resourceType) {
   return res.json();
 }
 
-// Borra TODO lo que haya adentro de una carpeta (logo, foto de perfil,
-// fotos y adjuntos de todos los pacientes) — se usa al eliminar una
-// cuenta por completo. Como esta app sube los archivos con "asset_folder"
-// (carpetas dinámicas de Cloudinary, donde el nombre de la carpeta es un
-// dato aparte del public_id, no necesariamente un prefijo de texto), no
-// alcanza con "borrar por prefijo" como en apps más simples: primero se
-// BUSCA qué archivos están de verdad asignados a esa carpeta (con la API
-// de búsqueda de Cloudinary, filtrando por asset_folder) y recién
-// entonces se borran, por su public_id exacto — así, si por lo que sea la
-// búsqueda no encuentra nada, simplemente no se borra nada (nunca borra
-// "a ciegas" por texto).
-async function borrarCarpetaDeCloudinary(carpeta) {
+// Busca (con la API de búsqueda de Cloudinary, filtrando por asset_folder
+// EXACTO — sin recursividad) y borra por public_id todo lo que esté
+// asignado directamente a esa carpeta puntual (sin bajar a subcarpetas).
+// Como esta app sube los archivos con "asset_folder" (carpetas dinámicas de
+// Cloudinary, donde el nombre de la carpeta es un dato aparte del
+// public_id, no necesariamente un prefijo de texto), no alcanza con
+// "borrar por prefijo" como en apps más simples: primero se BUSCA qué
+// archivos están de verdad ahí y recién entonces se borran, por su
+// public_id exacto — así, si por lo que sea la búsqueda no encuentra nada,
+// simplemente no se borra nada (nunca borra "a ciegas" por texto).
+async function borrarArchivosDeUnaCarpeta(carpeta) {
   const porTipo = {};
   let cursor;
   do {
@@ -919,6 +918,54 @@ async function borrarCarpetaDeCloudinary(carpeta) {
       totalBorrados += Math.min(100, ids.length - i);
     }
   }
+  return totalBorrados;
+}
+
+// Lista las subcarpetas DIRECTAS (no recursivo) de una carpeta de
+// Cloudinary. 404 significa que la carpeta ya no existe (o nunca existió,
+// por ejemplo si nunca se subió nada ahí) — se trata como "sin
+// subcarpetas", no como error.
+async function listarSubcarpetas(carpeta) {
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/folders/${carpeta.split("/").map(encodeURIComponent).join("/")}`, {
+    headers: encabezadoCloudinary(),
+  });
+  if (res.status === 404) return [];
+  if (!res.ok) throw new Error(`Cloudinary (listar subcarpetas) respondió ${res.status}`);
+  const data = await res.json();
+  return (data.folders || []).map(f => f.path);
+}
+
+// Borra la carpeta (el "contenedor" en sí, ya sin archivos adentro) de
+// Cloudinary. Las carpetas dinámicas de Cloudinary son una entidad aparte
+// de los archivos: aunque ya no quede ningún archivo adentro, la carpeta
+// vacía se queda dando vueltas en la Media Library hasta que se borra
+// explícitamente con este llamado. Solo funciona si la carpeta ya está
+// vacía (sin archivos ni subcarpetas) — por eso se llama de más profundo a
+// menos profundo. 404 = ya no existe, no es un error.
+async function borrarCarpetaVacia(carpeta) {
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/folders/${carpeta.split("/").map(encodeURIComponent).join("/")}`, {
+    method: "DELETE",
+    headers: encabezadoCloudinary(),
+  });
+  if (!res.ok && res.status !== 404) {
+    console.error(`No se pudo borrar la carpeta vacía "${carpeta}" de Cloudinary: ${res.status}`);
+  }
+}
+
+// Borra TODO lo que haya adentro de una carpeta, bajando también por sus
+// subcarpetas (por ejemplo, la carpeta de un paciente tiene "galeria" y
+// "examenes" adentro; la carpeta de una cuenta completa tiene "logo",
+// "perfil" y "pacientes/..."). Se usa al eliminar un paciente o una cuenta
+// por completo: primero borra los archivos de cada nivel (más profundo
+// primero), y recién con todo vacío borra las carpetas mismas — así no
+// queda ninguna carpeta vacía dando vueltas en Cloudinary.
+async function borrarCarpetaDeCloudinary(carpeta) {
+  const subcarpetas = await listarSubcarpetas(carpeta);
+  let totalBorrados = await borrarArchivosDeUnaCarpeta(carpeta);
+  for (const sub of subcarpetas) {
+    totalBorrados += await borrarCarpetaDeCloudinary(sub);
+  }
+  await borrarCarpetaVacia(carpeta);
   return totalBorrados;
 }
 
