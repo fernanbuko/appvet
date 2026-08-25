@@ -49,6 +49,19 @@ admin.initializeApp({
 const db = admin.firestore();
 const messaging = admin.messaging();
 
+// Para borrar de verdad un archivo de Cloudinary hace falta la clave
+// secreta de la cuenta — nunca debe estar en el código del navegador, así
+// que vive solo aquí, como secreto de GitHub. El nombre de cuenta
+// (CLOUDINARY_CLOUD_NAME) no es secreto, es el mismo que ya está público
+// en index.html.
+const CLOUDINARY_CLOUD_NAME = "zcuh5bjn";
+const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || "";
+const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET || "";
+const cloudinaryBorrarListo = !!(CLOUDINARY_API_KEY && CLOUDINARY_API_SECRET);
+if (!cloudinaryBorrarListo) {
+  console.log("ℹ️ CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET no están configurados: los archivos borrados en la app se van a quedar pendientes de borrar en Cloudinary hasta que se agreguen esos secretos.");
+}
+
 // Ventana de aviso para citas CON hora exacta: se notifica cuando falten
 // entre 0 y 30 minutos. Para vacunas/desparasitación/cirugías/baños (que
 // solo tienen fecha, sin hora) se avisa una vez el mismo día que
@@ -109,6 +122,32 @@ async function configDeUid(uid) {
   const config = doc.exists ? doc.data()?.value || null : null;
   configCachePorUid.set(uid, config);
   return config;
+}
+
+// Mismas dos funciones que index.html (nombreCompletoDoctor y
+// sanitizarNombreParaCarpeta) — se necesitan aquí para poder calcular la
+// carpeta PERSONAL de Cloudinary de cualquier cuenta que se vaya a
+// eliminar por completo (ver procesarSolicitudesEliminacion), igual que
+// el navegador la calcula para esa misma cuenta.
+function nombreCompletoDoctor(config) {
+  if (config?.doctorNombres || config?.doctorApellidos) {
+    return `${config.doctorNombres || ""} ${config.doctorApellidos || ""}`.trim();
+  }
+  return config?.doctorNombre || "";
+}
+function sanitizarNombreParaCarpeta(nombre) {
+  return (nombre || "sin_nombre").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9 ]/g, "").trim().replace(/\s+/g, "_").slice(0, 40) || "sin_nombre";
+}
+// Carpeta PERSONAL (nunca la de una clínica en equipo) de una cuenta
+// cualquiera, dado su uid y su config — misma fórmula que
+// carpetaCloudinariaPersonalPropia() en index.html.
+async function carpetaCloudinariaPersonalDe(uid) {
+  const config = await configDeUid(uid);
+  const nombreCompleto = nombreCompletoDoctor(config);
+  const nombre = nombreCompleto ? sanitizarNombreParaCarpeta(nombreCompleto) : null;
+  const sufijoUid = (uid || "").slice(0, 6);
+  const identificador = nombre ? `${nombre}_${sufijoUid}` : uid || "sin_cuenta";
+  return `vetdata/${identificador}`;
 }
 
 // Baños/vacunas/desparasitaciones/tratamientos/cirugías guardan solo el
@@ -802,6 +841,156 @@ async function revisarAvisosColaboradores() {
 }
 
 /* ---------------------------------------------------------
+   Borrado seguro de Cloudinary: cuando alguien borra una foto, un
+   adjunto de examen, cambia el logo/foto de perfil, o elimina un
+   paciente o su cuenta completa, la app (index.html) no puede
+   borrar el archivo de verdad de Cloudinary — hace falta la clave
+   secreta de la cuenta, que nunca debe estar en el navegador. En
+   vez de eso, deja una "solicitud" guardada en
+   users/{uid}/cloudinaryPendientes o clinics/{id}/cloudinaryPendientes
+   (la misma colección de donde vive el registro, ver
+   marcarCloudinaryParaBorrar en index.html), y aquí se procesa,
+   con esta clave secreta que sí corre de forma segura en GitHub
+   Actions.
+----------------------------------------------------------*/
+
+// Saca el "public_id" y el tipo de recurso (image/video/raw) de una URL
+// como https://res.cloudinary.com/<cuenta>/image/upload/v169.../carpeta/archivo.jpg
+// — son los datos que pide la API de Cloudinary para borrar un archivo.
+// Funciona igual sin importar si el archivo se subió con "asset_folder"
+// (carpetas dinámicas, como usa esta app) o con el "folder" clásico: la
+// URL siempre tiene esta misma forma.
+function datosCloudinaryDesdeUrl(url) {
+  const m = String(url || "").match(/res\.cloudinary\.com\/[^/]+\/(image|video|raw)\/upload\/(?:v\d+\/)?(.+)\.[a-zA-Z0-9]+(?:\?.*)?$/);
+  if (!m) return null;
+  return { resourceType: m[1], publicId: decodeURIComponent(m[2]) };
+}
+
+function encabezadoCloudinary() {
+  return { Authorization: `Basic ${Buffer.from(`${CLOUDINARY_API_KEY}:${CLOUDINARY_API_SECRET}`).toString("base64")}` };
+}
+
+async function borrarDeCloudinary(publicIds, resourceType) {
+  const params = new URLSearchParams();
+  publicIds.forEach(id => params.append("public_ids[]", id));
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/resources/${resourceType}/upload?${params}`,
+    { method: "DELETE", headers: encabezadoCloudinary() }
+  );
+  if (!res.ok) throw new Error(`Cloudinary respondió ${res.status}`);
+  return res.json();
+}
+
+// Borra TODO lo que haya adentro de una carpeta (logo, foto de perfil,
+// fotos y adjuntos de todos los pacientes) — se usa al eliminar una
+// cuenta por completo. Como esta app sube los archivos con "asset_folder"
+// (carpetas dinámicas de Cloudinary, donde el nombre de la carpeta es un
+// dato aparte del public_id, no necesariamente un prefijo de texto), no
+// alcanza con "borrar por prefijo" como en apps más simples: primero se
+// BUSCA qué archivos están de verdad asignados a esa carpeta (con la API
+// de búsqueda de Cloudinary, filtrando por asset_folder) y recién
+// entonces se borran, por su public_id exacto — así, si por lo que sea la
+// búsqueda no encuentra nada, simplemente no se borra nada (nunca borra
+// "a ciegas" por texto).
+async function borrarCarpetaDeCloudinary(carpeta) {
+  const porTipo = {};
+  let cursor;
+  do {
+    const body = { expression: `asset_folder:"${carpeta}"`, max_results: 500 };
+    if (cursor) body.next_cursor = cursor;
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/resources/search`, {
+      method: "POST",
+      headers: { ...encabezadoCloudinary(), "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`Cloudinary (búsqueda de carpeta) respondió ${res.status}`);
+    const data = await res.json();
+    for (const recurso of data.resources || []) {
+      if (!porTipo[recurso.resource_type]) porTipo[recurso.resource_type] = [];
+      porTipo[recurso.resource_type].push(recurso.public_id);
+    }
+    cursor = data.next_cursor;
+  } while (cursor);
+
+  let totalBorrados = 0;
+  for (const [resourceType, ids] of Object.entries(porTipo)) {
+    for (let i = 0; i < ids.length; i += 100) {
+      await borrarDeCloudinary(ids.slice(i, i + 100), resourceType);
+      totalBorrados += Math.min(100, ids.length - i);
+    }
+  }
+  return totalBorrados;
+}
+
+// Revisa la cola de una cuenta o clínica (parentRef = users/{uid} o
+// clinics/{id}) y procesa cada solicitud: si trae "url", borra ESE
+// archivo; si trae "carpeta", borra TODA esa carpeta (solo pasa al
+// eliminar una cuenta por completo). Si no hay clave de Cloudinary
+// configurada todavía, deja las solicitudes pendientes — no se pierden,
+// solo esperan.
+async function procesarPendientesDeCloudinary(parentRef, etiqueta) {
+  if (!cloudinaryBorrarListo) return;
+  let snap;
+  try {
+    snap = await parentRef.collection("cloudinaryPendientes").get();
+  } catch (e) {
+    return; // la colección puede no existir todavía para esta cuenta, no es un error
+  }
+  if (snap.empty) return;
+
+  const porTipo = {};
+  const carpetas = [];
+  for (const doc of snap.docs) {
+    const { url, carpeta } = doc.data();
+    if (carpeta) {
+      carpetas.push({ ref: doc.ref, carpeta });
+      continue;
+    }
+    const datos = datosCloudinaryDesdeUrl(url);
+    if (!datos) {
+      // URL rara/no reconocida: no se puede borrar sola, se descarta la
+      // solicitud para no quedar reintentando para siempre.
+      await doc.ref.delete().catch(() => {});
+      continue;
+    }
+    if (!porTipo[datos.resourceType]) porTipo[datos.resourceType] = [];
+    porTipo[datos.resourceType].push({ ref: doc.ref, publicId: datos.publicId });
+  }
+
+  for (const [resourceType, items] of Object.entries(porTipo)) {
+    try {
+      await borrarDeCloudinary(items.map(it => it.publicId), resourceType);
+      await Promise.all(items.map(it => it.ref.delete()));
+      console.log(`   🗑 [${etiqueta}] ${items.length} archivo(s) borrados de Cloudinary (${resourceType}).`);
+    } catch (e) {
+      console.error(`   ❌ [${etiqueta}] Error borrando de Cloudinary (${resourceType}):`, e.message);
+    }
+  }
+
+  for (const { ref, carpeta } of carpetas) {
+    try {
+      const cuantos = await borrarCarpetaDeCloudinary(carpeta);
+      await ref.delete();
+      console.log(`   🗑 [${etiqueta}] Carpeta "${carpeta}" borrada de Cloudinary (${cuantos} archivo(s)).`);
+    } catch (e) {
+      console.error(`   ❌ [${etiqueta}] Error borrando la carpeta "${carpeta}" de Cloudinary:`, e.message);
+    }
+  }
+}
+
+async function procesarPendientesDeCloudinaryEnTodasLasCuentas() {
+  if (!cloudinaryBorrarListo) return;
+  const usuarios = await db.collection("users").listDocuments();
+  const clinicas = await db.collection("clinics").listDocuments();
+  for (const usuarioRef of usuarios) {
+    await procesarPendientesDeCloudinary(usuarioRef, `users/${usuarioRef.id}`);
+  }
+  for (const clinicaRef of clinicas) {
+    await procesarPendientesDeCloudinary(clinicaRef, `clinics/${clinicaRef.id}`);
+  }
+}
+
+/* ---------------------------------------------------------
    Panel del propietario de la app: arma un resumen de TODAS las
    cuentas registradas (no reglas de seguridad nuevas — el robot
    ya tiene acceso total como administrador) y lo guarda DENTRO
@@ -846,6 +1035,21 @@ async function procesarSolicitudesEliminacion() {
           correo = authUser.email || "";
         } catch (e) {
           correo = "";
+        }
+        // Borra la carpeta PERSONAL de Cloudinary de esa cuenta (logo, foto
+        // de perfil, fotos y adjuntos de todos sus pacientes) — se calcula
+        // ANTES de borrar su config (de ahí sale el nombre de la carpeta) y
+        // ANTES de recursiveDelete. Si esto falla no se cancela el resto:
+        // lo importante es borrar la cuenta y su acceso; los archivos
+        // sueltos se pueden limpiar después a mano si hiciera falta.
+        if (cloudinaryBorrarListo) {
+          try {
+            const carpetaPersonal = await carpetaCloudinariaPersonalDe(uid);
+            const cuantos = await borrarCarpetaDeCloudinary(carpetaPersonal);
+            console.log(`  🗑 Carpeta de Cloudinary "${carpetaPersonal}" borrada (${cuantos} archivo(s)).`);
+          } catch (e) {
+            console.error(`  ❌ No se pudo borrar la carpeta de Cloudinary de ${uid}:`, e.message);
+          }
         }
         // Borra TODOS los datos de esa cuenta (todas sus subcolecciones:
         // patients, recetas, examenes, historial, vacunas, banos, etc.)
@@ -1052,6 +1256,7 @@ async function main() {
 
   await procesarSolicitudesEliminacion();
   await procesarSolicitudesBloqueo();
+  await procesarPendientesDeCloudinaryEnTodasLasCuentas();
   await actualizarPanelPropietario();
 
   console.log(`Listo. Avisos mandados en esta corrida: ${totalAvisos}.`);

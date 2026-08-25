@@ -1264,6 +1264,56 @@ const ownCollectionStore = {
     }
   }
 };
+
+// Borrar un archivo de Cloudinary de verdad requiere la clave secreta de la
+// cuenta, que nunca debe estar en el código del navegador (cualquiera podría
+// verla y borrar o cambiar cualquier archivo). Por eso esto no borra nada
+// directo: deja una "solicitud" guardada en la misma colección donde vive
+// el registro (users/{uid}/cloudinaryPendientes o clinics/{id}/cloudinaryPendientes,
+// según corresponda — ver teamCollection), y el robot de recordatorios
+// (revisar-citas.js, que sí corre con esa clave secreta de forma segura en
+// GitHub Actions) la procesa en su próxima corrida. No bloquea nada si falla.
+async function marcarCloudinaryParaBorrar(url) {
+  if (!url || !url.startsWith("http")) return; // ignora fotos guardadas como base64 (respaldo sin Cloudinary)
+  try {
+    await withTimeout(teamCollection("cloudinaryPendientes").add({
+      url,
+      creadoEn: Date.now()
+    }));
+  } catch (e) {
+    console.error("No se pudo encolar el borrado en Cloudinary:", e);
+  }
+}
+
+// Carpeta de Cloudinary de la cuenta ACTUAL, ignorando A PROPÓSITO si está
+// en una clínica en equipo o trabajando para otro dueño — a diferencia de
+// carpetaCloudinariaDeEsteUsuario() (que sí redirige a la carpeta
+// compartida, para que las fotos que se suben mientras se trabaja en
+// equipo queden ahí), esta se usa solo al eliminar la cuenta PROPIA, donde
+// siempre debe borrarse la carpeta personal de este doctor/a — nunca una
+// carpeta compartida con el resto del equipo, aunque en ese momento esté
+// conectado a una clínica.
+function carpetaCloudinariaPersonalPropia() {
+  return `vetdata/${currentDoctorCarpeta || currentUid || "sin_cuenta"}`;
+}
+
+// Igual que marcarCloudinaryParaBorrar, pero para una carpeta ENTERA (se usa
+// al eliminar la cuenta propia por completo, ver ejecutarEliminacionCuenta)
+// — siempre se guarda en users/{currentUid}/cloudinaryPendientes (nunca en
+// teamCollection), porque el robot busca estas solicitudes recorriendo
+// cuenta por cuenta en "users", el mismo lugar de donde borra todo lo demás.
+async function marcarCarpetaCloudinariaParaBorrar(carpeta) {
+  if (!carpeta || !db || !currentUid) return;
+  try {
+    await withTimeout(db.collection("users").doc(currentUid).collection("cloudinaryPendientes").add({
+      carpeta,
+      creadoEn: Date.now()
+    }));
+  } catch (e) {
+    console.error("No se pudo encolar el borrado de la carpeta en Cloudinary:", e);
+  }
+}
+
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
 // Un colaborador/a (ej. peluquero/a externo) puede trabajar para VARIAS
@@ -2750,6 +2800,16 @@ function PatientForm({
     }
     e.target.value = "";
   };
+  // Recorta/reemplazar la foto solo cambia el estado local del formulario
+  // (data.foto) — el archivo viejo en Cloudinary sigue siendo el "de
+  // verdad" hasta que esto se guarde de verdad. Por eso el borrado se
+  // encola AQUÍ, al guardar, comparando contra la foto ORIGINAL con la que
+  // se abrió el formulario (initial.foto) — no antes, porque si la persona
+  // cancela sin guardar, esa foto anterior nunca dejó de ser la vigente.
+  const guardarConFoto = datosAGuardar => {
+    if (initial?.foto && initial.foto !== datosAGuardar.foto) marcarCloudinaryParaBorrar(initial.foto);
+    onSave(datosAGuardar);
+  };
   const canGoNext = step === 0 ? data.nombre.trim().length > 0 : true;
   const isLast = step === HOJAS.length - 1;
   return /*#__PURE__*/React.createElement("div", {
@@ -2858,7 +2918,7 @@ function PatientForm({
   })), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 mt-5"
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
-    onClick: () => onSave(data),
+    onClick: () => guardarConFoto(data),
     disabled: !data.nombre.trim(),
     icon: "✓"
   }, "Guardar paciente"), /*#__PURE__*/React.createElement(GhostButton, {
@@ -3178,7 +3238,7 @@ function PatientForm({
   }, /*#__PURE__*/React.createElement(GhostButton, {
     onClick: onCancel
   }, "Cancelar"), !isLast && /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => data.nombre.trim() && onSave(data),
+    onClick: () => data.nombre.trim() && guardarConFoto(data),
     icon: "✓",
     disabled: !data.nombre.trim()
   }, "Guardar"), !isLast ? /*#__PURE__*/React.createElement(PrimaryButton, {
@@ -3186,7 +3246,7 @@ function PatientForm({
     disabled: !canGoNext,
     icon: "▶"
   }, "Siguiente") : /*#__PURE__*/React.createElement(PrimaryButton, {
-    onClick: () => onSave(data),
+    onClick: () => guardarConFoto(data),
     icon: "✓",
     disabled: !data.nombre.trim()
   }, "Guardar ficha")))));
@@ -3762,25 +3822,31 @@ function PatientDetail({
     window.open(whatsappLink(patient.telefonoPropietario, mensaje), "_blank");
   };
   const handleAddFoto = async e => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    // Acepta una o varias fotos a la vez (el input de galería permite elegir
+    // varias; el de cámara siempre manda una sola) — se suben una por una y
+    // se guardan todas juntas al final, en un solo cambio.
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
     setUploadingFoto(true);
     try {
-      let url;
-      if (cloudinaryReady) {
-        try {
-          const result = await uploadToCloudinary(file, `${carpetaDePaciente(patient.id, patient.nombre)}/galeria`);
-          url = result.url;
-        } catch (err) {
-          // Sin conexión (u otro fallo de subida): se guarda la foto igual,
-          // localmente, como respaldo, en vez de bloquear a la persona.
+      const nuevas = [];
+      for (const file of files) {
+        let url;
+        if (cloudinaryReady) {
+          try {
+            const result = await uploadToCloudinary(file, `${carpetaDePaciente(patient.id, patient.nombre)}/galeria`);
+            url = result.url;
+          } catch (err) {
+            // Sin conexión (u otro fallo de subida): se guarda la foto igual,
+            // localmente, como respaldo, en vez de bloquear a la persona.
+            url = await resizeImage(file, 900);
+          }
+        } else {
           url = await resizeImage(file, 900);
         }
-      } else {
-        url = await resizeImage(file, 900);
+        nuevas.push(url);
       }
-      const nuevas = [...(patient.fotos || []), url];
-      onUpdateFotos(patient, nuevas);
+      onUpdateFotos(patient, [...(patient.fotos || []), ...nuevas]);
     } catch (err) {
       alert("No se pudo agregar la foto. Intenta de nuevo.");
     } finally {
@@ -3789,8 +3855,10 @@ function PatientDetail({
     }
   };
   const removeFoto = idx => {
+    const fotoQuitada = (patient.fotos || [])[idx];
     const nuevas = (patient.fotos || []).filter((_, i) => i !== idx);
     onUpdateFotos(patient, nuevas);
+    if (fotoQuitada) marcarCloudinaryParaBorrar(fotoQuitada);
   };
   return /*#__PURE__*/React.createElement("div", {
     className: "max-w-2xl bg-white border border-[#DDD5C4] rounded-lg p-6"
@@ -3982,6 +4050,7 @@ function PatientDetail({
     ref: galeriaFileRef,
     type: "file",
     accept: "image/*",
+    multiple: true,
     className: "hidden",
     onChange: handleAddFoto
   }), /*#__PURE__*/React.createElement("input", {
@@ -3995,7 +4064,7 @@ function PatientDetail({
     onClick: () => galeriaFileRef.current?.click(),
     disabled: uploadingFoto,
     className: "text-xs text-[#3D6B5C] font-medium hover:underline disabled:opacity-50"
-  }, uploadingFoto ? "Subiendo..." : "➕ Elegir foto"), /*#__PURE__*/React.createElement("button", {
+  }, uploadingFoto ? "Subiendo..." : "➕ Elegir fotos"), /*#__PURE__*/React.createElement("button", {
     onClick: () => galeriaCameraRef.current?.click(),
     disabled: uploadingFoto,
     className: "text-xs text-[#3D6B5C] font-medium hover:underline disabled:opacity-50"
@@ -6635,9 +6704,20 @@ function ExamenesView({
     e.target.value = "";
   };
   const removeAttachment = idx => setAttachments(prev => prev.filter((_, i) => i !== idx));
+  // Quitar un archivo (o subir uno nuevo) solo cambia el estado local del
+  // formulario — el archivo en Cloudinary sigue siendo el "de verdad" hasta
+  // que esto se guarde. Por eso el borrado se encola AQUÍ, comparando la
+  // lista de adjuntos ORIGINAL (con la que se abrió el formulario, si se
+  // está editando) contra la lista final: lo que estaba antes y ya no está,
+  // se borra de Cloudinary.
   const save = () => {
     const patient = patients.find(p => p.id === patientId);
     if (!patient || !tipo.trim()) return;
+    const adjuntosOriginales = editingId ? examenes.find(e => e.id === editingId)?.attachments || [] : [];
+    const urlsNuevas = new Set(attachments.map(a => a.url).filter(Boolean));
+    adjuntosOriginales.forEach(a => {
+      if (a.url && !urlsNuevas.has(a.url)) marcarCloudinaryParaBorrar(a.url);
+    });
     if (editingId) {
       onUpdate({
         id: editingId,
@@ -6659,6 +6739,19 @@ function ExamenesView({
         fecha: fechaLocalISO()
       });
     }
+    reset();
+  };
+  // Si se cancela sin guardar, cualquier archivo que ya se haya subido a
+  // Cloudinary en ESTA sesión (y que no venga ya del examen original) queda
+  // huérfano — se encola para borrar. Los que sí eran del examen original
+  // no se tocan aquí (si se "quitaron" en pantalla pero se cancela sin
+  // guardar, siguen siendo los de verdad).
+  const cancelar = () => {
+    const adjuntosOriginales = editingId ? examenes.find(e => e.id === editingId)?.attachments || [] : [];
+    const urlsOriginales = new Set(adjuntosOriginales.map(a => a.url).filter(Boolean));
+    attachments.forEach(a => {
+      if (a.url && !urlsOriginales.has(a.url)) marcarCloudinaryParaBorrar(a.url);
+    });
     reset();
   };
   const sorted = [...examenes].sort((a, b) => a.fecha < b.fecha ? 1 : -1);
@@ -6728,7 +6821,7 @@ function ExamenesView({
     disabled: !patientId || !tipo.trim(),
     icon: "✓"
   }, editingId ? "Guardar cambios" : "Guardar examen"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: reset
+    onClick: cancelar
   }, "Cancelar"))), sorted.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
     title: "Aún no hay exámenes",
     subtitle: "Los exámenes complementarios que registres aparecerán aquí."
@@ -7058,6 +7151,19 @@ function ConfigForm({
     actualizarColaboradores(nuevoMapa);
   };
 
+  // El logo y la foto de perfil solo cambian el estado local del formulario
+  // (data.logo/data.doctorFoto) al recortarlos o al tocar "Quitar" — el
+  // archivo viejo en Cloudinary sigue siendo el "de verdad" hasta que esto
+  // se guarde. Por eso el borrado se encola AQUÍ, al guardar, comparando
+  // contra la config ORIGINAL (la prop, que refleja lo último guardado de
+  // verdad) — no antes, porque si se cancela sin guardar, ese logo/foto
+  // anterior nunca dejó de ser el vigente.
+  const guardarConfig = datosAGuardar => {
+    if (config?.logo && config.logo !== datosAGuardar.logo) marcarCloudinaryParaBorrar(config.logo);
+    if (config?.doctorFoto && config.doctorFoto !== datosAGuardar.doctorFoto) marcarCloudinaryParaBorrar(config.doctorFoto);
+    onSave(datosAGuardar);
+  };
+
   // --- "Trabajar como colaborador de otra cuenta" (lado del peluquero) ---
   // Ya no hace falta un formulario manual de ID aquí: se conecta abriendo el
   // link de invitación (ver InvitacionColaboradorScreen), que agrega la
@@ -7070,7 +7176,7 @@ function ConfigForm({
       ...d,
       colaboradoresDe: listaNueva
     }));
-    onSave({
+    guardarConfig({
       ...data,
       colaboradoresDe: listaNueva
     });
@@ -7595,7 +7701,7 @@ function ConfigForm({
         fechaRegistro: Date.now()
       } : data;
       ultimaConfigSincronizadaRef.current = JSON.stringify(datosAGuardar);
-      onSave(datosAGuardar);
+      guardarConfig(datosAGuardar);
     },
     icon: "✓",
     disabled: !data.doctorNombres.trim()
@@ -13224,6 +13330,13 @@ function VetApp() {
     cerrarModalEliminarCuenta();
     setDeletingAccount(true);
     try {
+      // Deja encolado el borrado de TODA la carpeta personal de Cloudinary
+      // (logo, foto de perfil, fotos y adjuntos de todos los pacientes)
+      // ANTES de borrar nada más — el robot de recordatorios la procesa en
+      // su próxima corrida. Se usa la carpeta PERSONAL a propósito (nunca
+      // la de una clínica en equipo), para no borrar archivos compartidos
+      // con el resto del equipo solo porque esta cuenta se elimina.
+      await marcarCarpetaCloudinariaParaBorrar(carpetaCloudinariaPersonalPropia());
       await Promise.all([collectionStore.deleteAll("patients"), collectionStore.deleteAll("recetas"), collectionStore.deleteAll("examenes"), collectionStore.deleteAll("historial"), collectionStore.deleteAll("vacunas"), collectionStore.deleteAll("cobros")]);
       if (db && currentUid) {
         await db.collection("users").doc(currentUid).collection("data").doc("config").delete().catch(() => {});
@@ -13585,12 +13698,16 @@ function VetApp() {
         ownCollectionStore.deleteOne("banos", b.id);
       });
       setBanosPropios(cur => cur.filter(b => b.patientId !== patient.id));
+      if (patient.foto) marcarCloudinaryParaBorrar(patient.foto);
+      (patient.fotos || []).forEach(url => marcarCloudinaryParaBorrar(url));
       showToast("Paciente y sus registros eliminados definitivamente");
       return;
     }
     const next = patients.filter(p => p.id !== patient.id);
     setPatients(next);
     collectionStore.deleteOne("patients", patient.id);
+    if (patient.foto) marcarCloudinaryParaBorrar(patient.foto);
+    (patient.fotos || []).forEach(url => marcarCloudinaryParaBorrar(url));
 
     // Borrado en cascada: también se eliminan las recetas, exámenes, historial,
     // vacunas y cobros asociados a este paciente, para no dejar registros
@@ -13601,6 +13718,9 @@ function VetApp() {
     setRecetas(cur => cur.filter(r => r.patientId !== patient.id));
     examenes.filter(e => e.patientId === patient.id).forEach(e => {
       collectionStore.deleteOne("examenes", e.id);
+      (e.attachments || []).forEach(a => {
+        if (a.url) marcarCloudinaryParaBorrar(a.url);
+      });
     });
     setExamenes(cur => cur.filter(e => e.patientId !== patient.id));
     historial.filter(h => h.patientId === patient.id).forEach(h => {
@@ -13663,9 +13783,13 @@ function VetApp() {
     showToast("Examen actualizado");
   };
   const deleteExamen = id => {
+    const examenBorrado = examenes.find(e => e.id === id);
     const next = examenes.filter(e => e.id !== id);
     setExamenes(next);
     collectionStore.deleteOne("examenes", id);
+    (examenBorrado?.attachments || []).forEach(a => {
+      if (a.url) marcarCloudinaryParaBorrar(a.url);
+    });
   };
   const addHistorial = h => {
     const next = [...historial, h];
