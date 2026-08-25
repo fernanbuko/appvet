@@ -2348,6 +2348,10 @@ const NAV = [{
   label: "Inyectables",
   icon: "🩹"
 }, {
+  key: "calculadora",
+  label: "Calculadora de dosis",
+  icon: "🧮"
+}, {
   key: "reportes",
   label: "Reportes",
   icon: "📊"
@@ -8106,6 +8110,104 @@ function ActionCard({
 }
 
 /* ---------------------------------------------------------
+   Calculadora de dosis: aritmética simple (peso × mg/kg, y si se
+   da la concentración del producto, también mg ÷ mg/mL = mL a
+   aplicar). A propósito NO trae dosis sugeridas por medicamento
+   — eso sería la app dando una recomendación clínica; aquí solo
+   se hace la cuenta con los números que el doctor/a ingresa según
+   su propio criterio.
+----------------------------------------------------------*/
+function CalculadoraDosisView({
+  patients
+}) {
+  const [patientId, setPatientId] = useState("");
+  const [peso, setPeso] = useState("");
+  const [dosisPorKg, setDosisPorKg] = useState("");
+  const [concentracion, setConcentracion] = useState("");
+  const pesoNum = parseFloat(peso);
+  const dosisNum = parseFloat(dosisPorKg);
+  const concNum = parseFloat(concentracion);
+  const dosisTotal = !isNaN(pesoNum) && pesoNum > 0 && !isNaN(dosisNum) && dosisNum > 0 ? pesoNum * dosisNum : null;
+  const volumen = dosisTotal !== null && !isNaN(concNum) && concNum > 0 ? dosisTotal / concNum : null;
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    style: styles.display,
+    className: "text-2xl font-semibold mb-1"
+  }, "Calculadora de dosis"), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-[#6B7A72] mb-6 max-w-xl"
+  }, "Solo hace la cuenta (peso × dosis por kg, y el volumen a aplicar si dás la concentración) — tú decides la dosis según tu propio criterio o referencia; esta herramienta no sugiere dosis por medicamento."), /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-6 max-w-xl"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Paciente (opcional, para tomar su peso)"
+  }, /*#__PURE__*/React.createElement("select", {
+    value: patientId,
+    onChange: e => {
+      const id = e.target.value;
+      setPatientId(id);
+      const patient = patients.find(p => p.id === id);
+      if (patient?.peso) setPeso(String(patient.peso));
+    },
+    className: inputClass
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Sin paciente — ingresar peso a mano"), patients.map(p => /*#__PURE__*/React.createElement("option", {
+    key: p.id,
+    value: p.id
+  }, p.nombre, " ", p.propietario ? `— ${p.propietario}` : "")))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-3"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Peso (kg)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "number",
+    inputMode: "decimal",
+    min: "0",
+    step: "any",
+    value: peso,
+    onChange: e => setPeso(e.target.value),
+    placeholder: "Ej. 12.5"
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Dosis (mg/kg)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "number",
+    inputMode: "decimal",
+    min: "0",
+    step: "any",
+    value: dosisPorKg,
+    onChange: e => setDosisPorKg(e.target.value),
+    placeholder: "Ej. 5"
+  }))), /*#__PURE__*/React.createElement(Field, {
+    label: "Concentración del producto (mg/mL) — opcional"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    type: "number",
+    inputMode: "decimal",
+    min: "0",
+    step: "any",
+    value: concentracion,
+    onChange: e => setConcentracion(e.target.value),
+    placeholder: "Ej. 50"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "mt-5 pt-5 border-t border-[#DDD5C4]"
+  }, dosisTotal === null ? /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-[#A6A08F]"
+  }, "Ingresa el peso y la dosis para ver el resultado.") : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-sm text-[#6B7A72]"
+  }, "Dosis total"), /*#__PURE__*/React.createElement("span", {
+    style: styles.mono,
+    className: "text-lg font-semibold text-[#23342F]"
+  }, dosisTotal.toFixed(2), " mg")), volumen !== null && /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-sm text-[#6B7A72]"
+  }, "Volumen a aplicar"), /*#__PURE__*/React.createElement("span", {
+    style: styles.mono,
+    className: "text-lg font-semibold text-[#3D6B5C]"
+  }, volumen.toFixed(2), " mL"))))));
+}
+
+/* ---------------------------------------------------------
    Agenda: vista de calendario mensual con las próximas visitas
 ----------------------------------------------------------*/
 /* ---------------------------------------------------------
@@ -10954,6 +11056,7 @@ function HomeScreen({
   const puedeVerDesparasitacion = !modoColaborador && (!seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("desparasitacion"));
   const puedeVerTratamientos = !modoColaborador && (!seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("tratamientos"));
   const puedeVerReportes = !modoColaborador && (!seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("reportes"));
+  const puedeVerCalculadora = !modoColaborador && (!seccionesDeNavPermitidas || seccionesDeNavPermitidas.includes("calculadora"));
   // Reordenar los "Accesos rápidos" arrastrando con el dedo (solo tiene
   // sentido en celular — en escritorio ya se puede ver todo de un
   // vistazo). Mantener pulsado ~400ms activa el "modo edición" (todas las
@@ -10965,8 +11068,8 @@ function HomeScreen({
   // (y por lo tanto el DOM) cambiara de orden mientras el dedo sigue
   // tocando, el navegador puede "perder" ese toque (queda pegado, sin
   // soltarse) porque el elemento que se estaba tocando se movió de lugar.
-  const ORDEN_DEFECTO_ACCESOS = ["tareas", "agenda", "banos", "vacunas", "desparasitacion", "tratamientos", "reportes"];
-  const clavesVisiblesAccesos = [puedeVerTareas && "tareas", puedeVerAgenda && "agenda", puedeVerBanos && "banos", puedeVerVacunas && "vacunas", puedeVerDesparasitacion && "desparasitacion", puedeVerTratamientos && "tratamientos", puedeVerReportes && "reportes"].filter(Boolean);
+  const ORDEN_DEFECTO_ACCESOS = ["tareas", "agenda", "banos", "vacunas", "desparasitacion", "tratamientos", "calculadora", "reportes"];
+  const clavesVisiblesAccesos = [puedeVerTareas && "tareas", puedeVerAgenda && "agenda", puedeVerBanos && "banos", puedeVerVacunas && "vacunas", puedeVerDesparasitacion && "desparasitacion", puedeVerTratamientos && "tratamientos", puedeVerCalculadora && "calculadora", puedeVerReportes && "reportes"].filter(Boolean);
   const [ordenAccesos, setOrdenAccesos] = useState(() => {
     const guardado = (config?.ordenAccesosRapidos || []).filter(k => clavesVisiblesAccesos.includes(k));
     return [...guardado, ...ORDEN_DEFECTO_ACCESOS.filter(k => clavesVisiblesAccesos.includes(k) && !guardado.includes(k))];
@@ -11783,7 +11886,7 @@ function HomeScreen({
     label: "Exámenes",
     value: examenes.length,
     onClick: () => setActive("examenes")
-  })), (puedeVerTareas || puedeVerAgenda || puedeVerBanos || puedeVerVacunas || puedeVerDesparasitacion || puedeVerTratamientos || puedeVerReportes) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  })), (puedeVerTareas || puedeVerAgenda || puedeVerBanos || puedeVerVacunas || puedeVerDesparasitacion || puedeVerTratamientos || puedeVerCalculadora || puedeVerReportes) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-3"
   }, /*#__PURE__*/React.createElement("h2", {
     className: "text-[11px] uppercase tracking-wider text-[#6B7A72]",
@@ -11899,6 +12002,12 @@ function HomeScreen({
         title: "Tratamientos inyectables",
         subtitle: "Pacientes con tratamiento inyectable registrado",
         onClick: () => setActive("tratamientos")
+      }),
+      calculadora: puedeVerCalculadora && /*#__PURE__*/React.createElement(ActionCard, {
+        icon: "🧮",
+        title: "Calculadora de dosis",
+        subtitle: "Peso × dosis por kg, y mL a aplicar",
+        onClick: () => setActive("calculadora")
       }),
       reportes: puedeVerReportes && /*#__PURE__*/React.createElement(ActionCard, {
         icon: "📊",
@@ -14624,7 +14733,9 @@ function VetApp() {
       setSelected(p);
       setPestanaInicial("tratamientos");
     }
-  })), active === "reportes" && /*#__PURE__*/React.createElement(ReportesView, {
+  })), active === "calculadora" && /*#__PURE__*/React.createElement(CalculadoraDosisView, {
+    patients: activePatients
+  }), active === "reportes" && /*#__PURE__*/React.createElement(ReportesView, {
     cobros: cobros,
     patients: activePatients,
     onSelectPatient: p => {

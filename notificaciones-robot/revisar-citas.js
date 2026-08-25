@@ -276,7 +276,16 @@ async function mandarNotificacion(tokens, dataPayload, etiqueta, nombrePaciente)
     return false;
   }
   try {
-    const resultado = await messaging.sendEachForMulticast({ data: dataPayload, tokens });
+    // "Urgency: high" le pide al navegador/celular que entregue el aviso
+    // de inmediato en vez de posponerlo por ahorro de batería — esto
+    // importa sobre todo cuando el celular lleva mucho tiempo sin abrir la
+    // app: sin esto, Android puede retrasar la entrega hasta que el
+    // teléfono "despierte" por su cuenta, a veces mucho después.
+    const resultado = await messaging.sendEachForMulticast({
+      data: dataPayload,
+      tokens,
+      webpush: { headers: { Urgency: "high" } },
+    });
     console.log(`[${etiqueta}] Notificación enviada para ${nombrePaciente}: ${resultado.successCount} éxito(s), ${resultado.failureCount} fallo(s).`);
     return true;
   } catch (e) {
