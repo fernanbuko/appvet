@@ -1944,22 +1944,44 @@ function MapPicker({
     };
   }, []);
   const usarUbicacionActual = () => {
-    if (!navigator.geolocation) {
-      setMensaje("Tu navegador no soporta geolocalización");
-      return;
-    }
-    setMensaje("Buscando tu ubicación...");
-    navigator.geolocation.getCurrentPosition(pos => {
-      const {
-        latitude,
-        longitude
-      } = pos.coords;
+    const aplicarPosicion = (latitude, longitude) => {
       if (mapRef.current && markerRef.current) {
         mapRef.current.setView([latitude, longitude], 16);
         markerRef.current.setLatLng([latitude, longitude]);
       }
       onChange(latitude, longitude);
       setMensaje("Ubicación encontrada — ajusta el pin si hace falta.");
+    };
+    // Dentro de la app empaquetada, el navigator.geolocation del WebView no
+    // pide permiso de forma confiable en Android (se queda esperando o
+    // falla en silencio) — ahí se usa el plugin nativo de geolocalización,
+    // que sí dispara el diálogo de permiso del sistema como corresponde.
+    const enAppNativa = typeof Capacitor !== "undefined" && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
+    if (enAppNativa) {
+      setMensaje("Buscando tu ubicación...");
+      const geo = Capacitor.Plugins.Geolocation;
+      geo.requestPermissions().then(permiso => {
+        if (permiso.location !== "granted" && permiso.coarseLocation !== "granted") {
+          throw new Error("Permiso de ubicación no concedido.");
+        }
+        return geo.getCurrentPosition({
+          enableHighAccuracy: true,
+          timeout: 8000
+        });
+      }).then(pos => {
+        aplicarPosicion(pos.coords.latitude, pos.coords.longitude);
+      }).catch(() => {
+        setMensaje("No se pudo obtener tu ubicación. Revisa que el permiso de ubicación esté activado para esta app.");
+      });
+      return;
+    }
+    if (!navigator.geolocation) {
+      setMensaje("Tu navegador no soporta geolocalización");
+      return;
+    }
+    setMensaje("Buscando tu ubicación...");
+    navigator.geolocation.getCurrentPosition(pos => {
+      aplicarPosicion(pos.coords.latitude, pos.coords.longitude);
     }, () => {
       setMensaje("No se pudo obtener tu ubicación.");
     }, {
