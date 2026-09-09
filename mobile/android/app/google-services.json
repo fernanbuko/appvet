@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "420928741564",
+    "project_id": "vetdata-1557e",
+    "storage_bucket": "vetdata-1557e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:420928741564:android:3eb2672f27742c941fb0b9",
+        "android_client_info": {
+          "package_name": "com.vetdata.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "420928741564-viv81kg95hmig7s0fij6dsuhskbsfet4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDVQIRdCz39mN4694rKjL6YaMAV1dGRlPc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "420928741564-viv81kg95hmig7s0fij6dsuhskbsfet4.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
