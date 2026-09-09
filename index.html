@@ -7910,7 +7910,8 @@ function LoginScreen({
   onSignIn,
   onInvitado,
   error,
-  loading
+  loading,
+  ayudaPlayServices
 }) {
   return /*#__PURE__*/React.createElement("div", {
     className: "min-h-screen flex items-center justify-center px-6",
@@ -7935,7 +7936,18 @@ function LoginScreen({
     className: "text-sm font-medium text-[#3D6B5C] hover:underline mt-4"
   }, "Probar sin crear cuenta"), error && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#B14E1C] mt-4"
-  }, error)));
+  }, error), ayudaPlayServices && /*#__PURE__*/React.createElement("div", {
+    className: "mt-3 text-left text-xs text-[#6B7A72] bg-[#F1ECE0] border border-[#DDD5C4] rounded-md p-3"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "font-medium text-[#23342F] mb-1.5"
+  }, "Esto suele pasar en celulares Xiaomi, Redmi o POCO. Probá:"), /*#__PURE__*/React.createElement("ol", {
+    className: "list-decimal list-inside space-y-1"
+  }, /*#__PURE__*/React.createElement("li", null, "Actualizar \"Google Play Services\" y \"Google Play Store\" desde la Play Store."), /*#__PURE__*/React.createElement("li", null, "En Seguridad (MIUI) → Permisos → Inicio automático, activarlo para esas dos apps."), /*#__PURE__*/React.createElement("li", null, "Quitarles restricciones de batería a esas apps."), /*#__PURE__*/React.createElement("li", null, "Reiniciar el celular y volver a intentar.")), /*#__PURE__*/React.createElement("a", {
+    href: "https://play.google.com/store/apps/details?id=com.google.android.gms",
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "inline-block mt-2.5 text-[#3D6B5C] font-medium hover:underline"
+  }, "Abrir Google Play Services en la Play Store →"))));
 }
 
 /* ---------------------------------------------------------
@@ -12857,6 +12869,12 @@ function VetApp() {
   const [modoInvitado, setModoInvitado] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
+  // Se prende cuando el login nativo de Google falla por una causa típica
+  // de Google Play Services del celular (no de esta app ni de la cuenta) —
+  // sobre todo en Xiaomi/Redmi/POCO, donde MIUI restringe la app de Play
+  // Services por batería/autoinicio. Muestra ayuda accionable en vez de
+  // dejar a la persona sin saber qué hacer.
+  const [authAyudaPlayServices, setAuthAyudaPlayServices] = useState(false);
   // Pantallas especiales para cuentas bloqueadas (Firebase Authentication
   // rechaza el inicio de sesión con el código "auth/user-disabled") o
   // eliminadas por el propietario (ver Panel) — este segundo caso se
@@ -13214,6 +13232,7 @@ function VetApp() {
   }, [user, dataLoaded, modoColaborador, seccionesColaborador, config?.rol, clinicasConectadas, clinicasConBanos]);
   const handleSignIn = (forzarSelectorCuenta = true) => {
     setAuthError("");
+    setAuthAyudaPlayServices(false);
     if (typeof firebase === "undefined") {
       setAuthError("No se pudo cargar el servicio de inicio de sesión. Revisa tu conexión e intenta de nuevo.");
       return;
@@ -13238,7 +13257,19 @@ function VetApp() {
         if (err.code === "auth/user-disabled") {
           setCuentaBloqueada(true);
         } else if (err?.message !== "The user canceled the sign-in flow.") {
-          setAuthError("No se pudo iniciar sesión: " + (err.message || "intenta de nuevo."));
+          // Estos códigos/mensajes vienen de Google Play Services del celular,
+          // no de esta app ni de la cuenta elegida — pasa sobre todo en
+          // Xiaomi/Redmi/POCO (MIUI) por restricciones de batería/autoinicio
+          // sobre la app de Play Services. Mostramos ayuda que la persona
+          // puede seguir sola, en vez de un error críptico sin salida.
+          const mensaje = String(err?.message || "");
+          const esProblemaPlayServices = /reauth|DEVELOPER_ERROR|API_UNAVAILABLE|\[7\]|\[8\]|\[10\]|\[16\]/i.test(mensaje);
+          if (esProblemaPlayServices) {
+            setAuthAyudaPlayServices(true);
+            setAuthError("No se pudo conectar con Google Play Services en este celular.");
+          } else {
+            setAuthError("No se pudo iniciar sesión: " + (mensaje || "intenta de nuevo."));
+          }
         }
       }).finally(() => setAuthLoading(false));
       return;
@@ -14311,7 +14342,8 @@ function VetApp() {
       onSignIn: handleSignIn,
       onInvitado: entrarComoInvitado,
       error: authError,
-      loading: authLoading
+      loading: authLoading,
+      ayudaPlayServices: authAyudaPlayServices
     });
   }
   if (!dataLoaded && !modoInvitado) {
