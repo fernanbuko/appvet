@@ -1,0 +1,16 @@
+{
+  "name": "vetdata-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Wrapper Capacitor de VetData para Android/iOS",
+  "scripts": {
+    "sync": "cap sync"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/cli": "^8.5.1",
+    "@capacitor/core": "^8.5.1",
+    "@capacitor/ios": "^8.5.1",
+    "@capacitor/push-notifications": "^8.1.2"
+  }
+}
