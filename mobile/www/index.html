@@ -845,6 +845,54 @@ const VAPID_KEY = "BL5x--Ta7fwVMKdzwOZbeJ3WJZ8f0uZJN7u-q6oJO17gXbTwhP7FFqjVzP7ud
 // reactivan solas — a menos que la última vez las hayas apagado tú mismo/a
 // a propósito desde Configuración.
 const CLAVE_PREFERENCIA_NOTIF = "vetapp:notifPreference";
+// Guarda el token FCM del dispositivo cuando la app corre empaquetada
+// (APK / iPhone): el plugin nativo de push solo lo entrega una vez, a
+// través de un evento, no con algo que se pueda volver a pedir cuando
+// se necesite (por ejemplo al desactivar notificaciones o al cerrar
+// sesión, desde otra pantalla). Guardarlo en localStorage evita tener
+// que compartir ese valor a mano entre componentes de React distintos.
+const CLAVE_TOKEN_PUSH_NATIVO = "vetapp:nativePushToken";
+
+// Pide permiso y registra este dispositivo para notificaciones push
+// nativas (Android/iPhone empaquetados), y devuelve el token FCM que
+// Firebase usa para mandarle avisos — el mismo tipo de token que ya
+// usa la versión web, así que el robot de GitHub Actions que manda las
+// notificaciones (revisar-citas.js) no necesita ningún cambio: le
+// escribe a la misma lista config.fcmTokens de siempre.
+function registrarPushNativo() {
+  return new Promise((resolve, reject) => {
+    const push = Capacitor.Plugins.PushNotifications;
+    Capacitor.Plugins.PushNotifications.requestPermissions().then(permiso => {
+      if (permiso.receive !== "granted") {
+        reject(new Error("No se concedió el permiso de notificaciones."));
+        return;
+      }
+      const quitarListeners = () => {
+        listenerRegistro.remove();
+        listenerError.remove();
+      };
+      const listenerRegistro = push.addListener("registration", token => {
+        quitarListeners();
+        try {
+          localStorage.setItem(CLAVE_TOKEN_PUSH_NATIVO, token.value);
+        } catch {}
+        resolve(token.value);
+      });
+      const listenerError = push.addListener("registrationError", err => {
+        quitarListeners();
+        reject(new Error(err?.error || "No se pudo registrar el dispositivo para notificaciones."));
+      });
+      push.register();
+    }).catch(reject);
+  });
+}
+function tokenPushNativoGuardado() {
+  try {
+    return localStorage.getItem(CLAVE_TOKEN_PUSH_NATIVO);
+  } catch {
+    return null;
+  }
+}
 const firebaseReady = firebaseConfig.apiKey && firebaseConfig.apiKey !== "TU_API_KEY";
 
 /* ---------------------------------------------------------
@@ -7191,6 +7239,38 @@ function ConfigForm({
   const [notifError, setNotifError] = useState("");
   const activarNotificaciones = async () => {
     setNotifError("");
+    const enAppNativa = typeof Capacitor !== "undefined" && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
+    if (enAppNativa) {
+      setNotifEstado("activando");
+      try {
+        const token = await registrarPushNativo();
+        const listaActual = data.fcmTokens || [];
+        const listaNueva = [...new Set([...listaActual, token])];
+        setData(d => ({
+          ...d,
+          fcmTokens: listaNueva
+        }));
+        if (onUpdateInmediato) {
+          onUpdateInmediato(prevConfig => {
+            const nuevo = {
+              ...migrarConfig(prevConfig),
+              fcmTokens: listaNueva
+            };
+            ultimaConfigSincronizadaRef.current = JSON.stringify(nuevo);
+            return nuevo;
+          });
+        }
+        try {
+          localStorage.setItem(CLAVE_PREFERENCIA_NOTIF, "on");
+        } catch {}
+        setNotifEstado("activo");
+      } catch (e) {
+        console.error("Error activando notificaciones nativas:", e);
+        setNotifEstado("error");
+        setNotifError(`No se pudo activar: ${e.message || "error desconocido"}`);
+      }
+      return;
+    }
     if (VAPID_KEY === "PENDIENTE_DE_CONFIGURAR") {
       setNotifEstado("error");
       setNotifError("Falta terminar de configurar esto del lado de Firebase (clave VAPID). Pídele a quien programó la app que complete ese paso.");
@@ -7257,6 +7337,38 @@ function ConfigForm({
   const desactivarNotificaciones = async () => {
     setNotifError("");
     setNotifEstado("activando");
+    const enAppNativa = typeof Capacitor !== "undefined" && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
+    if (enAppNativa) {
+      try {
+        const tokenActual = tokenPushNativoGuardado();
+        if (tokenActual) {
+          const listaNueva = (data.fcmTokens || []).filter(t => t !== tokenActual);
+          setData(d => ({
+            ...d,
+            fcmTokens: listaNueva
+          }));
+          if (onUpdateInmediato) {
+            onUpdateInmediato(prevConfig => {
+              const nuevo = {
+                ...migrarConfig(prevConfig),
+                fcmTokens: listaNueva
+              };
+              ultimaConfigSincronizadaRef.current = JSON.stringify(nuevo);
+              return nuevo;
+            });
+          }
+        }
+        try {
+          localStorage.setItem(CLAVE_PREFERENCIA_NOTIF, "off");
+        } catch {}
+        setNotifEstado("inactivo");
+      } catch (e) {
+        console.error("Error desactivando notificaciones nativas:", e);
+        setNotifEstado("error");
+        setNotifError(`No se pudo desactivar: ${e.message || "error desconocido"}`);
+      }
+      return;
+    }
     try {
       const messaging = firebase.messaging();
       const registration = await navigator.serviceWorker.getRegistration();
@@ -13445,7 +13557,17 @@ function VetApp() {
     // este mismo celular también tiene notificaciones activadas, se
     // reactivan solas sin que nadie tenga que volver a tocar "Activar".
     try {
-      if (firebaseReady && "Notification" in window && Notification.permission === "granted") {
+      const enAppNativa = typeof Capacitor !== "undefined" && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
+      if (enAppNativa) {
+        const tokenActual = tokenPushNativoGuardado();
+        if (tokenActual && config) {
+          const listaNueva = (config.fcmTokens || []).filter(t => t !== tokenActual);
+          await store.set("config", {
+            ...config,
+            fcmTokens: listaNueva
+          });
+        }
+      } else if (firebaseReady && "Notification" in window && Notification.permission === "granted") {
         const registration = await navigator.serviceWorker.getRegistration();
         if (registration) {
           const messaging = firebase.messaging();
@@ -13704,6 +13826,23 @@ function VetApp() {
       preferencia = null;
     }
     if (preferencia !== "on") return;
+    const enAppNativa = typeof Capacitor !== "undefined" && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
+    if (enAppNativa) {
+      (async () => {
+        try {
+          const token = await registrarPushNativo();
+          if (token && !(config.fcmTokens || []).includes(token)) {
+            actualizarConfigInmediato(actual => ({
+              ...actual,
+              fcmTokens: [...new Set([...(actual.fcmTokens || []), token])]
+            }));
+          }
+        } catch (e) {
+          console.error("No se pudo reactivar las notificaciones nativas automáticamente:", e);
+        }
+      })();
+      return;
+    }
     if (VAPID_KEY === "PENDIENTE_DE_CONFIGURAR") return;
     if (!firebaseReady || !("Notification" in window) || Notification.permission !== "granted") return;
     (async () => {
