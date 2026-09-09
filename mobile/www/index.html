@@ -855,10 +855,13 @@ const CLAVE_TOKEN_PUSH_NATIVO = "vetapp:nativePushToken";
 
 // Pide permiso y registra este dispositivo para notificaciones push
 // nativas (Android/iPhone empaquetados), y devuelve el token FCM que
-// Firebase usa para mandarle avisos — el mismo tipo de token que ya
-// usa la versión web, así que el robot de GitHub Actions que manda las
-// notificaciones (revisar-citas.js) no necesita ningún cambio: le
-// escribe a la misma lista config.fcmTokens de siempre.
+// Firebase usa para mandarle avisos. Se guarda aparte de los tokens de
+// la versión web (config.fcmTokensNativos, no config.fcmTokens): el
+// robot de GitHub Actions (revisar-citas.js) le manda a esta lista un
+// mensaje con campo "notification" además de los datos, que es lo que
+// hace que Android/iOS lo muestren solos aunque la app lleve tiempo
+// cerrada — a los tokens web se les sigue mandando solo datos, como
+// siempre, para no cambiarles nada.
 function registrarPushNativo() {
   return new Promise((resolve, reject) => {
     const push = Capacitor.Plugins.PushNotifications;
@@ -6933,6 +6936,7 @@ const emptyConfig = () => ({
   facebookList: [],
   tiktokList: [],
   fcmTokens: [],
+  fcmTokensNativos: [],
   direccion: "",
   dateFormat: "YYYY-MM-DD",
   darkMode: false,
@@ -6991,6 +6995,10 @@ function migrarConfig(base) {
   if (!migrado.fcmTokens) migrado = {
     ...migrado,
     fcmTokens: []
+  };
+  if (!migrado.fcmTokensNativos) migrado = {
+    ...migrado,
+    fcmTokensNativos: []
   };
   if (!migrado.colaboradoresPermitidos) migrado = {
     ...migrado,
@@ -7235,7 +7243,7 @@ function ConfigForm({
   };
 
   // "inactivo" | "activando" | "activo" | "error"
-  const [notifEstado, setNotifEstado] = useState(data.fcmTokens && data.fcmTokens.length > 0 ? "activo" : "inactivo");
+  const [notifEstado, setNotifEstado] = useState(data.fcmTokens?.length > 0 || data.fcmTokensNativos?.length > 0 ? "activo" : "inactivo");
   const [notifError, setNotifError] = useState("");
   const activarNotificaciones = async () => {
     setNotifError("");
@@ -7244,17 +7252,17 @@ function ConfigForm({
       setNotifEstado("activando");
       try {
         const token = await registrarPushNativo();
-        const listaActual = data.fcmTokens || [];
+        const listaActual = data.fcmTokensNativos || [];
         const listaNueva = [...new Set([...listaActual, token])];
         setData(d => ({
           ...d,
-          fcmTokens: listaNueva
+          fcmTokensNativos: listaNueva
         }));
         if (onUpdateInmediato) {
           onUpdateInmediato(prevConfig => {
             const nuevo = {
               ...migrarConfig(prevConfig),
-              fcmTokens: listaNueva
+              fcmTokensNativos: listaNueva
             };
             ultimaConfigSincronizadaRef.current = JSON.stringify(nuevo);
             return nuevo;
@@ -7342,16 +7350,16 @@ function ConfigForm({
       try {
         const tokenActual = tokenPushNativoGuardado();
         if (tokenActual) {
-          const listaNueva = (data.fcmTokens || []).filter(t => t !== tokenActual);
+          const listaNueva = (data.fcmTokensNativos || []).filter(t => t !== tokenActual);
           setData(d => ({
             ...d,
-            fcmTokens: listaNueva
+            fcmTokensNativos: listaNueva
           }));
           if (onUpdateInmediato) {
             onUpdateInmediato(prevConfig => {
               const nuevo = {
                 ...migrarConfig(prevConfig),
-                fcmTokens: listaNueva
+                fcmTokensNativos: listaNueva
               };
               ultimaConfigSincronizadaRef.current = JSON.stringify(nuevo);
               return nuevo;
@@ -13561,10 +13569,10 @@ function VetApp() {
       if (enAppNativa) {
         const tokenActual = tokenPushNativoGuardado();
         if (tokenActual && config) {
-          const listaNueva = (config.fcmTokens || []).filter(t => t !== tokenActual);
+          const listaNueva = (config.fcmTokensNativos || []).filter(t => t !== tokenActual);
           await store.set("config", {
             ...config,
-            fcmTokens: listaNueva
+            fcmTokensNativos: listaNueva
           });
         }
       } else if (firebaseReady && "Notification" in window && Notification.permission === "granted") {
@@ -13831,10 +13839,10 @@ function VetApp() {
       (async () => {
         try {
           const token = await registrarPushNativo();
-          if (token && !(config.fcmTokens || []).includes(token)) {
+          if (token && !(config.fcmTokensNativos || []).includes(token)) {
             actualizarConfigInmediato(actual => ({
               ...actual,
-              fcmTokens: [...new Set([...(actual.fcmTokens || []), token])]
+              fcmTokensNativos: [...new Set([...(actual.fcmTokensNativos || []), token])]
             }));
           }
         } catch (e) {
