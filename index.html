@@ -13247,21 +13247,31 @@ function VetApp() {
     // viendo la sesión igual que en el navegador.
     const enAppNativa = typeof Capacitor !== "undefined" && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
     if (enAppNativa) {
-      Capacitor.Plugins.FirebaseAuthentication.signInWithGoogle().then(result => {
+      const intentarLoginNativo = () => Capacitor.Plugins.FirebaseAuthentication.signInWithGoogle().then(result => {
         const idToken = result?.credential?.idToken;
         const accessToken = result?.credential?.accessToken;
         if (!idToken) throw new Error("Google no devolvió credenciales válidas.");
         const credential = firebase.auth.GoogleAuthProvider.credential(idToken, accessToken);
         return firebase.auth().signInWithCredential(credential);
+      });
+      intentarLoginNativo().catch(err => {
+        const mensaje = String(err?.message || "");
+        // Estos códigos vienen de Google Play Services del celular, no de
+        // esta app ni de la cuenta elegida — pasa sobre todo en Xiaomi/
+        // Redmi/POCO (MIUI) por restricciones de batería/autoinicio sobre
+        // la app de Play Services, y suele ser un cuelgue puntual: cerrar
+        // la sesión nativa que quedó a medias y reintentar una sola vez,
+        // en silencio, resuelve la mayoría de estos casos sin que la
+        // persona note que hubo un problema.
+        const esProblemaPlayServices = /reauth|DEVELOPER_ERROR|API_UNAVAILABLE|\[7\]|\[8\]|\[10\]|\[16\]/i.test(mensaje);
+        if (esProblemaPlayServices) {
+          return Capacitor.Plugins.FirebaseAuthentication.signOut().catch(() => {}).then(intentarLoginNativo);
+        }
+        throw err;
       }).catch(err => {
         if (err.code === "auth/user-disabled") {
           setCuentaBloqueada(true);
         } else if (err?.message !== "The user canceled the sign-in flow.") {
-          // Estos códigos/mensajes vienen de Google Play Services del celular,
-          // no de esta app ni de la cuenta elegida — pasa sobre todo en
-          // Xiaomi/Redmi/POCO (MIUI) por restricciones de batería/autoinicio
-          // sobre la app de Play Services. Mostramos ayuda que la persona
-          // puede seguir sola, en vez de un error críptico sin salida.
           const mensaje = String(err?.message || "");
           const esProblemaPlayServices = /reauth|DEVELOPER_ERROR|API_UNAVAILABLE|\[7\]|\[8\]|\[10\]|\[16\]/i.test(mensaje);
           if (esProblemaPlayServices) {
