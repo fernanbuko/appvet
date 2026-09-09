@@ -50,9 +50,9 @@ jobs:
         working-directory: mobile/android
         run: |
           APK=app/build/outputs/apk/debug/app-debug.apk
-          CERT_FILE=$(unzip -Z1 "$APK" | grep -E '^META-INF/.*\.(RSA|DSA|EC)$' | head -1)
-          echo "Archivo de certificado dentro del APK: $CERT_FILE"
-          unzip -p "$APK" "$CERT_FILE" | keytool -printcert
+          BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)
+          echo "Usando build-tools en: $BUILD_TOOLS"
+          "$BUILD_TOOLS/apksigner" verify --print-certs "$APK"
 
       - name: Upload APK (artifact interno de este run)
         uses: actions/upload-artifact@v4
