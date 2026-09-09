@@ -13219,6 +13219,30 @@ function VetApp() {
       return;
     }
     setAuthLoading(true);
+    // Dentro de la app empaquetada (APK / iPhone) el login de Google con
+    // ventana emergente no funciona: Google bloquea signInWithPopup dentro
+    // de cualquier WebView embebido por seguridad. Ahí usamos el selector
+    // de cuentas NATIVO (plugin @capacitor-firebase/authentication) y el
+    // token que devuelve se lo pasamos al SDK de Firebase de siempre, para
+    // que el resto de la app (Firestore, reglas de seguridad, etc.) siga
+    // viendo la sesión igual que en el navegador.
+    const enAppNativa = typeof Capacitor !== "undefined" && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
+    if (enAppNativa) {
+      Capacitor.Plugins.FirebaseAuthentication.signInWithGoogle().then(result => {
+        const idToken = result?.credential?.idToken;
+        const accessToken = result?.credential?.accessToken;
+        if (!idToken) throw new Error("Google no devolvió credenciales válidas.");
+        const credential = firebase.auth.GoogleAuthProvider.credential(idToken, accessToken);
+        return firebase.auth().signInWithCredential(credential);
+      }).catch(err => {
+        if (err.code === "auth/user-disabled") {
+          setCuentaBloqueada(true);
+        } else if (err?.message !== "The user canceled the sign-in flow.") {
+          setAuthError("No se pudo iniciar sesión: " + (err.message || "intenta de nuevo."));
+        }
+      }).finally(() => setAuthLoading(false));
+      return;
+    }
     const provider = new firebase.auth.GoogleAuthProvider();
     // Pide el selector de cuentas de Google normalmente, para no reutilizar
     // automáticamente la última cuenta con la que se inició sesión — salvo

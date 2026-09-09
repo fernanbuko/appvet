@@ -5,6 +5,11 @@ on:
     paths:
       - "mobile/**"
       - ".github/workflows/mobile-build.yml"
+      - "index.html"
+      - "manifest.json"
+      - "sw.js"
+      - "icon-192.png"
+      - "icon-512.png"
   workflow_dispatch:
 
 jobs:
@@ -30,6 +35,9 @@ jobs:
 
       - name: Install npm dependencies
         run: npm install
+
+      - name: Copiar la web real (raíz del repo) a mobile/www
+        run: cp ../index.html ../manifest.json ../sw.js ../icon-192.png ../icon-512.png www/
 
       - name: Sync Capacitor (copy web assets into native project)
         run: npx cap sync android
@@ -76,6 +84,9 @@ jobs:
 
       - name: Install npm dependencies
         run: npm install
+
+      - name: Copiar la web real (raíz del repo) a mobile/www
+        run: cp ../index.html ../manifest.json ../sw.js ../icon-192.png ../icon-512.png www/
 
       - name: Sync Capacitor (copy web assets into native project)
         run: npx cap sync ios
