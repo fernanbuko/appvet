@@ -11,6 +11,8 @@ jobs:
   android:
     name: Build Android debug APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: mobile
@@ -36,11 +38,28 @@ jobs:
         working-directory: mobile/android
         run: ./gradlew assembleDebug
 
-      - name: Upload APK
+      - name: Upload APK (artifact interno de este run)
         uses: actions/upload-artifact@v4
         with:
           name: vetdata-debug-apk
           path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Publicar el APK como GitHub Release (descargable desde el celular)
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          TAG=mobile-debug-latest
+          NOTES="APK de prueba (debug, sin firmar para producción) generado automáticamente desde la rama ${{ github.ref_name }}, commit ${{ github.sha }}."
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber --repo "${{ github.repository }}"
+          else
+            gh release create "$TAG" "$APK" \
+              --title "VetData - APK de prueba (debug)" \
+              --notes "$NOTES" \
+              --repo "${{ github.repository }}"
+          fi
 
   ios:
     name: Build iOS project (simulator, sin firma)
