@@ -48,7 +48,11 @@ jobs:
 
       - name: Verificar huella SHA-1 con la que quedó firmado el APK
         working-directory: mobile/android
-        run: keytool -printcert -jarfile app/build/outputs/apk/debug/app-debug.apk
+        run: |
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          CERT_FILE=$(unzip -Z1 "$APK" | grep -E '^META-INF/.*\.(RSA|DSA|EC)$' | head -1)
+          echo "Archivo de certificado dentro del APK: $CERT_FILE"
+          unzip -p "$APK" "$CERT_FILE" | keytool -printcert
 
       - name: Upload APK (artifact interno de este run)
         uses: actions/upload-artifact@v4
