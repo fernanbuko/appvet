@@ -61,14 +61,10 @@ jobs:
       - name: Sync Capacitor (copy web assets into native project)
         run: npx cap sync ios
 
-      - name: Install CocoaPods dependencies
-        working-directory: mobile/ios/App
-        run: pod install
-
       - name: Build for iOS Simulator (sin firma, solo para validar que compila)
         working-directory: mobile/ios/App
         run: |
-          xcodebuild -workspace App.xcworkspace -scheme App \
+          xcodebuild -project App.xcodeproj -scheme App \
             -destination "generic/platform=iOS Simulator" \
             -configuration Debug build \
             CODE_SIGNING_ALLOWED=NO
