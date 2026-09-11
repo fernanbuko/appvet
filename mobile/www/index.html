@@ -3044,7 +3044,13 @@ function PatientForm({
   }, data.foto ? "Cambiar foto" : "Elegir foto"), /*#__PURE__*/React.createElement("button", {
     onClick: () => cameraRef.current?.click(),
     className: "text-xs text-[#3D6B5C] font-medium hover:underline"
-  }, "📷 Tomar foto")), imgError && /*#__PURE__*/React.createElement("p", {
+  }, "📷 Tomar foto"), data.foto && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setData(d => ({
+      ...d,
+      foto: null
+    })),
+    className: "text-xs text-[#B14E1C] font-medium hover:underline"
+  }, "Quitar foto")), imgError && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#B14E1C] mt-1"
   }, imgError)), /*#__PURE__*/React.createElement("div", {
     className: "w-full sm:flex-1 sm:w-auto"
