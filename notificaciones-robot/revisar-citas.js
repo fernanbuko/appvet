@@ -1356,6 +1356,100 @@ async function actualizarPanelPropietario() {
   }
 }
 
+/* ---------------------------------------------------------
+   Purga automática de la papelera de pacientes: un paciente
+   eliminado (marcado con "eliminadoEn" al moverlo a la papelera,
+   ver movePatientToTrash en index.html) que lleva más de 30 días
+   ahí se borra por completo — el mismo borrado en cascada
+   (recetas, exámenes, historial, vacunas, desparasitaciones,
+   hospitalizaciones, baños, cirugías, cobros) y el mismo encolado
+   de borrado en Cloudinary (foto, fotos y la carpeta propia del
+   paciente) que hace permanentlyDeletePatient() en index.html
+   cuando alguien lo borra a mano desde la papelera — solo que
+   aquí lo hace el robot solo, para que nadie tenga que acordarse
+   de vaciarla.
+----------------------------------------------------------*/
+const DIAS_PARA_PURGAR_PAPELERA = 30;
+const MS_PARA_PURGAR_PAPELERA = DIAS_PARA_PURGAR_PAPELERA * 24 * 60 * 60 * 1000;
+
+// Mismas colecciones que recorre permanentlyDeletePatient() en index.html.
+const COLECCIONES_EN_CASCADA_DE_PACIENTE = ["recetas", "examenes", "historial", "vacunas", "desparasitaciones", "hospitalizaciones", "banos", "cirugias", "cobros"];
+
+// Misma carpeta base que carpetaCloudinariaDeEsteUsuario() en index.html:
+// personal (nombre del doctor + parte de su uid) para cuentas propias, o
+// "clinica_{id}" para una clínica en equipo.
+async function carpetaCloudinariaBaseDe(parentRef) {
+  if (parentRef.parent.id === "clinics") return `vetdata/clinica_${parentRef.id}`;
+  return carpetaCloudinariaPersonalDe(parentRef.id);
+}
+
+async function purgarPacientesDeLaPapelera(parentRef, etiqueta) {
+  let snap;
+  try {
+    snap = await parentRef.collection("patients").get();
+  } catch (e) {
+    return 0; // la colección puede no existir todavía para esta cuenta, no es un error
+  }
+  const ahora = Date.now();
+  const vencidos = snap.docs.filter(d => {
+    const eliminadoEn = d.data()?.eliminadoEn;
+    return eliminadoEn && ahora - eliminadoEn > MS_PARA_PURGAR_PAPELERA;
+  });
+  if (vencidos.length === 0) return 0;
+
+  const carpetaBase = await carpetaCloudinariaBaseDe(parentRef);
+  const pendientesRef = parentRef.collection("cloudinaryPendientes");
+  let purgados = 0;
+
+  for (const doc of vencidos) {
+    const patient = doc.data();
+    try {
+      // Encola el borrado en Cloudinary — se procesa de verdad más abajo,
+      // en esta misma corrida, dentro de
+      // procesarPendientesDeCloudinaryEnTodasLasCuentas().
+      if (patient.foto) await pendientesRef.add({ url: patient.foto, creadoEn: Date.now() });
+      for (const url of patient.fotos || []) {
+        await pendientesRef.add({ url, creadoEn: Date.now() });
+      }
+      const carpetaPaciente = `${carpetaBase}/pacientes/${doc.id}_${sanitizarNombreParaCarpeta(patient.nombre)}`;
+      await pendientesRef.add({ carpeta: carpetaPaciente, creadoEn: Date.now() });
+
+      // Borrado en cascada de todos los registros asociados a este paciente.
+      for (const nombreColeccion of COLECCIONES_EN_CASCADA_DE_PACIENTE) {
+        const relSnap = await parentRef.collection(nombreColeccion).where("patientId", "==", doc.id).get();
+        for (const relDoc of relSnap.docs) {
+          if (nombreColeccion === "examenes") {
+            for (const a of relDoc.data()?.attachments || []) {
+              if (a.url) await pendientesRef.add({ url: a.url, creadoEn: Date.now() });
+            }
+          }
+          await relDoc.ref.delete();
+        }
+      }
+
+      await doc.ref.delete();
+      purgados++;
+      console.log(`   🗑️ [${etiqueta}] Paciente "${patient.nombre || doc.id}" purgado de la papelera (30+ días).`);
+    } catch (e) {
+      console.error(`   ❌ [${etiqueta}] Error purgando al paciente ${doc.id} de la papelera:`, e.message);
+    }
+  }
+  return purgados;
+}
+
+async function purgarPapeleraDePacientesEnTodasLasCuentas() {
+  const usuarios = await db.collection("users").listDocuments();
+  const clinicas = await db.collection("clinics").listDocuments();
+  let total = 0;
+  for (const usuarioRef of usuarios) {
+    total += await purgarPacientesDeLaPapelera(usuarioRef, `users/${usuarioRef.id}`);
+  }
+  for (const clinicaRef of clinicas) {
+    total += await purgarPacientesDeLaPapelera(clinicaRef, `clinics/${clinicaRef.id}`);
+  }
+  if (total > 0) console.log(`Papelera: ${total} paciente(s) purgado(s) definitivamente (30+ días).`);
+}
+
 async function main() {
   const hoy = hoyComoTexto();
   const manana = mananaComoTexto();
@@ -1380,6 +1474,7 @@ async function main() {
 
   await procesarSolicitudesEliminacion();
   await procesarSolicitudesBloqueo();
+  await purgarPapeleraDePacientesEnTodasLasCuentas();
   await procesarPendientesDeCloudinaryEnTodasLasCuentas();
   await actualizarPanelPropietario();
 

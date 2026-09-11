@@ -6175,7 +6175,9 @@ function PatientsList({
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowTrash(s => !s),
     className: "text-sm text-[#6B7A72] hover:text-[#23342F] flex items-center gap-1.5"
-  }, "🗑️ Papelera (", trashed.length, ") ", showTrash ? "▲" : "▼"), showTrash && /*#__PURE__*/React.createElement("div", {
+  }, "🗑️ Papelera (", trashed.length, ") ", showTrash ? "▲" : "▼"), showTrash && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#6B7A72] mt-2"
+  }, "Los pacientes aquí se eliminan solos, junto con sus registros y fotos, después de 30 días."), showTrash && /*#__PURE__*/React.createElement("div", {
     className: "grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-3"
   }, trashed.map(p => /*#__PURE__*/React.createElement("div", {
     key: p.id,
