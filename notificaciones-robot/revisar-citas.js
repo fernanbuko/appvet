@@ -171,34 +171,65 @@ async function fotoDePaciente(parentRef, patientId) {
   return foto;
 }
 
+// Cada cuenta guarda DOS listas de tokens FCM por separado:
+//   - fcmTokens: navegador/PWA (Web Push) — mensajes "solo datos"; el
+//     propio sw.js arma la notificación a mano (ver ese archivo).
+//   - fcmTokensNativos: app empaquetada (APK / iPhone) — a esta lista SÍ
+//     hay que mandarle un campo "notification" además de los datos, porque
+//     Android/iOS solo muestran el aviso solos (incluso con la app cerrada
+//     hace tiempo) cuando el mensaje trae ese campo. Un mensaje de "solo
+//     datos" en la app empaquetada solo se procesa si la app está corriendo
+//     — no sirve para el caso que más importa (celular con la app cerrada).
+// Por eso, de acá para abajo, cada función de tokens devuelve un objeto
+// { web: [...], nativos: [...] } en vez de una sola lista.
+function tokensVacios() {
+  return { web: [], nativos: [] };
+}
+function combinarTokens(...grupos) {
+  const web = new Set();
+  const nativos = new Set();
+  for (const g of grupos) {
+    (g?.web || []).forEach((t) => web.add(t));
+    (g?.nativos || []).forEach((t) => nativos.add(t));
+  }
+  return { web: [...web], nativos: [...nativos] };
+}
+function tokensDeConfig(config) {
+  return {
+    web: Array.isArray(config?.fcmTokens) ? config.fcmTokens : [],
+    nativos: Array.isArray(config?.fcmTokensNativos) ? config.fcmTokensNativos : [],
+  };
+}
+
 async function tokensDeUsuario(usuarioRef) {
   const config = await configDeUid(usuarioRef.id);
-  return config?.fcmTokens || [];
+  return tokensDeConfig(config);
 }
 
 async function tokensDeClinica(clinicaId, usuarios) {
-  const tokens = [];
+  const grupos = [];
   for (const usuarioRef of usuarios) {
     const valor = await configDeUid(usuarioRef.id);
-    if (valor?.clinicaId === clinicaId && Array.isArray(valor.fcmTokens)) {
-      tokens.push(...valor.fcmTokens);
+    if (valor?.clinicaId === clinicaId) {
+      grupos.push(tokensDeConfig(valor));
     }
   }
-  return [...new Set(tokens)];
+  return combinarTokens(...grupos);
 }
 
-// Agrega, al set de tokens que ya se tiene, los de cualquier colaborador de
-// acceso limitado (por ejemplo, un peluquero externo) al que el dueño de
-// "config" le haya compartido la sección indicada (ej. "banos"). Sin esto,
-// las notificaciones de una sección compartida solo le llegaban al dueño de
-// la cuenta y nunca al colaborador — aunque en la app sí pueda ver y
-// registrar esa sección.
-async function agregarTokensDeColaboradoresConSeccion(config, seccion, tokensSet) {
+// Agrega, al grupo de tokens que ya se tiene, los de cualquier colaborador
+// de acceso limitado (por ejemplo, un peluquero externo) al que el dueño
+// de "config" le haya compartido la sección indicada (ej. "banos"). Sin
+// esto, las notificaciones de una sección compartida solo le llegaban al
+// dueño de la cuenta y nunca al colaborador — aunque en la app sí pueda
+// ver y registrar esa sección.
+async function agregarTokensDeColaboradoresConSeccion(config, seccion, webSet, nativosSet) {
   const colaboradores = config?.colaboradoresPermitidos || {};
   for (const [uidColaborador, info] of Object.entries(colaboradores)) {
     if (!info?.secciones?.includes(seccion)) continue;
     const configColaborador = await configDeUid(uidColaborador);
-    (configColaborador?.fcmTokens || []).forEach((t) => tokensSet.add(t));
+    (configColaborador?.fcmTokens || []).forEach((t) => webSet.add(t));
+    (configColaborador?.fcmTokensNativos || []).forEach((t) => nativosSet.add(t));
   }
 }
 
@@ -207,37 +238,42 @@ async function agregarTokensDeColaboradoresConSeccion(config, seccion, tokensSet
 // desparasitación, cirugías, baños).
 async function tokensDeUsuarioConSeccion(usuarioRef, seccion) {
   const config = await configDeUid(usuarioRef.id);
-  const tokens = new Set(config?.fcmTokens || []);
-  await agregarTokensDeColaboradoresConSeccion(config, seccion, tokens);
-  return [...tokens];
+  const web = new Set(config?.fcmTokens || []);
+  const nativos = new Set(config?.fcmTokensNativos || []);
+  await agregarTokensDeColaboradoresConSeccion(config, seccion, web, nativos);
+  return { web: [...web], nativos: [...nativos] };
 }
 
 // Igual que tokensDeClinica, pero incluyendo también a los colaboradores de
 // acceso limitado que cualquier miembro del equipo le haya compartido esta
 // sección.
 async function tokensDeClinicaConSeccion(clinicaId, usuarios, seccion) {
-  const tokens = new Set();
+  const web = new Set();
+  const nativos = new Set();
   for (const usuarioRef of usuarios) {
     const config = await configDeUid(usuarioRef.id);
     if (config?.clinicaId === clinicaId) {
-      (config.fcmTokens || []).forEach((t) => tokens.add(t));
-      await agregarTokensDeColaboradoresConSeccion(config, seccion, tokens);
+      (config.fcmTokens || []).forEach((t) => web.add(t));
+      (config.fcmTokensNativos || []).forEach((t) => nativos.add(t));
+      await agregarTokensDeColaboradoresConSeccion(config, seccion, web, nativos);
     }
   }
-  return [...tokens];
+  return { web: [...web], nativos: [...nativos] };
 }
 
 // Tokens de TODOS los colaboradores de acceso limitado de una cuenta, sin
 // importar qué sección tengan permitida — se usa para el aviso de "cliente
 // nuevo", que no es específico de ninguna sección en particular.
 async function tokensDeTodosLosColaboradores(config) {
-  const tokens = new Set();
+  const web = new Set();
+  const nativos = new Set();
   const colaboradores = config?.colaboradoresPermitidos || {};
   for (const uidColaborador of Object.keys(colaboradores)) {
     const configColaborador = await configDeUid(uidColaborador);
-    (configColaborador?.fcmTokens || []).forEach((t) => tokens.add(t));
+    (configColaborador?.fcmTokens || []).forEach((t) => web.add(t));
+    (configColaborador?.fcmTokensNativos || []).forEach((t) => nativos.add(t));
   }
-  return [...tokens];
+  return { web: [...web], nativos: [...nativos] };
 }
 
 // Dado un grupo de tokens (los que se van a usar para mandar un push),
@@ -250,7 +286,8 @@ async function tokensDeTodosLosColaboradores(config) {
 function uidsDueñosDeTokens(tokens) {
   const uids = [];
   for (const [uid, config] of configCachePorUid.entries()) {
-    if (config?.fcmTokens?.some((t) => tokens.includes(t))) {
+    const deEstaCuenta = [...(config?.fcmTokens || []), ...(config?.fcmTokensNativos || [])];
+    if (deEstaCuenta.some((t) => tokens.includes(t))) {
       uids.push(uid);
     }
   }
@@ -258,10 +295,14 @@ function uidsDueñosDeTokens(tokens) {
 }
 
 async function mandarNotificacion(tokens, dataPayload, etiqueta, nombrePaciente) {
+  const tokensWeb = tokens?.web || [];
+  const tokensNativos = tokens?.nativos || [];
+  const todosLosTokens = [...tokensWeb, ...tokensNativos];
+
   // Se guarda una copia en la bandeja de cada cuenta destinataria (para el
   // centro de notificaciones dentro de la app), sin importar si el push
   // por FCM en sí se logra entregar al dispositivo o no.
-  const uidsDestino = uidsDueñosDeTokens(tokens || []);
+  const uidsDestino = uidsDueñosDeTokens(todosLosTokens);
   await Promise.all(
     uidsDestino.map((uidDestino) => {
       const ref = db.collection("users").doc(uidDestino).collection("notificaciones").doc();
@@ -271,27 +312,53 @@ async function mandarNotificacion(tokens, dataPayload, etiqueta, nombrePaciente)
     })
   );
 
-  if (!tokens || tokens.length === 0) {
+  if (todosLosTokens.length === 0) {
     console.log(`[${etiqueta}] ${nombrePaciente}: sin dispositivos con notificaciones activadas, se omite.`);
     return false;
   }
-  try {
-    // "Urgency: high" le pide al navegador/celular que entregue el aviso
-    // de inmediato en vez de posponerlo por ahorro de batería — esto
-    // importa sobre todo cuando el celular lleva mucho tiempo sin abrir la
-    // app: sin esto, Android puede retrasar la entrega hasta que el
-    // teléfono "despierte" por su cuenta, a veces mucho después.
-    const resultado = await messaging.sendEachForMulticast({
-      data: dataPayload,
-      tokens,
-      webpush: { headers: { Urgency: "high" } },
-    });
-    console.log(`[${etiqueta}] Notificación enviada para ${nombrePaciente}: ${resultado.successCount} éxito(s), ${resultado.failureCount} fallo(s).`);
-    return true;
-  } catch (e) {
-    console.error(`[${etiqueta}] Error enviando notificación para ${nombrePaciente}:`, e.message);
-    return false;
+
+  let algunEnvioOk = false;
+
+  if (tokensWeb.length > 0) {
+    try {
+      // "Urgency: high" le pide al navegador que entregue el aviso de
+      // inmediato en vez de posponerlo por ahorro de batería.
+      const resultado = await messaging.sendEachForMulticast({
+        data: dataPayload,
+        tokens: tokensWeb,
+        webpush: { headers: { Urgency: "high" } },
+      });
+      console.log(`[${etiqueta}] Notificación (web) enviada para ${nombrePaciente}: ${resultado.successCount} éxito(s), ${resultado.failureCount} fallo(s).`);
+      algunEnvioOk = algunEnvioOk || resultado.successCount > 0;
+    } catch (e) {
+      console.error(`[${etiqueta}] Error enviando notificación web para ${nombrePaciente}:`, e.message);
+    }
   }
+
+  if (tokensNativos.length > 0) {
+    try {
+      // A diferencia de la web, acá SÍ se manda "notification" además de
+      // "data": es lo único que hace que Android/iOS muestren el aviso
+      // solos aunque la app lleve mucho tiempo cerrada — con solo "data",
+      // el sistema operativo no muestra nada si la app no está corriendo.
+      const resultado = await messaging.sendEachForMulticast({
+        notification: {
+          title: String(dataPayload.title || "VetData"),
+          body: String(dataPayload.body || ""),
+        },
+        data: dataPayload,
+        tokens: tokensNativos,
+        android: { priority: "high" },
+        apns: { headers: { "apns-priority": "10" }, payload: { aps: { sound: "default" } } },
+      });
+      console.log(`[${etiqueta}] Notificación (app) enviada para ${nombrePaciente}: ${resultado.successCount} éxito(s), ${resultado.failureCount} fallo(s).`);
+      algunEnvioOk = algunEnvioOk || resultado.successCount > 0;
+    } catch (e) {
+      console.error(`[${etiqueta}] Error enviando notificación nativa para ${nombrePaciente}:`, e.message);
+    }
+  }
+
+  return algunEnvioOk;
 }
 
 /* ---------------------------------------------------------
@@ -703,7 +770,7 @@ async function revisarClientesNuevos() {
   console.log(`Revisando clientes nuevos (últimos ${MINUTOS_VENTANA_CLIENTE_NUEVO} min) en ${usuarios.length} cuenta(s) y ${clinicas.length} clínica(s)...`);
 
   const procesarNuevos = async (parentRef, tokens, etiqueta) => {
-    if (!tokens || tokens.length === 0) return 0;
+    if (!tokens || (tokens.web.length === 0 && tokens.nativos.length === 0)) return 0;
     let contador = 0;
     const snap = await parentRef.collection("patients").where("creadoEn", ">", desde).get();
     for (const doc of snap.docs) {
@@ -732,14 +799,14 @@ async function revisarClientesNuevos() {
   for (const clinicaRef of clinicas) {
     // Para una clínica en equipo compartido, se avisa a los colaboradores
     // que CUALQUIER miembro del equipo haya agregado.
-    const tokens = new Set();
+    const grupos = [];
     for (const usuarioRef of usuarios) {
       const config = await configDeUid(usuarioRef.id);
       if (config?.clinicaId === clinicaRef.id) {
-        (await tokensDeTodosLosColaboradores(config)).forEach((t) => tokens.add(t));
+        grupos.push(await tokensDeTodosLosColaboradores(config));
       }
     }
-    avisos += await procesarNuevos(clinicaRef, [...tokens], `clinics/${clinicaRef.id}`);
+    avisos += await procesarNuevos(clinicaRef, combinarTokens(...grupos), `clinics/${clinicaRef.id}`);
   }
 
   return avisos;
@@ -827,9 +894,10 @@ async function revisarAvisosColaboradores() {
     if (snap.empty) continue;
 
     const config = await configDeUid(usuarioRef.id);
-    const tokens = new Set();
-    await agregarTokensDeColaboradoresConSeccion(config, "banos", tokens);
-    const tokensArr = [...tokens];
+    const web = new Set();
+    const nativos = new Set();
+    await agregarTokensDeColaboradoresConSeccion(config, "banos", web, nativos);
+    const tokens = { web: [...web], nativos: [...nativos] };
 
     for (const doc of snap.docs) {
       const aviso = doc.data();
@@ -840,7 +908,7 @@ async function revisarAvisosColaboradores() {
         patientId: String(aviso.patientId || ""),
         foto: await fotoDePaciente(usuarioRef, aviso.patientId),
       };
-      const seEnvio = await mandarNotificacion(tokensArr, dataPayload, `users/${usuarioRef.id}`, aviso.patientName || "(paciente)");
+      const seEnvio = await mandarNotificacion(tokens, dataPayload, `users/${usuarioRef.id}`, aviso.patientName || "(paciente)");
       await doc.ref.delete();
       if (seEnvio) avisos++;
     }

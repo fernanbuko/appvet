@@ -1,0 +1,115 @@
+name: Mobile build (VetData)
+
+on:
+  push:
+    paths:
+      - "mobile/**"
+      - ".github/workflows/mobile-build.yml"
+      - "index.html"
+      - "manifest.json"
+      - "sw.js"
+      - "icon-192.png"
+      - "icon-512.png"
+  workflow_dispatch:
+
+jobs:
+  android:
+    name: Build Android debug APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install npm dependencies
+        run: npm install
+
+      - name: Copiar la web real (raíz del repo) a mobile/www
+        run: cp ../index.html ../manifest.json ../sw.js ../icon-192.png ../icon-512.png www/
+
+      - name: Sync Capacitor (copy web assets into native project)
+        run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: mobile/android
+        run: ./gradlew assembleDebug
+
+      - name: Verificar huella SHA-1 con la que quedó firmado el APK
+        working-directory: mobile/android
+        run: |
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)
+          echo "Usando build-tools en: $BUILD_TOOLS"
+          "$BUILD_TOOLS/apksigner" verify --print-certs "$APK"
+
+      - name: Renombrar el APK a algo reconocible (app-debug.apk es el nombre genérico de Android)
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/vetdata.apk
+
+      - name: Upload APK (artifact interno de este run)
+        uses: actions/upload-artifact@v4
+        with:
+          name: vetdata-debug-apk
+          path: mobile/android/app/build/outputs/apk/debug/vetdata.apk
+
+      - name: Publicar el APK como GitHub Release (descargable desde el celular)
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK=android/app/build/outputs/apk/debug/vetdata.apk
+          TAG=mobile-debug-latest
+          NOTES="APK de prueba (debug, sin firmar para producción) generado automáticamente desde la rama ${{ github.ref_name }}, commit ${{ github.sha }}."
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            # Borra el archivo con el nombre viejo (app-debug.apk), de cuando
+            # todavía no se renombraba, para que no queden dos archivos
+            # confundiendo cuál descargar.
+            gh release delete-asset "$TAG" app-debug.apk --repo "${{ github.repository }}" --yes || true
+            gh release upload "$TAG" "$APK" --clobber --repo "${{ github.repository }}"
+          else
+            gh release create "$TAG" "$APK" \
+              --title "VetData - APK de prueba (debug)" \
+              --notes "$NOTES" \
+              --repo "${{ github.repository }}"
+          fi
+
+  ios:
+    name: Build iOS project (simulator, sin firma)
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install npm dependencies
+        run: npm install
+
+      - name: Copiar la web real (raíz del repo) a mobile/www
+        run: cp ../index.html ../manifest.json ../sw.js ../icon-192.png ../icon-512.png www/
+
+      - name: Sync Capacitor (copy web assets into native project)
+        run: npx cap sync ios
+
+      - name: Build for iOS Simulator (sin firma, solo para validar que compila)
+        working-directory: mobile/ios/App
+        run: |
+          xcodebuild -project App.xcodeproj -scheme App \
+            -destination "generic/platform=iOS Simulator" \
+            -configuration Debug build \
+            CODE_SIGNING_ALLOWED=NO

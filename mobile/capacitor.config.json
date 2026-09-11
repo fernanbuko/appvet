@@ -1,0 +1,12 @@
+{
+  "appId": "com.vetdata.app",
+  "appName": "VetData",
+  "webDir": "www",
+  "backgroundColor": "#F7F4EC",
+  "plugins": {
+    "FirebaseAuthentication": {
+      "skipNativeAuth": false,
+      "providers": ["google.com"]
+    }
+  }
+}
