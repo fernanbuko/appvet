@@ -972,8 +972,8 @@ function placeholderNombreNegocio(rol) {
 // ni Reportes (son cosas veterinarias), así que se ocultan del menú. "otro"
 // se deja con el menú completo hasta tener más claridad de qué necesita.
 const NAV_POR_ROL = {
-  peluquero: ["inicio", "nuevo", "pacientes", "tareas", "agenda", "banos", "cobrosClientes", "config"],
-  vendedor: ["inicio", "nuevo", "pacientes", "agenda", "cobrosClientes", "config"]
+  peluquero: ["inicio", "nuevo", "pacientes", "tareas", "agenda", "banos", "config"],
+  vendedor: ["inicio", "nuevo", "pacientes", "agenda", "config"]
 };
 function itemsNavPermitidos(rol) {
   return NAV_POR_ROL[rol] || null; // null = todas (veterinario/a u "otro")
@@ -2404,10 +2404,6 @@ const NAV = [{
   key: "calculadora",
   label: "Calculadora de dosis",
   icon: "🧮"
-}, {
-  key: "cobrosClientes",
-  label: "Cobros de clientes",
-  icon: "💰"
 }, {
   key: "reportes",
   label: "Reportes",
@@ -5967,275 +5963,6 @@ function CobrosSection({
       color: c.pagado ? "var(--accent-green)" : "var(--accent-orange)"
     }
   }, c.pagado ? "✓ Pagado" : "Pendiente")))));
-}
-
-/* ---------------------------------------------------------
-   Cobros de clientes (multi-rama / multi-sucursal)
-----------------------------------------------------------*/
-function RamaSelect({
-  ramas,
-  value,
-  onChange,
-  placeholder
-}) {
-  return React.createElement("select", {
-    value: value || "",
-    onChange: e => onChange(e.target.value),
-    className: inputClass
-  }, React.createElement("option", {
-    value: ""
-  }, placeholder || "Selecciona una rama"), ramas.map(r => React.createElement("option", {
-    key: r.id,
-    value: r.id
-  }, r.nombre)));
-}
-function CobrosClientesView({
-  cobrosClientes,
-  ramas,
-  onAdd,
-  onUpdate,
-  onDelete,
-  onAddRama,
-  onDeleteRama,
-  config
-}) {
-  const [ramaFiltro, setRamaFiltro] = useState("todas");
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [ramaId, setRamaId] = useState("");
-  const [cliente, setCliente] = useState("");
-  const [telefono, setTelefono] = useState("");
-  const [concepto, setConcepto] = useState("");
-  const [monto, setMonto] = useState("");
-  const [pagado, setPagado] = useState(true);
-  const [showRamaForm, setShowRamaForm] = useState(false);
-  const [nuevaRama, setNuevaRama] = useState("");
-  const entries = cobrosClientes.filter(c => ramaFiltro === "todas" || c.ramaId === ramaFiltro).sort((a, b) => a.fecha < b.fecha ? 1 : -1);
-  const total = entries.reduce((sum, c) => sum + (parseFloat(c.monto) || 0), 0);
-  const pendientesList = entries.filter(c => !c.pagado);
-  const pendiente = pendientesList.reduce((sum, c) => sum + (parseFloat(c.monto) || 0), 0);
-  const nombreRama = id => ramas.find(r => r.id === id)?.nombre || "Sin rama";
-  const reset = () => {
-    setRamaId(ramaFiltro !== "todas" ? ramaFiltro : ramas[0]?.id || "");
-    setCliente("");
-    setTelefono("");
-    setConcepto("");
-    setMonto("");
-    setPagado(true);
-    setShowForm(false);
-    setEditingId(null);
-  };
-  const startAdd = () => {
-    setRamaId(ramaFiltro !== "todas" ? ramaFiltro : ramas[0]?.id || "");
-    setCliente("");
-    setTelefono("");
-    setConcepto("");
-    setMonto("");
-    setPagado(true);
-    setEditingId(null);
-    setShowForm(true);
-  };
-  const startEdit = c => {
-    setEditingId(c.id);
-    setRamaId(c.ramaId || "");
-    setCliente(c.cliente || "");
-    setTelefono(c.telefono || "");
-    setConcepto(c.concepto || "");
-    setMonto(c.monto || "");
-    setPagado(!!c.pagado);
-    setShowForm(true);
-  };
-  const save = () => {
-    if (!ramaId || !cliente.trim() || !concepto.trim() || !monto) return;
-    const data = {
-      id: editingId || uid(),
-      ramaId,
-      cliente: cliente.trim(),
-      telefono: telefono.trim(),
-      concepto: concepto.trim(),
-      monto,
-      pagado,
-      fecha: editingId ? entries.find(c => c.id === editingId)?.fecha || fechaLocalISO() : fechaLocalISO()
-    };
-    if (editingId) onUpdate(data);else onAdd(data);
-    reset();
-  };
-  const cobrarPorWhatsApp = c => {
-    const df = config?.dateFormat;
-    const mensaje = `Hola${c.cliente ? " " + c.cliente : ""}, le escribimos de ${config?.clinica || "nuestro negocio"} (${nombreRama(c.ramaId)}) ` + `sobre un saldo pendiente:\n\n• ${c.concepto} (${formatDate(c.fecha, df)}): $${parseFloat(c.monto).toFixed(2)}\n\n` + `Quedamos atentos para coordinar el pago. ¡Gracias!`;
-    window.open(whatsappLink(c.telefono, mensaje), "_blank");
-  };
-  const guardarNuevaRama = () => {
-    if (!nuevaRama.trim()) return;
-    onAddRama({
-      id: uid(),
-      nombre: nuevaRama.trim()
-    });
-    setNuevaRama("");
-  };
-  return React.createElement("div", {
-    className: "max-w-3xl"
-  }, React.createElement("h2", {
-    style: styles.display,
-    className: "text-2xl font-semibold mb-1"
-  }, "Cobros de clientes"), React.createElement("p", {
-    className: "text-sm text-[#6B7A72] mb-6"
-  }, "Registra y controla los cobros pendientes y pagados de tus clientes en cualquier rama o sucursal."), React.createElement("div", {
-    className: "mb-5"
-  }, React.createElement("div", {
-    className: "flex items-center justify-between mb-2"
-  }, React.createElement("span", {
-    className: "block text-[11px] uppercase tracking-wider text-[#6B7A72]",
-    style: styles.mono
-  }, "Ramas / sucursales"), React.createElement(GhostButton, {
-    onClick: () => setShowRamaForm(v => !v),
-    icon: "🏬"
-  }, showRamaForm ? "Cerrar" : "Gestionar ramas")), React.createElement("div", {
-    className: "flex flex-wrap gap-2"
-  }, React.createElement("button", {
-    onClick: () => setRamaFiltro("todas"),
-    className: "px-3 py-1.5 rounded-full text-sm border transition " + (ramaFiltro === "todas" ? "bg-[#3D6B5C] text-white border-[#3D6B5C]" : "border-[#DDD5C4] text-[#23342F] hover:bg-white")
-  }, "Todas"), ramas.map(r => React.createElement("button", {
-    key: r.id,
-    onClick: () => setRamaFiltro(r.id),
-    className: "px-3 py-1.5 rounded-full text-sm border transition " + (ramaFiltro === r.id ? "bg-[#3D6B5C] text-white border-[#3D6B5C]" : "border-[#DDD5C4] text-[#23342F] hover:bg-white")
-  }, r.nombre))), showRamaForm && React.createElement("div", {
-    className: "bg-white border border-[#DDD5C4] rounded-lg p-4 mt-3"
-  }, ramas.length > 0 && React.createElement("div", {
-    className: "space-y-2 mb-3"
-  }, ramas.map(r => React.createElement("div", {
-    key: r.id,
-    className: "flex items-center justify-between text-sm"
-  }, React.createElement("span", null, r.nombre), React.createElement("button", {
-    onClick: () => {
-      if (window.confirm(`¿Eliminar la rama "${r.nombre}"? Los cobros ya registrados con esta rama no se borrarán.`)) onDeleteRama(r.id);
-    },
-    className: "text-[#A6A08F] hover:text-[#B14E1C] text-xs"
-  }, "Eliminar")))), React.createElement("div", {
-    className: "flex gap-2"
-  }, React.createElement(TextInput, {
-    value: nuevaRama,
-    onChange: e => setNuevaRama(e.target.value),
-    placeholder: "Ej. Sucursal Norte"
-  }), React.createElement(PrimaryButton, {
-    onClick: guardarNuevaRama,
-    disabled: !nuevaRama.trim(),
-    icon: "✓"
-  }, "Agregar")))), entries.length > 0 && React.createElement("div", {
-    className: "grid grid-cols-2 gap-3 mb-4"
-  }, React.createElement("div", {
-    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 text-center"
-  }, React.createElement("div", {
-    className: "text-lg font-semibold text-[#3D6B5C]"
-  }, "$", total.toFixed(2)), React.createElement("div", {
-    className: "text-[10px] uppercase tracking-wider text-[#6B7A72]",
-    style: styles.mono
-  }, "Total cobrado")), React.createElement("div", {
-    className: "bg-white border border-[#DDD5C4] rounded-lg p-3 text-center"
-  }, React.createElement("div", {
-    className: "text-lg font-semibold text-[#B14E1C]"
-  }, "$", pendiente.toFixed(2)), React.createElement("div", {
-    className: "text-[10px] uppercase tracking-wider text-[#6B7A72]",
-    style: styles.mono
-  }, "Pendiente de pago"))), !showForm && React.createElement("div", {
-    className: "mb-4"
-  }, React.createElement(PrimaryButton, {
-    onClick: startAdd,
-    icon: "💰",
-    disabled: ramas.length === 0
-  }, "Registrar cobro")), ramas.length === 0 && !showForm && React.createElement("p", {
-    className: "text-xs text-[#A6A08F] mb-4"
-  }, "Crea al menos una rama para poder registrar cobros."), showForm && React.createElement("div", {
-    className: "bg-white border border-[#DDD5C4] rounded-lg p-6 mb-4"
-  }, React.createElement(Field, {
-    label: "Rama / sucursal"
-  }, React.createElement(RamaSelect, {
-    ramas: ramas,
-    value: ramaId,
-    onChange: setRamaId
-  })), React.createElement(Field, {
-    label: "Cliente"
-  }, React.createElement(TextInput, {
-    value: cliente,
-    onChange: e => setCliente(e.target.value),
-    placeholder: "Nombre del cliente"
-  })), React.createElement(Field, {
-    label: "Teléfono (opcional, para cobrar por WhatsApp)"
-  }, React.createElement(TextInput, {
-    value: telefono,
-    onChange: e => setTelefono(e.target.value),
-    placeholder: "Ej. 0991234567"
-  })), React.createElement(Field, {
-    label: "Concepto"
-  }, React.createElement(TextInput, {
-    value: concepto,
-    onChange: e => setConcepto(e.target.value),
-    placeholder: "Ej. Servicio, producto, cuota..."
-  })), React.createElement(Field, {
-    label: "Monto"
-  }, React.createElement(TextInput, {
-    value: monto,
-    onChange: e => setMonto(e.target.value),
-    placeholder: "Ej. 25.00",
-    inputMode: "decimal"
-  })), React.createElement("label", {
-    className: "flex items-center gap-2.5 mt-1 mb-2 cursor-pointer select-none"
-  }, React.createElement("input", {
-    type: "checkbox",
-    checked: pagado,
-    onChange: e => setPagado(e.target.checked),
-    className: "w-4 h-4 accent-[#3D6B5C]"
-  }), React.createElement("span", {
-    className: "text-sm"
-  }, "Ya está pagado")), React.createElement("div", {
-    className: "flex gap-2 mt-2"
-  }, React.createElement(PrimaryButton, {
-    onClick: save,
-    disabled: !ramaId || !cliente.trim() || !concepto.trim() || !monto,
-    icon: "✓"
-  }, editingId ? "Guardar cambios" : "Registrar cobro"), React.createElement(GhostButton, {
-    onClick: reset
-  }, "Cancelar"))), entries.length === 0 ? React.createElement(EmptyState, {
-    title: "Sin cobros registrados",
-    subtitle: "Los cobros que registres a tus clientes, en cualquier rama, aparecerán aquí."
-  }) : React.createElement("div", {
-    className: "space-y-3"
-  }, entries.map(c => React.createElement("div", {
-    key: c.id,
-    className: "bg-white border border-[#DDD5C4] rounded-lg p-4"
-  }, React.createElement("div", {
-    className: "flex items-start justify-between gap-3"
-  }, React.createElement("div", {
-    className: "min-w-0"
-  }, React.createElement("div", {
-    className: "font-medium"
-  }, c.cliente), React.createElement("div", {
-    className: "text-xs text-[#6B7A72] mt-0.5"
-  }, c.concepto), React.createElement("div", {
-    className: "text-xs text-[#6B7A72] mt-0.5",
-    style: styles.mono
-  }, nombreRama(c.ramaId), " · ", formatDate(c.fecha, config?.dateFormat))), React.createElement("div", {
-    className: "flex items-center gap-3 shrink-0"
-  }, React.createElement("span", {
-    className: "font-semibold text-[#23342F]"
-  }, "$", parseFloat(c.monto).toFixed(2)), React.createElement("button", {
-    onClick: () => startEdit(c),
-    className: "text-[#A6A08F] hover:text-[#3D6B5C]"
-  }, "✎"), React.createElement("button", {
-    onClick: () => onDelete(c.id),
-    className: "text-[#A6A08F] hover:text-[#B14E1C]"
-  }, "🗑"))), React.createElement("div", {
-    className: "flex items-center justify-between mt-2"
-  }, React.createElement("span", {
-    className: "inline-block text-[11px] px-2 py-0.5 rounded",
-    style: {
-      background: c.pagado ? "var(--accent-green-bg)" : "var(--accent-orange-bg)",
-      color: c.pagado ? "var(--accent-green)" : "var(--accent-orange)"
-    }
-  }, c.pagado ? "✓ Pagado" : "Pendiente"), !c.pagado && c.telefono && React.createElement(GhostButton, {
-    onClick: () => cobrarPorWhatsApp(c),
-    icon: "📲"
-  }, "Cobrar por WhatsApp"))))));
 }
 
 /* ---------------------------------------------------------
@@ -13125,8 +12852,6 @@ function VetApp() {
   const [horariosOcupadosColaboradores, setHorariosOcupadosColaboradores] = useState([]);
   const [cirugias, setCirugias] = useState([]);
   const [cobros, setCobros] = useState([]);
-  const [cobrosClientes, setCobrosClientes] = useState([]);
-  const [ramas, setRamas] = useState([]);
   const [config, setConfig] = useState(null);
   useEffect(() => {
     if (!(db && currentUid && config?.colaboradoresPermitidos)) return;
@@ -13620,8 +13345,6 @@ function VetApp() {
     const unsubHistorial = puedeEscuchar("historial") ? collectionStore.listen("historial", setHistorial) : () => {};
     const unsubVacunas = puedeEscuchar("vacunas") ? collectionStore.listen("vacunas", setVacunas) : () => {};
     const unsubCobros = puedeEscuchar("cobros") ? collectionStore.listen("cobros", setCobros) : () => {};
-    const unsubCobrosClientes = puedeEscuchar("cobrosClientes") ? collectionStore.listen("cobrosClientes", setCobrosClientes) : () => {};
-    const unsubRamas = puedeEscuchar("ramas") ? collectionStore.listen("ramas", setRamas) : () => {};
     const unsubDesparasitaciones = puedeEscuchar("desparasitaciones") ? collectionStore.listen("desparasitaciones", setDesparasitaciones) : () => {};
     const unsubTratamientos = puedeEscuchar("tratamientos") ? collectionStore.listen("tratamientos", setTratamientos) : () => {};
     const unsubHospitalizaciones = puedeEscuchar("hospitalizaciones") ? collectionStore.listen("hospitalizaciones", setHospitalizaciones) : () => {};
@@ -13649,8 +13372,6 @@ function VetApp() {
       unsubHistorial();
       unsubVacunas();
       unsubCobros();
-      unsubCobrosClientes();
-      unsubRamas();
       unsubDesparasitaciones();
       unsubTratamientos();
       unsubHospitalizaciones();
@@ -13950,7 +13671,7 @@ function VetApp() {
       // la de una clínica en equipo), para no borrar archivos compartidos
       // con el resto del equipo solo porque esta cuenta se elimina.
       await marcarCarpetaCloudinariaParaBorrar(carpetaCloudinariaPersonalPropia());
-      await Promise.all([collectionStore.deleteAll("patients"), collectionStore.deleteAll("recetas"), collectionStore.deleteAll("examenes"), collectionStore.deleteAll("historial"), collectionStore.deleteAll("vacunas"), collectionStore.deleteAll("cobros"), collectionStore.deleteAll("cobrosClientes"), collectionStore.deleteAll("ramas")]);
+      await Promise.all([collectionStore.deleteAll("patients"), collectionStore.deleteAll("recetas"), collectionStore.deleteAll("examenes"), collectionStore.deleteAll("historial"), collectionStore.deleteAll("vacunas"), collectionStore.deleteAll("cobros")]);
       if (db && currentUid) {
         await db.collection("users").doc(currentUid).collection("data").doc("config").delete().catch(() => {});
       }
@@ -14713,34 +14434,6 @@ function VetApp() {
     setCobros(next);
     collectionStore.deleteOne("cobros", id);
   };
-  const addCobroCliente = c => {
-    const next = [...cobrosClientes, c];
-    setCobrosClientes(next);
-    collectionStore.setOne("cobrosClientes", c.id, c);
-    showToast("Cobro registrado");
-  };
-  const updateCobroCliente = c => {
-    const next = cobrosClientes.map(x => x.id === c.id ? c : x);
-    setCobrosClientes(next);
-    collectionStore.setOne("cobrosClientes", c.id, c);
-    showToast("Cobro actualizado");
-  };
-  const deleteCobroCliente = id => {
-    const next = cobrosClientes.filter(c => c.id !== id);
-    setCobrosClientes(next);
-    collectionStore.deleteOne("cobrosClientes", id);
-  };
-  const addRama = r => {
-    const next = [...ramas, r];
-    setRamas(next);
-    collectionStore.setOne("ramas", r.id, r);
-    showToast("Rama agregada");
-  };
-  const deleteRama = id => {
-    const next = ramas.filter(r => r.id !== id);
-    setRamas(next);
-    collectionStore.deleteOne("ramas", id);
-  };
   const exportBackup = () => {
     const backup = {
       app: "VetData",
@@ -14752,8 +14445,6 @@ function VetApp() {
       historial,
       vacunas,
       cobros,
-      cobrosClientes,
-      ramas,
       config
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], {
@@ -14793,8 +14484,6 @@ function VetApp() {
     const nextHistorial = Array.isArray(data.historial) ? data.historial : [];
     const nextVacunas = Array.isArray(data.vacunas) ? data.vacunas : [];
     const nextCobros = Array.isArray(data.cobros) ? data.cobros : [];
-    const nextCobrosClientes = Array.isArray(data.cobrosClientes) ? data.cobrosClientes : [];
-    const nextRamas = Array.isArray(data.ramas) ? data.ramas : [];
     const nextConfig = data.config || null;
     setPatients(nextPatients);
     setRecetas(nextRecetas);
@@ -14802,8 +14491,6 @@ function VetApp() {
     setHistorial(nextHistorial);
     setVacunas(nextVacunas);
     setCobros(nextCobros);
-    setCobrosClientes(nextCobrosClientes);
-    setRamas(nextRamas);
     setConfig(nextConfig);
     nextPatients.forEach(p => collectionStore.setOne("patients", p.id || uid(), p));
     nextRecetas.forEach(r => collectionStore.setOne("recetas", r.id || uid(), r));
@@ -14811,8 +14498,6 @@ function VetApp() {
     nextHistorial.forEach(h => collectionStore.setOne("historial", h.id || uid(), h));
     nextVacunas.forEach(v => collectionStore.setOne("vacunas", v.id || uid(), v));
     nextCobros.forEach(c => collectionStore.setOne("cobros", c.id || uid(), c));
-    nextCobrosClientes.forEach(c => collectionStore.setOne("cobrosClientes", c.id || uid(), c));
-    nextRamas.forEach(r => collectionStore.setOne("ramas", r.id || uid(), r));
     store.set("config", nextConfig);
     showToast("Respaldo restaurado");
   };
@@ -15273,15 +14958,6 @@ function VetApp() {
     }
   })), active === "calculadora" && /*#__PURE__*/React.createElement(CalculadoraDosisView, {
     patients: activePatients
-  }), active === "cobrosClientes" && /*#__PURE__*/React.createElement(CobrosClientesView, {
-    cobrosClientes: cobrosClientes,
-    ramas: ramas,
-    onAdd: addCobroCliente,
-    onUpdate: updateCobroCliente,
-    onDelete: deleteCobroCliente,
-    onAddRama: addRama,
-    onDeleteRama: deleteRama,
-    config: config
   }), active === "reportes" && /*#__PURE__*/React.createElement(ReportesView, {
     cobros: cobros,
     patients: activePatients,
