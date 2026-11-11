@@ -10972,9 +10972,14 @@ function CuentaBancariaCard({
       }
     } catch (e) {}
     // Si el celular no admite compartir el archivo directamente (o algo
-    // falló al descargarlo), se abre en una pestaña nueva para que la
-    // persona la guarde o la comparta a mano.
+    // falló al descargarlo): WhatsApp no tiene forma de recibir una imagen
+    // ya adjunta por un simple enlace (a diferencia del texto, que sí
+    // funciona con wa.me), así que se abre la imagen para guardarla y,
+    // enseguida, WhatsApp — para adjuntarla a mano desde la galería en el
+    // chat que se elija.
+    alert("Se va a abrir la imagen: guárdala (mantén presionado y elige \"Guardar imagen\") y luego adjúntala en WhatsApp, que se abre a continuación.");
     window.open(imagen, "_blank");
+    window.open("https://wa.me/", "_blank");
   };
   const seccionImagen = /*#__PURE__*/React.createElement("div", {
     className: cuenta && !editando ? "pt-4 mt-4 border-t border-[#DDD5C4]" : "mt-2"
