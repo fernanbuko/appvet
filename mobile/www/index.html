@@ -10958,6 +10958,28 @@ function CuentaBancariaCard({
     try {
       const resp = await fetch(imagen);
       const blob = await resp.blob();
+      // Dentro de la app empaquetada, el share del propio navegador
+      // (navigator.share) no es confiable para compartir archivos — el
+      // WebView de Android no siempre lo soporta bien. Por eso ahí se usa
+      // en su lugar el share NATIVO de Android (plugins @capacitor/share y
+      // @capacitor/filesystem): se guarda la imagen en la caché de la app y
+      // se comparte ese archivo ya guardado, con WhatsApp disponible entre
+      // las apps para elegir en el mismo cuadro que abre Android.
+      const enAppNativa = typeof Capacitor !== "undefined" && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
+      if (enAppNativa && Capacitor.Plugins?.Filesystem && Capacitor.Plugins?.Share) {
+        const dataUrl = await readFileAsDataURL(blob);
+        const base64 = dataUrl.split(",")[1];
+        const escrito = await Capacitor.Plugins.Filesystem.writeFile({
+          path: "cuenta_bancaria.jpg",
+          data: base64,
+          directory: "CACHE"
+        });
+        await Capacitor.Plugins.Share.share({
+          title: "Datos bancarios",
+          files: [escrito.uri]
+        });
+        return;
+      }
       const file = new File([blob], "cuenta_bancaria.jpg", {
         type: blob.type || "image/jpeg"
       });
