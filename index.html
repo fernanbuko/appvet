@@ -10976,6 +10976,7 @@ function CuentaBancariaCard({
         });
         await Capacitor.Plugins.Share.share({
           title: "Datos bancarios",
+          text: cuenta || undefined,
           files: [escrito.uri]
         });
         return;
@@ -10988,7 +10989,8 @@ function CuentaBancariaCard({
       })) {
         await navigator.share({
           files: [file],
-          title: "Datos bancarios"
+          title: "Datos bancarios",
+          text: cuenta || undefined
         });
         return;
       }
@@ -10997,11 +10999,11 @@ function CuentaBancariaCard({
     // falló al descargarlo): WhatsApp no tiene forma de recibir una imagen
     // ya adjunta por un simple enlace (a diferencia del texto, que sí
     // funciona con wa.me), así que se abre la imagen para guardarla y,
-    // enseguida, WhatsApp — para adjuntarla a mano desde la galería en el
-    // chat que se elija.
-    alert("Se va a abrir la imagen: guárdala (mantén presionado y elige \"Guardar imagen\") y luego adjúntala en WhatsApp, que se abre a continuación.");
+    // enseguida, WhatsApp YA CON EL TEXTO DE LA CUENTA puesto — para
+    // adjuntar la imagen a mano desde la galería en el chat que se elija.
+    alert("Se va a abrir la imagen: guárdala (mantén presionado y elige \"Guardar imagen\") y luego adjúntala en WhatsApp, que se abre a continuación con el texto de la cuenta ya puesto.");
     window.open(imagen, "_blank");
-    window.open("https://wa.me/", "_blank");
+    window.open(`https://wa.me/?text=${encodeURIComponent(cuenta || "")}`, "_blank");
   };
   const seccionImagen = /*#__PURE__*/React.createElement("div", {
     className: cuenta && !editando ? "pt-4 mt-4 border-t border-[#DDD5C4]" : "mt-2"
