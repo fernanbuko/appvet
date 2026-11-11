@@ -39,6 +39,10 @@ jobs:
       - name: Copiar la web real (raíz del repo) a mobile/www
         run: cp ../index.html ../manifest.json ../sw.js ../icon-192.png ../icon-512.png www/
 
+      - name: Escribir version.json con el número de build (para detectar actualizaciones dentro de la app)
+        run: |
+          echo "{\"buildNumber\": ${{ github.run_number }}}" > www/version.json
+
       - name: Sync Capacitor (copy web assets into native project)
         run: npx cap sync android
 
@@ -70,13 +74,21 @@ jobs:
         run: |
           APK=android/app/build/outputs/apk/debug/vetdata.apk
           TAG=mobile-debug-latest
-          NOTES="APK de prueba (debug, sin firmar para producción) generado automáticamente desde la rama ${{ github.ref_name }}, commit ${{ github.sha }}."
+          # El "[build N]" al final NO es decorativo: la app, ya instalada,
+          # lo lee de las notas de esta misma publicación para saber si hay
+          # una versión más nueva que la que tiene instalada (compara contra
+          # el build number que ella misma guardó al compilarse — ver
+          # version.json más arriba y el useEffect de "actualizacionDisponible"
+          # en index.html). Si se cambia este formato, hay que actualizar
+          # también esa expresión regular en index.html.
+          NOTES="APK de prueba (debug, sin firmar para producción) generado automáticamente desde la rama ${{ github.ref_name }}, commit ${{ github.sha }}. [build ${{ github.run_number }}]"
           if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             # Borra el archivo con el nombre viejo (app-debug.apk), de cuando
             # todavía no se renombraba, para que no queden dos archivos
             # confundiendo cuál descargar.
             gh release delete-asset "$TAG" app-debug.apk --repo "${{ github.repository }}" --yes || true
             gh release upload "$TAG" "$APK" --clobber --repo "${{ github.repository }}"
+            gh release edit "$TAG" --notes "$NOTES" --repo "${{ github.repository }}"
           else
             gh release create "$TAG" "$APK" \
               --title "VetData - APK de prueba (debug)" \
