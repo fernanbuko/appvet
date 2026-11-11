@@ -10877,58 +10877,13 @@ function PanelPropietarioView({
   }, "Eliminar definitivamente")))));
 }
 
-// Intenta reconocer banco, tipo de cuenta, número, titular y cédula/RUC
-// dentro de un bloque de texto pegado — pensado para cuando la app del
-// banco ya da esos datos armados (para compartir o copiar) y la persona
-// solo quiere pegarlos en vez de volver a escribirlos a mano. No todos los
-// bancos usan el mismo formato, así que esto es un best-effort: lo que no
-// se reconoce se deja en blanco para completarlo/corregirlo a mano.
-function parsearDatosBancoPegados(texto) {
-  const lineas = (texto || "").split(/\n|\r/).map(l => l.trim()).filter(Boolean);
-  const datos = {
-    banco: "",
-    tipoCuenta: "",
-    numeroCuenta: "",
-    titular: "",
-    identificacion: ""
-  };
-  const quitarEtiqueta = linea => linea.replace(/^[^:]*:\s*/, "").trim();
-  for (const linea of lineas) {
-    const sinAcentos = linea.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-    if (!datos.banco && /banco/.test(sinAcentos)) {
-      const valor = quitarEtiqueta(linea);
-      datos.banco = valor && valor.toLowerCase() !== sinAcentos ? valor : linea;
-    }
-    if (!datos.tipoCuenta && /ahorro/.test(sinAcentos)) datos.tipoCuenta = "Ahorros";
-    if (!datos.tipoCuenta && /corriente/.test(sinAcentos)) datos.tipoCuenta = "Corriente";
-    if (!datos.numeroCuenta && /(numero de cuenta|n[uú]mero de cuenta|nro\.? de cuenta|cuenta nro|cuenta n[°º]|n[°º] de cuenta|cuenta:)/.test(sinAcentos)) {
-      const match = linea.match(/[\d-]{6,}/);
-      if (match) datos.numeroCuenta = match[0];
-    }
-    if (!datos.titular && /(titular|beneficiario|a nombre de)/.test(sinAcentos)) {
-      datos.titular = quitarEtiqueta(linea);
-    }
-    if (!datos.identificacion && /(cedula|c\.i\.|^ci[:\s]|ruc|identificacion)/.test(sinAcentos)) {
-      const match = linea.match(/[\d-]{8,}/);
-      datos.identificacion = match ? match[0] : quitarEtiqueta(linea);
-    }
-  }
-  // Respaldo: si ningún banco rotuló el número de cuenta con una etiqueta
-  // reconocida, se usa la primera línea que sea solo dígitos largos (lo
-  // típico cuando la app solo pone el número suelto).
-  if (!datos.numeroCuenta) {
-    const soloDigitos = lineas.find(l => /^[\d\s-]{8,22}$/.test(l) && /\d{6,}/.test(l));
-    if (soloDigitos) datos.numeroCuenta = soloDigitos.replace(/\s/g, "");
-  }
-  return datos;
-}
-
-// Tarjeta de "Cuenta bancaria" dentro de Reportes: guarda los datos de
-// transferencia (banco, número de cuenta, titular, etc.) en la config de la
-// cuenta, para poder compartirlos por WhatsApp sin tener que escribirlos
-// cada vez. También permite subir una imagen (foto o captura de pantalla)
-// con esos mismos datos ya armada con mejor presentación, para compartir
-// esa imagen en vez del texto.
+// Tarjeta de "Cuenta bancaria" dentro de Reportes: guarda el texto con los
+// datos de transferencia tal cual la persona lo pega o escribe (no se separa
+// en campos individuales a propósito, para no obligar a reescribir lo que la
+// app del banco ya da armado), para poder compartirlo por WhatsApp sin tener
+// que escribirlo cada vez. También permite subir una imagen (foto o captura
+// de pantalla) con esos mismos datos ya armada con mejor presentación, para
+// compartir esa imagen en vez del texto.
 function CuentaBancariaCard({
   config,
   onUpdateConfig
@@ -10936,44 +10891,19 @@ function CuentaBancariaCard({
   const cuenta = config?.cuentaBancaria || null;
   const imagen = config?.cuentaBancariaImagen || null;
   const [editando, setEditando] = useState(false);
-  const [banco, setBanco] = useState("");
-  const [titular, setTitular] = useState("");
-  const [tipoCuenta, setTipoCuenta] = useState("Ahorros");
-  const [numeroCuenta, setNumeroCuenta] = useState("");
-  const [identificacion, setIdentificacion] = useState("");
-  const [textoPegado, setTextoPegado] = useState("");
+  const [texto, setTexto] = useState("");
   const [subiendoImagen, setSubiendoImagen] = useState(false);
   const [imgError, setImgError] = useState("");
   const fileRef = useRef(null);
   const cameraRef = useRef(null);
   const abrirForm = () => {
-    setBanco(cuenta?.banco || "");
-    setTitular(cuenta?.titular || "");
-    setTipoCuenta(cuenta?.tipoCuenta || "Ahorros");
-    setNumeroCuenta(cuenta?.numeroCuenta || "");
-    setIdentificacion(cuenta?.identificacion || "");
-    setTextoPegado("");
+    setTexto(cuenta || "");
     setEditando(true);
   };
-  const pegarYDetectar = () => {
-    const detectado = parsearDatosBancoPegados(textoPegado);
-    if (detectado.banco) setBanco(detectado.banco);
-    if (detectado.tipoCuenta) setTipoCuenta(detectado.tipoCuenta);
-    if (detectado.numeroCuenta) setNumeroCuenta(detectado.numeroCuenta);
-    if (detectado.titular) setTitular(detectado.titular);
-    if (detectado.identificacion) setIdentificacion(detectado.identificacion);
-    setTextoPegado("");
-  };
   const guardar = () => {
-    if (!banco.trim() || !numeroCuenta.trim()) return;
+    if (!texto.trim()) return;
     onUpdateConfig({
-      cuentaBancaria: {
-        banco: banco.trim(),
-        titular: titular.trim(),
-        tipoCuenta,
-        numeroCuenta: numeroCuenta.trim(),
-        identificacion: identificacion.trim()
-      }
+      cuentaBancaria: texto.trim()
     });
     setEditando(false);
   };
@@ -10984,14 +10914,9 @@ function CuentaBancariaCard({
     });
     setEditando(false);
   };
-  const textoCompartir = () => {
-    if (!cuenta) return "";
-    return [`DATOS PARA TRANSFERENCIA${config?.clinica ? " — " + config.clinica : ""}`, cuenta.banco ? `Banco: ${cuenta.banco}` : null, cuenta.tipoCuenta ? `Tipo de cuenta: ${cuenta.tipoCuenta}` : null, cuenta.numeroCuenta ? `Número de cuenta: ${cuenta.numeroCuenta}` : null, cuenta.titular ? `Titular: ${cuenta.titular}` : null, cuenta.identificacion ? `Cédula/RUC: ${cuenta.identificacion}` : null].filter(Boolean).join("\n");
-  };
   const compartirWhatsApp = () => {
-    const texto = textoCompartir();
-    if (!texto) return;
-    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
+    if (!cuenta) return;
+    window.open(`https://wa.me/?text=${encodeURIComponent(cuenta)}`, "_blank");
   };
   const handleImagen = async e => {
     const file = e.target.files?.[0];
@@ -11102,81 +11027,27 @@ function CuentaBancariaCard({
     className: "bg-white border border-[#DDD5C4] rounded-lg p-4 mb-6 max-w-xl"
   }, /*#__PURE__*/React.createElement("h3", {
     className: "font-semibold mb-3"
-  }, "💳 Cuenta bancaria"), editando ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "bg-[#EAF0EC] border border-[#DDD5C4] rounded-md p-3 mb-4"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "block text-[11px] uppercase tracking-wider mb-1.5 text-[#6B7A72]",
-    style: styles.mono
-  }, "Pegar desde la app del banco (opcional)"), /*#__PURE__*/React.createElement(TextArea, {
-    value: textoPegado,
-    onChange: e => setTextoPegado(e.target.value),
-    placeholder: "Pega aquí el texto con los datos que te dio la app de tu banco...",
-    rows: 3,
+  }, "💳 Cuenta bancaria"), editando ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Field, {
+    label: "Datos de la cuenta bancaria"
+  }, /*#__PURE__*/React.createElement(TextArea, {
+    value: texto,
+    onChange: e => setTexto(e.target.value),
+    placeholder: "Pega aquí los datos que te dio la app de tu banco, o escríbelos a mano...",
+    rows: 6,
     autoFocus: true
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "flex justify-end mt-2"
-  }, /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: pegarYDetectar,
-    disabled: !textoPegado.trim()
-  }, "Detectar y llenar los campos")), /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-[#6B7A72] mt-2"
-  }, "Revisa los campos de abajo antes de guardar — no todos los bancos usan el mismo formato, así que algún dato puede quedar sin llenar o mal detectado.")), /*#__PURE__*/React.createElement(Field, {
-    label: "Banco"
-  }, /*#__PURE__*/React.createElement(TextInput, {
-    value: banco,
-    onChange: e => setBanco(e.target.value),
-    placeholder: "Ej. Banco Pichincha"
-  })), /*#__PURE__*/React.createElement(Field, {
-    label: "Tipo de cuenta"
-  }, /*#__PURE__*/React.createElement("select", {
-    value: tipoCuenta,
-    onChange: e => setTipoCuenta(e.target.value),
-    className: inputClass
-  }, /*#__PURE__*/React.createElement("option", {
-    value: "Ahorros"
-  }, "Ahorros"), /*#__PURE__*/React.createElement("option", {
-    value: "Corriente"
-  }, "Corriente"))), /*#__PURE__*/React.createElement(Field, {
-    label: "Número de cuenta"
-  }, /*#__PURE__*/React.createElement(TextInput, {
-    value: numeroCuenta,
-    onChange: e => setNumeroCuenta(e.target.value),
-    placeholder: "Ej. 2200123456"
-  })), /*#__PURE__*/React.createElement(Field, {
-    label: "Titular"
-  }, /*#__PURE__*/React.createElement(TextInput, {
-    value: titular,
-    onChange: e => setTitular(e.target.value),
-    placeholder: "Nombre completo"
-  })), /*#__PURE__*/React.createElement(Field, {
-    label: "Cédula / RUC (opcional)"
-  }, /*#__PURE__*/React.createElement(TextInput, {
-    value: identificacion,
-    onChange: e => setIdentificacion(e.target.value),
-    placeholder: "Ej. 1234567890"
   })), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2"
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: guardar,
-    disabled: !banco.trim() || !numeroCuenta.trim()
+    disabled: !texto.trim()
   }, "Guardar"), /*#__PURE__*/React.createElement(GhostButton, {
     onClick: () => setEditando(false)
   }, "Cancelar"), cuenta && /*#__PURE__*/React.createElement(GhostButton, {
     onClick: quitarCuenta,
     danger: true
-  }, "Quitar"))) : cuenta ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "text-sm space-y-0.5 mb-3"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-[#6B7A72]"
-  }, "Banco: "), cuenta.banco), cuenta.tipoCuenta && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-[#6B7A72]"
-  }, "Tipo: "), cuenta.tipoCuenta), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-[#6B7A72]"
-  }, "Número: "), cuenta.numeroCuenta), cuenta.titular && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-[#6B7A72]"
-  }, "Titular: "), cuenta.titular), cuenta.identificacion && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-[#6B7A72]"
-  }, "Cédula/RUC: "), cuenta.identificacion)), /*#__PURE__*/React.createElement("div", {
+  }, "Quitar"))) : cuenta ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm mb-3 whitespace-pre-wrap"
+  }, cuenta), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2 flex-wrap"
   }, /*#__PURE__*/React.createElement(PrimaryButton, {
     onClick: compartirWhatsApp,
