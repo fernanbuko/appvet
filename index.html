@@ -10887,7 +10887,8 @@ function PanelPropietarioView({
 // con mejor presentación, para compartirla junto con el texto.
 function CuentaBancariaCard({
   config,
-  onUpdateConfig
+  onUpdateConfig,
+  onFormAbierto
 }) {
   // Respaldo: si la cuenta se guardó con la versión anterior (un solo
   // texto/imagen, antes de permitir varias) y todavía no se volvió a
@@ -10901,6 +10902,14 @@ function CuentaBancariaCard({
     imagen: config.cuentaBancariaImagen || null
   }] : []);
   const [editingId, setEditingId] = useState(null); // null = cerrado; "nueva" o el id de la cuenta que se edita
+  // Avisa al resto de Reportes cuando el formulario está abierto, para que
+  // oculte la sección de cobros mientras tanto (si no, queda abajo del
+  // formulario sin venir a cuento, confundiendo a quien solo quiere
+  // agregar/editar una cuenta).
+  useEffect(() => {
+    onFormAbierto?.(editingId !== null);
+    return () => onFormAbierto?.(false);
+  }, [editingId]);
   const [nombre, setNombre] = useState("");
   const [texto, setTexto] = useState("");
   const [imagenLocal, setImagenLocal] = useState(null);
@@ -11146,6 +11155,7 @@ function ReportesView({
   config,
   onUpdateConfig
 }) {
+  const [editandoCuenta, setEditandoCuenta] = useState(false);
   // Solo se cuentan los cobros de pacientes que siguen activos (no eliminados
   // ni en la papelera) — si borras un paciente, sus cobros ya no aparecen aquí.
   const cobrosVigentes = useMemo(() => cobros.filter(c => (patients || []).some(p => p.id === c.patientId)), [cobros, patients]);
@@ -11186,8 +11196,9 @@ function ReportesView({
     className: "text-2xl font-semibold mb-5"
   }, "Reportes"), /*#__PURE__*/React.createElement(CuentaBancariaCard, {
     config: config,
-    onUpdateConfig: onUpdateConfig
-  }), porMes.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    onUpdateConfig: onUpdateConfig,
+    onFormAbierto: setEditandoCuenta
+  }), !editandoCuenta && (porMes.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
     title: "Sin cobros registrados todavía",
     subtitle: "Los cobros que registres en cada paciente se resumirán aquí por mes."
   }) : /*#__PURE__*/React.createElement("div", {
@@ -11248,7 +11259,7 @@ function ReportesView({
   }, "$", datos.pendiente.toFixed(2)), /*#__PURE__*/React.createElement("div", {
     className: "text-[10px] uppercase text-[#6B7A72]",
     style: styles.mono
-  }, "Pendiente")))))));
+  }, "Pendiente"))))))));
 }
 // Fila deslizable: deslizar el dedo de izquierda a derecha confirma la cita
 // (revela un fondo verde), y de derecha a izquierda la reagenda (revela un
