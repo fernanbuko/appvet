@@ -10877,46 +10877,83 @@ function PanelPropietarioView({
   }, "Eliminar definitivamente")))));
 }
 
-// Tarjeta de "Cuenta bancaria" dentro de Reportes: guarda el texto con los
-// datos de transferencia tal cual la persona lo pega o escribe (no se separa
-// en campos individuales a propósito, para no obligar a reescribir lo que la
-// app del banco ya da armado), para poder compartirlo por WhatsApp sin tener
-// que escribirlo cada vez. También permite subir una imagen (foto o captura
-// de pantalla) con esos mismos datos ya armada con mejor presentación, para
-// compartir esa imagen en vez del texto.
+// Tarjeta de "Cuentas bancarias" dentro de Reportes: guarda una o varias
+// cuentas, cada una con un nombre corto (para identificarla en la lista) y
+// el texto de transferencia tal cual la persona lo pega o escribe (no se
+// separa en campos individuales a propósito, para no obligar a reescribir
+// lo que la app del banco ya da armado), para poder compartirlo por
+// WhatsApp sin tener que escribirlo cada vez. Cada cuenta también admite
+// una imagen (foto o captura de pantalla) con esos mismos datos ya armada
+// con mejor presentación, para compartirla junto con el texto.
 function CuentaBancariaCard({
   config,
   onUpdateConfig
 }) {
-  const cuenta = config?.cuentaBancaria || null;
-  const imagen = config?.cuentaBancariaImagen || null;
-  const [editando, setEditando] = useState(false);
+  // Respaldo: si la cuenta se guardó con la versión anterior (un solo
+  // texto/imagen, antes de permitir varias) y todavía no se volvió a
+  // guardar con la lista nueva, se muestra esa cuenta vieja como la
+  // primera de la lista — así nunca desaparece de la vista solo por no
+  // haber reabierto el formulario.
+  const cuentas = config?.cuentasBancarias || (config?.cuentaBancaria ? [{
+    id: "migrada",
+    nombre: "Cuenta bancaria",
+    texto: config.cuentaBancaria,
+    imagen: config.cuentaBancariaImagen || null
+  }] : []);
+  const [editingId, setEditingId] = useState(null); // null = cerrado; "nueva" o el id de la cuenta que se edita
+  const [nombre, setNombre] = useState("");
   const [texto, setTexto] = useState("");
+  const [imagenLocal, setImagenLocal] = useState(null);
   const [subiendoImagen, setSubiendoImagen] = useState(false);
   const [imgError, setImgError] = useState("");
   const fileRef = useRef(null);
   const cameraRef = useRef(null);
-  const abrirForm = () => {
-    setTexto(cuenta || "");
-    setEditando(true);
+  const guardarCuentas = nuevas => onUpdateConfig({
+    cuentasBancarias: nuevas,
+    // Ya migradas a la lista nueva, los campos viejos no hacen falta más.
+    cuentaBancaria: null,
+    cuentaBancariaImagen: null
+  });
+  const abrirNueva = () => {
+    setNombre("");
+    setTexto("");
+    setImagenLocal(null);
+    setImgError("");
+    setEditingId("nueva");
   };
+  const abrirEditar = c => {
+    setNombre(c.nombre || "");
+    setTexto(c.texto || "");
+    setImagenLocal(c.imagen || null);
+    setImgError("");
+    setEditingId(c.id);
+  };
+  const cerrarForm = () => setEditingId(null);
   const guardar = () => {
-    if (!texto.trim()) return;
-    onUpdateConfig({
-      cuentaBancaria: texto.trim()
-    });
-    setEditando(false);
+    if (!nombre.trim() || !texto.trim()) return;
+    if (editingId === "nueva") {
+      guardarCuentas([...cuentas, {
+        id: uid(),
+        nombre: nombre.trim(),
+        texto: texto.trim(),
+        imagen: imagenLocal || null
+      }]);
+    } else {
+      guardarCuentas(cuentas.map(c => c.id === editingId ? {
+        ...c,
+        nombre: nombre.trim(),
+        texto: texto.trim(),
+        imagen: imagenLocal || null
+      } : c));
+    }
+    setEditingId(null);
   };
-  const quitarCuenta = () => {
-    if (!window.confirm("¿Quitar la cuenta bancaria guardada?")) return;
-    onUpdateConfig({
-      cuentaBancaria: null
-    });
-    setEditando(false);
-  };
-  const compartirWhatsApp = () => {
-    if (!cuenta) return;
-    window.open(`https://wa.me/?text=${encodeURIComponent(cuenta)}`, "_blank");
+  const quitar = id => {
+    if (!window.confirm("¿Quitar esta cuenta bancaria?")) return;
+    const c = cuentas.find(x => x.id === id);
+    if (c?.imagen) marcarCloudinaryParaBorrar(c.imagen);
+    guardarCuentas(cuentas.filter(x => x.id !== id));
+    if (editingId === id) setEditingId(null);
   };
   const handleImagen = async e => {
     const file = e.target.files?.[0];
@@ -10937,9 +10974,7 @@ function CuentaBancariaCard({
       } else {
         url = await resizeImage(file, 1000);
       }
-      onUpdateConfig({
-        cuentaBancariaImagen: url
-      });
+      setImagenLocal(url);
     } catch (err) {
       setImgError("No se pudo cargar la imagen.");
     } finally {
@@ -10947,16 +10982,19 @@ function CuentaBancariaCard({
       e.target.value = "";
     }
   };
-  const quitarImagen = () => {
-    if (imagen) marcarCloudinaryParaBorrar(imagen);
-    onUpdateConfig({
-      cuentaBancariaImagen: null
-    });
-  };
-  const compartirImagen = async () => {
-    if (!imagen) return;
+  const quitarImagenLocal = () => setImagenLocal(null);
+  // Comparte el texto y, si tiene, la imagen de UNA cuenta puntual — se usa
+  // tanto desde el botón "Compartir" de la lista como, de respaldo, desde
+  // cualquier otro lugar que necesite compartir sin abrir el formulario.
+  const compartir = async c => {
+    if (!c) return;
+    if (!c.imagen) {
+      if (!c.texto) return;
+      window.open(`https://wa.me/?text=${encodeURIComponent(c.texto)}`, "_blank");
+      return;
+    }
     try {
-      const resp = await fetch(imagen);
+      const resp = await fetch(c.imagen);
       const blob = await resp.blob();
       // Dentro de la app empaquetada, el share del propio navegador
       // (navigator.share) no es confiable para compartir archivos — el
@@ -10975,8 +11013,8 @@ function CuentaBancariaCard({
           directory: "CACHE"
         });
         await Capacitor.Plugins.Share.share({
-          title: "Datos bancarios",
-          text: cuenta || undefined,
+          title: c.nombre || "Datos bancarios",
+          text: c.texto || undefined,
           files: [escrito.uri]
         });
         return;
@@ -10989,8 +11027,8 @@ function CuentaBancariaCard({
       })) {
         await navigator.share({
           files: [file],
-          title: "Datos bancarios",
-          text: cuenta || undefined
+          title: c.nombre || "Datos bancarios",
+          text: c.texto || undefined
         });
         return;
       }
@@ -11002,31 +11040,41 @@ function CuentaBancariaCard({
     // enseguida, WhatsApp YA CON EL TEXTO DE LA CUENTA puesto — para
     // adjuntar la imagen a mano desde la galería en el chat que se elija.
     alert("Se va a abrir la imagen: guárdala (mantén presionado y elige \"Guardar imagen\") y luego adjúntala en WhatsApp, que se abre a continuación con el texto de la cuenta ya puesto.");
-    window.open(imagen, "_blank");
-    window.open(`https://wa.me/?text=${encodeURIComponent(cuenta || "")}`, "_blank");
+    window.open(c.imagen, "_blank");
+    window.open(`https://wa.me/?text=${encodeURIComponent(c.texto || "")}`, "_blank");
   };
-  const seccionImagen = /*#__PURE__*/React.createElement("div", {
-    className: cuenta && !editando ? "pt-4 mt-4 border-t border-[#DDD5C4]" : "mt-2"
-  }, /*#__PURE__*/React.createElement("h4", {
-    className: "text-[11px] uppercase tracking-wider mb-2 text-[#6B7A72]",
+  const formulario = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Field, {
+    label: "Nombre (para identificarla en la lista)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    value: nombre,
+    onChange: e => setNombre(e.target.value),
+    placeholder: "Ej. Banco Pichincha, Cuenta de la clínica...",
+    autoFocus: true
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Datos de la cuenta bancaria"
+  }, /*#__PURE__*/React.createElement(TextArea, {
+    value: texto,
+    onChange: e => setTexto(e.target.value),
+    placeholder: "Pega aquí los datos que te dio la app de tu banco, o escríbelos a mano...",
+    rows: 5
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "mb-4"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "block text-[11px] uppercase tracking-wider mb-1.5 text-[#6B7A72]",
     style: styles.mono
-  }, "Imagen con los datos (opcional)"), imagen ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("img", {
-    src: imagen,
+  }, "Imagen con los datos (opcional)"), imagenLocal ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("img", {
+    src: imagenLocal,
     alt: "",
-    className: "max-h-48 rounded-md border border-[#DDD5C4] mb-3"
+    className: "max-h-40 rounded-md border border-[#DDD5C4] mb-2"
   }), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2 flex-wrap"
-  }, /*#__PURE__*/React.createElement(PrimaryButton, {
-    onClick: compartirImagen,
-    icon: "📤"
-  }, "Compartir imagen"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => fileRef.current?.click()
-  }, "Cambiar"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: quitarImagen,
-    danger: true
-  }, "Quitar"))) : /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-[#6B7A72] mb-2"
-  }, "Sube una foto o captura de pantalla con los datos de tu cuenta — se puede compartir con mejor presentación que solo texto."), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => fileRef.current?.click(),
+    className: "text-xs text-[#3D6B5C] font-medium hover:underline"
+  }, "Cambiar"), /*#__PURE__*/React.createElement("button", {
+    onClick: quitarImagenLocal,
+    className: "text-xs text-[#B14E1C] font-medium hover:underline"
+  }, "Quitar imagen"))) : /*#__PURE__*/React.createElement("div", {
     className: "flex gap-3"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => fileRef.current?.click(),
@@ -11034,7 +11082,7 @@ function CuentaBancariaCard({
   }, "Subir imagen"), /*#__PURE__*/React.createElement("button", {
     onClick: () => cameraRef.current?.click(),
     className: "text-xs text-[#3D6B5C] font-medium hover:underline"
-  }, "📷 Tomar foto"))), subiendoImagen && /*#__PURE__*/React.createElement("p", {
+  }, "📷 Tomar foto")), subiendoImagen && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#6B7A72] mt-2"
   }, "Subiendo imagen..."), imgError && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-[#B14E1C] mt-2"
@@ -11051,45 +11099,45 @@ function CuentaBancariaCard({
     capture: "environment",
     className: "hidden",
     onChange: handleImagen
-  }));
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 flex-wrap"
+  }, /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: guardar,
+    disabled: !nombre.trim() || !texto.trim()
+  }, "Guardar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: cerrarForm
+  }, "Cancelar"), editingId !== "nueva" && /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => quitar(editingId),
+    danger: true
+  }, "Quitar cuenta")));
   return /*#__PURE__*/React.createElement("div", {
     className: "bg-white border border-[#DDD5C4] rounded-lg p-4 mb-6 max-w-xl"
   }, /*#__PURE__*/React.createElement("h3", {
     className: "font-semibold mb-3"
-  }, "💳 Cuenta bancaria"), editando ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Field, {
-    label: "Datos de la cuenta bancaria"
-  }, /*#__PURE__*/React.createElement(TextArea, {
-    value: texto,
-    onChange: e => setTexto(e.target.value),
-    placeholder: "Pega aquí los datos que te dio la app de tu banco, o escríbelos a mano...",
-    rows: 6,
-    autoFocus: true
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2"
-  }, /*#__PURE__*/React.createElement(PrimaryButton, {
-    onClick: guardar,
-    disabled: !texto.trim()
-  }, "Guardar"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: () => setEditando(false)
-  }, "Cancelar"), cuenta && /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: quitarCuenta,
-    danger: true
-  }, "Quitar"))) : cuenta ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
-    className: "text-sm mb-3 whitespace-pre-wrap"
-  }, cuenta), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2 flex-wrap"
-  }, /*#__PURE__*/React.createElement(PrimaryButton, {
-    onClick: compartirWhatsApp,
-    icon: "📤"
-  }, "Compartir por WhatsApp"), /*#__PURE__*/React.createElement(GhostButton, {
-    onClick: abrirForm,
-    icon: "✏️"
-  }, "Editar"))) : /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+  }, "💳 Cuentas bancarias"), editingId ? formulario : /*#__PURE__*/React.createElement("div", null, cuentas.length === 0 ? /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-[#6B7A72] mb-3"
-  }, "Guarda aquí tu cuenta bancaria para compartirla fácilmente con los propietarios cuando necesiten hacer una transferencia."), /*#__PURE__*/React.createElement(PrimaryButton, {
-    onClick: abrirForm,
+  }, "Guarda aquí tus cuentas bancarias para compartirlas fácilmente con los propietarios cuando necesiten hacer una transferencia.") : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2 mb-3"
+  }, cuentas.map(c => /*#__PURE__*/React.createElement("div", {
+    key: c.id,
+    className: "flex items-center gap-3 border border-[#DDD5C4] rounded-md px-3 py-2.5"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 min-w-0 truncate text-sm font-medium"
+  }, c.nombre), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 shrink-0"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => abrirEditar(c),
+    className: "text-xs text-[#6B7A72] hover:underline"
+  }, "Editar"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => quitar(c.id),
+    className: "text-xs text-[#B14E1C] hover:underline"
+  }, "Quitar"), /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: () => compartir(c),
+    icon: "📤"
+  }, "Compartir"))))), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: abrirNueva,
     icon: "➕"
-  }, "Agregar cuenta bancaria")), !editando && seccionImagen);
+  }, "Agregar cuenta bancaria")));
 }
 function ReportesView({
   cobros,
