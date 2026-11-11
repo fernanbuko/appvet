@@ -10877,10 +10877,252 @@ function PanelPropietarioView({
   }, "Eliminar definitivamente")))));
 }
 
+// Tarjeta de "Cuenta bancaria" dentro de Reportes: guarda los datos de
+// transferencia (banco, número de cuenta, titular, etc.) en la config de la
+// cuenta, para poder compartirlos por WhatsApp sin tener que escribirlos
+// cada vez. También permite subir una imagen (foto o captura de pantalla)
+// con esos mismos datos ya armada con mejor presentación, para compartir
+// esa imagen en vez del texto.
+function CuentaBancariaCard({
+  config,
+  onUpdateConfig
+}) {
+  const cuenta = config?.cuentaBancaria || null;
+  const imagen = config?.cuentaBancariaImagen || null;
+  const [editando, setEditando] = useState(false);
+  const [banco, setBanco] = useState("");
+  const [titular, setTitular] = useState("");
+  const [tipoCuenta, setTipoCuenta] = useState("Ahorros");
+  const [numeroCuenta, setNumeroCuenta] = useState("");
+  const [identificacion, setIdentificacion] = useState("");
+  const [subiendoImagen, setSubiendoImagen] = useState(false);
+  const [imgError, setImgError] = useState("");
+  const fileRef = useRef(null);
+  const cameraRef = useRef(null);
+  const abrirForm = () => {
+    setBanco(cuenta?.banco || "");
+    setTitular(cuenta?.titular || "");
+    setTipoCuenta(cuenta?.tipoCuenta || "Ahorros");
+    setNumeroCuenta(cuenta?.numeroCuenta || "");
+    setIdentificacion(cuenta?.identificacion || "");
+    setEditando(true);
+  };
+  const guardar = () => {
+    if (!banco.trim() || !numeroCuenta.trim()) return;
+    onUpdateConfig({
+      cuentaBancaria: {
+        banco: banco.trim(),
+        titular: titular.trim(),
+        tipoCuenta,
+        numeroCuenta: numeroCuenta.trim(),
+        identificacion: identificacion.trim()
+      }
+    });
+    setEditando(false);
+  };
+  const quitarCuenta = () => {
+    if (!window.confirm("¿Quitar la cuenta bancaria guardada?")) return;
+    onUpdateConfig({
+      cuentaBancaria: null
+    });
+    setEditando(false);
+  };
+  const textoCompartir = () => {
+    if (!cuenta) return "";
+    return [`DATOS PARA TRANSFERENCIA${config?.clinica ? " — " + config.clinica : ""}`, cuenta.banco ? `Banco: ${cuenta.banco}` : null, cuenta.tipoCuenta ? `Tipo de cuenta: ${cuenta.tipoCuenta}` : null, cuenta.numeroCuenta ? `Número de cuenta: ${cuenta.numeroCuenta}` : null, cuenta.titular ? `Titular: ${cuenta.titular}` : null, cuenta.identificacion ? `Cédula/RUC: ${cuenta.identificacion}` : null].filter(Boolean).join("\n");
+  };
+  const compartirWhatsApp = () => {
+    const texto = textoCompartir();
+    if (!texto) return;
+    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
+  };
+  const handleImagen = async e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImgError("");
+    setSubiendoImagen(true);
+    try {
+      let url;
+      if (cloudinaryReady) {
+        try {
+          const result = await uploadToCloudinary(file, "cuenta_bancaria");
+          url = result.url;
+        } catch (err) {
+          // Sin conexión (u otro fallo de subida): se guarda igual, local,
+          // como respaldo, en vez de bloquear a la persona.
+          url = await resizeImage(file, 1000);
+        }
+      } else {
+        url = await resizeImage(file, 1000);
+      }
+      onUpdateConfig({
+        cuentaBancariaImagen: url
+      });
+    } catch (err) {
+      setImgError("No se pudo cargar la imagen.");
+    } finally {
+      setSubiendoImagen(false);
+      e.target.value = "";
+    }
+  };
+  const quitarImagen = () => {
+    if (imagen) marcarCloudinaryParaBorrar(imagen);
+    onUpdateConfig({
+      cuentaBancariaImagen: null
+    });
+  };
+  const compartirImagen = async () => {
+    if (!imagen) return;
+    try {
+      const resp = await fetch(imagen);
+      const blob = await resp.blob();
+      const file = new File([blob], "cuenta_bancaria.jpg", {
+        type: blob.type || "image/jpeg"
+      });
+      if (navigator.canShare && navigator.canShare({
+        files: [file]
+      })) {
+        await navigator.share({
+          files: [file],
+          title: "Datos bancarios"
+        });
+        return;
+      }
+    } catch (e) {}
+    // Si el celular no admite compartir el archivo directamente (o algo
+    // falló al descargarlo), se abre en una pestaña nueva para que la
+    // persona la guarde o la comparta a mano.
+    window.open(imagen, "_blank");
+  };
+  const seccionImagen = /*#__PURE__*/React.createElement("div", {
+    className: cuenta && !editando ? "pt-4 mt-4 border-t border-[#DDD5C4]" : "mt-2"
+  }, /*#__PURE__*/React.createElement("h4", {
+    className: "text-[11px] uppercase tracking-wider mb-2 text-[#6B7A72]",
+    style: styles.mono
+  }, "Imagen con los datos (opcional)"), imagen ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("img", {
+    src: imagen,
+    alt: "",
+    className: "max-h-48 rounded-md border border-[#DDD5C4] mb-3"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 flex-wrap"
+  }, /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: compartirImagen,
+    icon: "📤"
+  }, "Compartir imagen"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => fileRef.current?.click()
+  }, "Cambiar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: quitarImagen,
+    danger: true
+  }, "Quitar"))) : /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#6B7A72] mb-2"
+  }, "Sube una foto o captura de pantalla con los datos de tu cuenta — se puede compartir con mejor presentación que solo texto."), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => fileRef.current?.click(),
+    className: "text-xs text-[#3D6B5C] font-medium hover:underline"
+  }, "Subir imagen"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => cameraRef.current?.click(),
+    className: "text-xs text-[#3D6B5C] font-medium hover:underline"
+  }, "📷 Tomar foto"))), subiendoImagen && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#6B7A72] mt-2"
+  }, "Subiendo imagen..."), imgError && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#B14E1C] mt-2"
+  }, imgError), /*#__PURE__*/React.createElement("input", {
+    ref: fileRef,
+    type: "file",
+    accept: "image/*",
+    className: "hidden",
+    onChange: handleImagen
+  }), /*#__PURE__*/React.createElement("input", {
+    ref: cameraRef,
+    type: "file",
+    accept: "image/*",
+    capture: "environment",
+    className: "hidden",
+    onChange: handleImagen
+  }));
+  return /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-[#DDD5C4] rounded-lg p-4 mb-6 max-w-xl"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "font-semibold mb-3"
+  }, "💳 Cuenta bancaria"), editando ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Field, {
+    label: "Banco"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    value: banco,
+    onChange: e => setBanco(e.target.value),
+    placeholder: "Ej. Banco Pichincha",
+    autoFocus: true
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Tipo de cuenta"
+  }, /*#__PURE__*/React.createElement("select", {
+    value: tipoCuenta,
+    onChange: e => setTipoCuenta(e.target.value),
+    className: inputClass
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "Ahorros"
+  }, "Ahorros"), /*#__PURE__*/React.createElement("option", {
+    value: "Corriente"
+  }, "Corriente"))), /*#__PURE__*/React.createElement(Field, {
+    label: "Número de cuenta"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    value: numeroCuenta,
+    onChange: e => setNumeroCuenta(e.target.value),
+    placeholder: "Ej. 2200123456"
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Titular"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    value: titular,
+    onChange: e => setTitular(e.target.value),
+    placeholder: "Nombre completo"
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Cédula / RUC (opcional)"
+  }, /*#__PURE__*/React.createElement(TextInput, {
+    value: identificacion,
+    onChange: e => setIdentificacion(e.target.value),
+    placeholder: "Ej. 1234567890"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: guardar,
+    disabled: !banco.trim() || !numeroCuenta.trim()
+  }, "Guardar"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: () => setEditando(false)
+  }, "Cancelar"), cuenta && /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: quitarCuenta,
+    danger: true
+  }, "Quitar"))) : cuenta ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "text-sm space-y-0.5 mb-3"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
+    className: "text-[#6B7A72]"
+  }, "Banco: "), cuenta.banco), cuenta.tipoCuenta && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
+    className: "text-[#6B7A72]"
+  }, "Tipo: "), cuenta.tipoCuenta), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
+    className: "text-[#6B7A72]"
+  }, "Número: "), cuenta.numeroCuenta), cuenta.titular && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
+    className: "text-[#6B7A72]"
+  }, "Titular: "), cuenta.titular), cuenta.identificacion && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
+    className: "text-[#6B7A72]"
+  }, "Cédula/RUC: "), cuenta.identificacion)), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 flex-wrap"
+  }, /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: compartirWhatsApp,
+    icon: "📤"
+  }, "Compartir por WhatsApp"), /*#__PURE__*/React.createElement(GhostButton, {
+    onClick: abrirForm,
+    icon: "✏️"
+  }, "Editar"))) : /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-[#6B7A72] mb-3"
+  }, "Guarda aquí tu cuenta bancaria para compartirla fácilmente con los propietarios cuando necesiten hacer una transferencia."), /*#__PURE__*/React.createElement(PrimaryButton, {
+    onClick: abrirForm,
+    icon: "➕"
+  }, "Agregar cuenta bancaria")), !editando && seccionImagen);
+}
 function ReportesView({
   cobros,
   patients,
-  onSelectPatient
+  onSelectPatient,
+  config,
+  onUpdateConfig
 }) {
   // Solo se cuentan los cobros de pacientes que siguen activos (no eliminados
   // ni en la papelera) — si borras un paciente, sus cobros ya no aparecen aquí.
@@ -10920,7 +11162,10 @@ function ReportesView({
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold mb-5"
-  }, "Reportes"), porMes.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+  }, "Reportes"), /*#__PURE__*/React.createElement(CuentaBancariaCard, {
+    config: config,
+    onUpdateConfig: onUpdateConfig
+  }), porMes.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
     title: "Sin cobros registrados todavía",
     subtitle: "Los cobros que registres en cada paciente se resumirán aquí por mes."
   }) : /*#__PURE__*/React.createElement("div", {
@@ -14965,7 +15210,12 @@ function VetApp() {
       setActive("pacientes");
       setSelected(p);
       setEditing(null);
-    }
+    },
+    config: config,
+    onUpdateConfig: patch => actualizarConfigInmediato(actual => ({
+      ...(actual || emptyConfig()),
+      ...patch
+    }))
   }), active === "config" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
     style: styles.display,
     className: "text-2xl font-semibold mb-1"
